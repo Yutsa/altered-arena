@@ -228,6 +228,22 @@ impl Game {
             all.extend(self.reactions.drain(before..));
         }
         self.stack.push(Task::Reactions(all, true));
+        // "Immediate" abilities (Teija & Nauraa...) resolve before anything else
+        let before_immediate = self.reactions.len();
+        self.emit(Event {
+            trigger: "ImmediateChooseAssignment".into(),
+            seat,
+            card: Some(id),
+            from: Some(from),
+            to: Some(to),
+            listeners: vec![id],
+            play: true,
+            ..Default::default()
+        });
+        let immediate: Vec<(Value, Ctx)> = self.reactions.drain(before_immediate..).collect();
+        if !immediate.is_empty() {
+            self.stack.push(Task::Reactions(immediate, true));
+        }
         Ok(())
     }
 
