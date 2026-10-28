@@ -1,12 +1,12 @@
 //! Altered Arena game server.
 //!
 //! Protocol v1 (protocol/protocol.ts) over HTTP, games in memory (saved to DATA_DIR as JSON every
-//! PERSIST_SECS, unloaded when idle and reloaded on demand,
-//! ), bot opponents, matchmaking queue, and the web client (CLIENT_DIR) with the
-//! card art (ART_DIR) as static files.
+//! PERSIST_SECS, unloaded when idle and reloaded on demand), bot opponents, matchmaking queue, and
+//! the web client (CLIENT_DIR) with the card art (ART_DIR) as static files.
 //!
 //! Environment: PORT (8080), CLIENT_DIR (client/dist), ART_DIR (../AlteredBGA/img/illustrations),
-//! PROTOCOL_DIR (protocol/data), DATA_DIR (data).
+//! PROTOCOL_DIR (protocol/data), DATA_DIR (data), PERSIST_SECS (10), ARENA_DEBUG (debug routes).
+//! Recommended: MIMALLOC_PURGE_DELAY=0 (returns freed memory to the OS sooner).
 
 /// Faster than the system allocator for many small allocations, and less fragmentation
 #[global_allocator]
