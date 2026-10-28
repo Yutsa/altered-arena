@@ -207,9 +207,16 @@ impl Game {
                 if r.len() != n_reserve || l.len() != n_landmarks || r.iter().any(|c| !reserve.contains(c)) || l.iter().any(|c| !landmarks.contains(c)) {
                     return err(format!("Discard exactly {} Reserve card(s) and {} Landmark(s)", n_reserve, n_landmarks));
                 }
-                for &c in r.iter().chain(l.iter()) {
+                // Excess Landmarks are sacrificed; reactions wait for the end of the Night
+                let before = self.reactions.len();
+                for &c in r.iter() {
                     move_with_events(self, c, Zone::Discard, false, false, &ctx);
                 }
+                for &c in l.iter() {
+                    move_with_events(self, c, Zone::Discard, true, false, &ctx);
+                }
+                let fired: Vec<_> = self.reactions.drain(before..).collect();
+                self.after_night.extend(fired);
                 Ok(())
             }
             (PendingKind::Exchange { hand, reserve }, Answer::Exchange { hand: h, reserve: r }) => {

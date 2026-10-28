@@ -316,7 +316,8 @@ pub fn run(g: &mut Game, action: &str, a: &Map<String, Value>, node: &Value, ctx
                 }
                 let id = *g.players[ctx.seat].deck.last().unwrap();
                 g.move_card(id, Zone::Mana, None);
-                g.card_mut(id).exhausted = b(a, "tapped");
+                // "as exhausted Mana Orbs" unless the effect says otherwise
+                g.card_mut(id).exhausted = a.get("tapped").and_then(Value::as_bool).unwrap_or(true);
             }
             g.forget_undo();
         }
@@ -701,6 +702,8 @@ pub fn move_with_events(g: &mut Game, c: CardId, to: Zone, sacrifice: bool, exha
         discard: true,
         listeners: vec![c],
         source: ctx.source,
+        fleeting,
+        boosts: Some(boosts),
         ..Default::default()
     };
     g.emit(ev.clone());
