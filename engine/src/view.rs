@@ -239,7 +239,8 @@ impl Game {
                 }
             })
             .collect();
-        let from = self.log.len().saturating_sub(100);
+        // Recent lines only: clients keep the history they already received
+        let from = self.log.len().saturating_sub(40);
         let log = self.log[from..].iter().map(|l| LogView { seq: l.seq, text: &l.text, player: l.player.map(|s| self.players[s].id) }).collect();
         let phase = if self.tiebreaker && self.phase != Phase::Ended {
             "tiebreaker"

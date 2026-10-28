@@ -1,0 +1,31 @@
+{
+  "answerLatencyMs": {
+    "max": 16.182,
+    "p50": 0.774,
+    "p95": 1.371,
+    "p99": 2.017
+  },
+  "answers": 54338,
+  "answersPerSec": 589.2966168742504,
+  "createLatencyMs": {
+    "p50": 0.781,
+    "p95": 1.276,
+    "p99": 1.899
+  },
+  "durationS": 90,
+  "errors": 0,
+  "games": 1000,
+  "gamesFinished": 725,
+  "polls": 28528,
+  "pvp": 0.5,
+  "refused": 12,
+  "serverCpuMsPerAnswer": 0.47259744561816774,
+  "serverCpuPercentAvg": 29.97164179104478,
+  "serverCpuSeconds": 25.68,
+  "serverRssKBPerGame": 120.096,
+  "serverRssMB": {
+    "idle": 22.6875,
+    "max": 139.96875
+  },
+  "thinkMs": 1500
+}

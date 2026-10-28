@@ -136,7 +136,8 @@ async fn main() {
         .route("/api/v1/matchmaking/{ticket}", get(poll_queue).delete(leave_queue))
         .nest_service("/assets/cards", ServeDir::new(art_dir))
         .fallback_service(ServeDir::new(&client_dir).fallback(ServeFile::new(index)))
-        .layer(CompressionLayer::new())
+        // Views are small (a few KB): the fastest level keeps most of the gain for a fraction of the CPU
+        .layer(CompressionLayer::new().quality(tower_http::CompressionLevel::Fastest))
         .layer(CorsLayer::permissive())
         .with_state(state.clone());
 

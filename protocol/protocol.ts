@@ -167,7 +167,7 @@ export interface GameView {
   regions: RegionView[];
   decision: Decision | null; // what `you` must decide now
   waitingFor: PlayerId[]; // players who must decide
-  log: LogEntry[]; // most recent entries (up to 100)
+  log: LogEntry[]; // most recent entries (up to 40): clients merge them into their own history
 }
 
 // ---------------------------------------------------------------------------
