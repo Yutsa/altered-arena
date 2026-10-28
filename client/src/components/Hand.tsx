@@ -48,7 +48,8 @@ export function Hand() {
   const n = cards.length;
   // Overlap the cards when they do not fit
   const natural = n * cardW + (n - 1) * 6;
-  const step = n > 1 && natural > width ? (width - cardW) / (n - 1) : cardW + 6;
+  const usable = width - cardW * 0.2; // room for the rotation of the outer cards
+  const step = n > 1 && natural > usable ? Math.max(12, (usable - cardW) / (n - 1)) : cardW + 6;
   const spread = Math.min(4, 24 / Math.max(n, 1));
   return (
     <div className="hand" ref={ref} aria-label="Your hand">

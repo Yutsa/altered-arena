@@ -18,7 +18,8 @@ def call(method, path, body=None):
 decks = call('GET', '/api/v1/decks')
 g = call('POST', '/api/v1/games', {'players': [{'name': 'Smoke', 'deck': random.choice(decks)['id']}, {'name': 'Bot', 'bot': True}]})
 gid, me = g['gameId'], g['players'][0]['id']
-view = call('GET', f'/api/v1/games/{gid}?player={me}')
+tok = g['players'][0].get('token', '')
+view = call('GET', f'/api/v1/games/{gid}?player={me}&token={tok}')
 kinds = {}
 for step in range(MAX):
     if view.get('error'):
@@ -27,7 +28,7 @@ for step in range(MAX):
     if view['phase'] == 'ended' or d is None:
         if view['phase'] == 'ended':
             break
-        view = call('GET', f'/api/v1/games/{gid}?player={me}&since={view["seq"]}'); continue
+        view = call('GET', f'/api/v1/games/{gid}?player={me}&token={tok}&since={view["seq"]}'); continue
     kinds[d['kind']] = kinds.get(d['kind'], 0) + 1
     k = d['kind']
     a = {'decisionId': d['id']}
@@ -49,10 +50,10 @@ for step in range(MAX):
     elif k == 'exchange': a |= {'type': 'exchange', 'hand': d['hand'][0], 'reserve': d['reserve'][0]} if d['hand'] and d['reserve'] else {'type': 'pass'}
     elif k == 'cleanup': a |= {'type': 'cleanup', 'reserve': d['reserve']['cardIds'][:d['reserve']['n']], 'landmarks': d['landmarks']['cardIds'][:d['landmarks']['n']]}
     elif k == 'buttons': a |= {'type': 'button', 'key': d['buttons'][0]['key']} if d['buttons'] else {'type': 'pass'}
-    new = call('POST', f'/api/v1/games/{gid}/answer?player={me}', a)
+    new = call('POST', f'/api/v1/games/{gid}/answer?player={me}&token={tok}', a)
     if new.get('error'):
         print('refused', d['kind'], d['prompt'], a, new)
-        if d.get('canPass'): new = call('POST', f'/api/v1/games/{gid}/answer?player={me}', {'decisionId': d['id'], 'type': 'pass'})
+        if d.get('canPass'): new = call('POST', f'/api/v1/games/{gid}/answer?player={me}&token={tok}', {'decisionId': d['id'], 'type': 'pass'})
         if new.get('error'): print('STUCK'); break
     view = new
 print('game', gid, 'phase', view.get('phase'), 'day', view.get('day'), 'winner', view.get('winner'), 'steps', step, kinds)

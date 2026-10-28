@@ -234,6 +234,9 @@ pub struct Player {
     pub blocked: [bool; 2],
     /// Expedition moved forward this Dusk
     pub moved: [bool; 2],
+    /// Secret the server gives this player to act as them (never shown in views)
+    #[serde(default)]
+    pub token: String,
 }
 
 impl Player {

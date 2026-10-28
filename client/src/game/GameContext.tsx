@@ -67,6 +67,10 @@ export function GameProvider({
     [decisionId],
   );
 
+  // Cards move when a new view arrives: a hover preview would point at a card that left
+  const { hide } = inspect;
+  useEffect(() => hide(true), [view.seq, hide]);
+
   const byId = useMemo(() => new Map(view.cards.map((c) => [c.id, c])), [view.cards]);
   const zones = useMemo(() => {
     const m = new Map<string, CardView[]>();

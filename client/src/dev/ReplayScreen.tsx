@@ -31,6 +31,16 @@ export default function ReplayScreen() {
     return () => window.removeEventListener('keydown', k);
   }, [views.length]);
 
+  // ?replay=/some/file.json loads a file served by the dev server
+  useEffect(() => {
+    const src = new URLSearchParams(location.search).get('replay');
+    if (!src) return;
+    fetch(src)
+      .then((r) => r.json())
+      .then((data: GameView[] | GameView) => setViews((Array.isArray(data) ? data : [data]).filter((v) => v && 'seq' in v)))
+      .catch((e: Error) => toast(`Cannot load ${src}: ${e.message}`));
+  }, []);
+
   const load = async (f: File) => {
     try {
       const data = JSON.parse(await f.text()) as GameView[] | GameView;
@@ -50,7 +60,7 @@ export default function ReplayScreen() {
     return (
       <div className="center-screen">
         <h2>Replay</h2>
-        <p className="muted">Load a JSON array of GameViews (scripts/check-decisions.ts --record out.json).</p>
+        <p className="muted">Load (or pass ?replay=/file.json) a JSON array of GameViews (scripts/check-decisions.ts --record out.json).</p>
         <input type="file" accept="application/json" onChange={(e) => e.target.files?.[0] && void load(e.target.files[0])} />
       </div>
     );

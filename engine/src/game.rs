@@ -297,6 +297,7 @@ impl Game {
             passed: false,
             blocked: [false; 2],
             moved: [false; 2],
+            token: String::new(),
         };
         let mut game = Game {
             id: id.into(),

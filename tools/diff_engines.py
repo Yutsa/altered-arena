@@ -7,7 +7,7 @@ full states (every card's zone, order, boosts, statuses, exhaustion, expedition 
 compared. The first difference of each game is reported.
 
 Usage: tools/diff_engines.py [games] [--php URL] [--rust URL] [--seed N]
-Requires the PHP oracle (docker compose up) and the Rust server (cargo run -p arena-server).
+Requires the PHP oracle (docker compose up) and the Rust server with ARENA_DEBUG=1 (tools/restart_rust.sh).
 """
 import argparse, json, random, sys, urllib.request
 
@@ -157,6 +157,8 @@ def play_game(n, decks):
     if 'error' in r:
         return f'cannot load snapshot in rust: {r["error"]}', 0
     rid = r['gameId']
+    tokens = {p['id']: p.get('token', '') for p in r['players']}
+    rq = lambda player: f'player={player}&token={tokens[player]}'
     history = []
     for step in range(opt.max):
         ps = call(opt.php, 'GET', f'/api/oracle/games/{pid}/state')
@@ -166,7 +168,7 @@ def play_game(n, decks):
             return 'state differs after ' + (history[-1] if history else 'setup') + ':\n      ' + '\n      '.join(problems[:6]), step
         pv = call(opt.php, 'GET', f'/api/v1/games/{pid}?player=2001')
         if pv.get('phase') == 'ended':
-            rv = call(opt.rust, 'GET', f'/api/v1/games/{rid}?player=2001')
+            rv = call(opt.rust, 'GET', f'/api/v1/games/{rid}?{rq(2001)}')
             if rv.get('winner') != pv.get('winner'):
                 return f'winner differs: php {pv.get("winner")} rust {rv.get("winner")}', step
             return None, step
@@ -182,7 +184,7 @@ def play_game(n, decks):
         if pd['kind'] == 'confirm':
             call(opt.php, 'POST', f'/api/v1/games/{pid}/answer?player={player}', ans)
             continue
-        rv = call(opt.rust, 'GET', f'/api/v1/games/{rid}?player={player}')
+        rv = call(opt.rust, 'GET', f'/api/v1/games/{rid}?{rq(player)}')
         rd = rv.get('decision')
         if rd is None:
             extra = [c['label'] for c in pd.get('choices', [])]
@@ -201,7 +203,7 @@ def play_game(n, decks):
             if opt.v: print('   php refused', ans, pres['error'])
             continue
         rans = translate(ans, pd, rd)
-        rres = call(opt.rust, 'POST', f'/api/v1/games/{rid}/answer?player={player}', rans)
+        rres = call(opt.rust, 'POST', f'/api/v1/games/{rid}/answer?{rq(player)}', rans)
         refs = {c['id']: c['ref'] for c in ps['cards']}
         shown = {k: v for k, v in ans.items() if k != 'decisionId'}
         if 'cardId' in shown: shown['card'] = refs.get(shown['cardId'])

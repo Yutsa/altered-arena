@@ -43,3 +43,9 @@
 .selected-actions { display: flex; flex-direction: column; gap: 6px; width: 100%; }
 .sa-title { display: flex; gap: 8px; align-items: baseline; }
 .sa-buttons { display: flex; flex-wrap: wrap; gap: 8px; }
+@media (max-width: 600px) {
+  .decision-bar { padding: 6px 8px; gap: 4px; border-radius: 12px; }
+  .db-prompt { font-size: 14px; }
+  .db-controls { gap: 6px; }
+  .hint { font-size: 12px; min-width: 90px; }
+}

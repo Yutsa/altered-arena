@@ -10,8 +10,14 @@
  *   GET  /api/v1/cards                       -> CardCatalog (static data of every card)
  *   GET  /api/v1/decks                       -> DeckSummary[] (starter decks)
  *   POST /api/v1/games       NewGame         -> GameCreated
- *   GET  /api/v1/games/{id}?player=P[&since=seq] -> GameView (with since: waits up to 20 s for a newer seq)
- *   POST /api/v1/games/{id}/answer?player=P  Answer -> GameView | ErrorResponse
+ *   GET  /api/v1/games/{id}?player=P&token=T[&since=seq] -> GameView (with since: waits up to 20 s for a newer seq)
+ *   POST /api/v1/games/{id}/answer?player=P&token=T  Answer -> GameView | ErrorResponse
+ *   POST /api/v1/matchmaking  {name, deck}    -> MatchTicket (status 'waiting' or 'matched')
+ *   GET  /api/v1/matchmaking/{ticket}         -> MatchTicket (long poll, up to 20 s)
+ *   DELETE /api/v1/matchmaking/{ticket}       leave the queue
+ * Authentication: each human seat gets a secret `token` when the game is created (GameCreated)
+ * or matched (MatchTicket). Send it as `token=` or `Authorization: Bearer <token>`. Without a
+ * token, a GameView is a spectator view (no hidden cards, no decision) and answers are refused.
  * Card art: /assets/cards/{faction}/{asset}.jpg (asset from the catalog).
  */
 
@@ -330,7 +336,16 @@ export interface NewGame {
 
 export interface GameCreated {
   gameId: string;
-  players: { id: PlayerId; name: string; bot: boolean }[];
+  /** token: secret of each human seat (whoever creates a game holds all its human seats) */
+  players: { id: PlayerId; name: string; bot: boolean; token?: string }[];
+}
+
+export interface MatchTicket {
+  ticket: string;
+  status: 'waiting' | 'matched';
+  gameId?: string;
+  player?: PlayerId;
+  token?: string;
 }
 
 export interface ErrorResponse {

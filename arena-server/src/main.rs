@@ -34,8 +34,8 @@ struct GameEntry {
 struct Ticket {
     name: String,
     deck: Option<String>,
-    /// Set when matched: (game id, player id)
-    matched: Option<(String, u32)>,
+    /// Set when matched: (game id, player id, player token)
+    matched: Option<(String, u32, String)>,
     created: u64,
 }
 
@@ -58,6 +58,16 @@ fn now() -> u64 {
 
 fn seed() -> u64 {
     SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_nanos() as u64).unwrap_or(42)
+}
+
+/// 128-bit secret from the OS random source
+fn new_token() -> String {
+    use std::io::Read;
+    let mut buf = [0u8; 16];
+    if let Ok(mut f) = std::fs::File::open("/dev/urandom") {
+        let _ = f.read_exact(&mut buf);
+    }
+    buf.iter().map(|b| format!("{:02x}", b)).collect()
 }
 
 fn error(status: StatusCode, msg: impl Into<String>, user: bool) -> Response {
@@ -101,19 +111,29 @@ async fn main() {
         .route("/api/health", get(|| async { Json(json!({"ok": true})) }))
         .route("/api/v1/cards", get(cards))
         .route("/api/v1/decks", get(decks))
-        .route("/api/v1/games", post(create_game).get(list_games))
+        .route("/api/v1/games", post(create_game))
         .route("/api/v1/games/{id}", get(view_game))
         .route("/api/v1/games/{id}/answer", post(answer))
         .route("/api/v1/matchmaking", post(join_queue))
         .route("/api/v1/matchmaking/{ticket}", get(poll_queue).delete(leave_queue))
-        .route("/api/debug/games", post(create_from_snapshot))
-        .route("/api/debug/games/{id}/state", get(debug_state))
         .nest_service("/assets/cards", ServeDir::new(art_dir))
         .fallback_service(ServeDir::new(&client_dir).fallback(ServeFile::new(index)))
         .layer(CompressionLayer::new())
         .layer(CorsLayer::permissive())
         .with_state(state.clone());
 
+    // Differential tests only: full hidden state and arbitrary positions
+    let app = if std::env::var("ARENA_DEBUG").is_ok() {
+        println!("Debug routes enabled (ARENA_DEBUG)");
+        app.merge(
+            Router::new()
+                .route("/api/debug/games", post(create_from_snapshot))
+                .route("/api/debug/games/{id}/state", get(debug_state))
+                .with_state(state.clone()),
+        )
+    } else {
+        app
+    };
     let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{}", port)).await.expect("bind");
     println!("Altered Arena server on http://localhost:{}", port);
     let s3 = state.clone();
@@ -161,10 +181,23 @@ fn clean_name(n: Option<&str>, i: usize) -> String {
     }
 }
 
+/// Registers a game; each human seat gets a secret token, returned only to whoever created
+/// the game (lobby: the same person may play both seats) or to the matched player
 async fn insert_game(s: &Shared, mut game: Game) -> Value {
     game.run_bots();
+    for p in game.players.iter_mut() {
+        if !p.bot && p.token.is_empty() {
+            p.token = new_token();
+        }
+    }
     let id = game.id.clone();
-    let players: Vec<Value> = game.players.iter().map(|p| json!({"id": p.id, "name": p.name, "bot": p.bot})).collect();
+    let players: Vec<Value> = game.players.iter().map(|p| {
+        let mut v = json!({"id": p.id, "name": p.name, "bot": p.bot});
+        if !p.bot {
+            v["token"] = json!(p.token);
+        }
+        v
+    }).collect();
     s.games.write().await.insert(id.clone(), Arc::new(GameEntry { game: Mutex::new(game), changed: Notify::new() }));
     s.dirty.lock().await.insert(id.clone());
     json!({"gameId": id, "players": players})
@@ -203,27 +236,30 @@ async fn create_game(State(s): State<Shared>, Json(req): Json<NewGame>) -> Respo
     Json(insert_game(&s, game).await).into_response()
 }
 
-async fn list_games(State(s): State<Shared>) -> Response {
-    let games = s.games.read().await;
-    let mut out = vec![];
-    for (id, e) in games.iter() {
-        let g = e.game.lock().await;
-        out.push(json!({"gameId": id, "day": g.day, "phase": g.phase, "players": g.players.iter().map(|p| &p.name).collect::<Vec<_>>(), "ended": g.winner.is_some()}));
-    }
-    Json(out).into_response()
-}
-
 #[derive(Deserialize)]
 struct ViewQuery {
     player: Option<u32>,
     since: Option<u64>,
+    token: Option<String>,
+}
+
+/// Seat of the requester: the token decides (a wrong player/token pair is refused)
+fn seat_of(g: &Game, q: &ViewQuery, headers: &axum::http::HeaderMap) -> Result<Option<Seat>, Response> {
+    let token = q.token.clone().or_else(|| {
+        headers.get(header::AUTHORIZATION).and_then(|h| h.to_str().ok()).and_then(|h| h.strip_prefix("Bearer ")).map(String::from)
+    });
+    let Some(token) = token.filter(|t| !t.is_empty()) else { return Ok(None) };
+    match g.players.iter().position(|p| !p.token.is_empty() && p.token == token) {
+        Some(seat) if q.player.map(|id| g.players[seat].id == id).unwrap_or(true) => Ok(Some(seat)),
+        _ => Err(error(StatusCode::FORBIDDEN, "Wrong token", false)),
+    }
 }
 
 async fn entry(s: &Shared, id: &str) -> Option<Arc<GameEntry>> {
     s.games.read().await.get(id).cloned()
 }
 
-async fn view_game(State(s): State<Shared>, Path(id): Path<String>, Query(q): Query<ViewQuery>) -> Response {
+async fn view_game(State(s): State<Shared>, Path(id): Path<String>, Query(q): Query<ViewQuery>, headers: axum::http::HeaderMap) -> Response {
     let Some(e) = entry(&s, &id).await else { return error(StatusCode::NOT_FOUND, "Unknown game", false) };
     if let Some(since) = q.since {
         // Long polling: wait for a change (or 20 s)
@@ -239,14 +275,27 @@ async fn view_game(State(s): State<Shared>, Path(id): Path<String>, Query(q): Qu
         }
     }
     let g = e.game.lock().await;
-    let seat = q.player.and_then(|p| g.seat_of(p));
-    Json(g.view(seat)).into_response()
+    // Without a token: spectator view (no hidden cards, no decision)
+    match seat_of(&g, &q, &headers) {
+        Ok(seat) => Json(g.view(seat)).into_response(),
+        Err(r) => r,
+    }
 }
 
-async fn answer(State(s): State<Shared>, Path(id): Path<String>, Query(q): Query<ViewQuery>, Json(body): Json<Value>) -> Response {
+async fn answer(
+    State(s): State<Shared>,
+    Path(id): Path<String>,
+    Query(q): Query<ViewQuery>,
+    headers: axum::http::HeaderMap,
+    Json(body): Json<Value>,
+) -> Response {
     let Some(e) = entry(&s, &id).await else { return error(StatusCode::NOT_FOUND, "Unknown game", false) };
     let mut g = e.game.lock().await;
-    let Some(seat) = q.player.and_then(|p| g.seat_of(p)) else { return error(StatusCode::FORBIDDEN, "Unknown player", false) };
+    let seat = match seat_of(&g, &q, &headers) {
+        Ok(Some(seat)) => seat,
+        Ok(None) => return error(StatusCode::UNAUTHORIZED, "A player token is required", false),
+        Err(r) => return r,
+    };
     let decision_id = body.get("decisionId").and_then(Value::as_str).unwrap_or("");
     let is_undo = body.get("type").and_then(Value::as_str) == Some("undo");
     if !is_undo && g.decision_id(seat).as_deref() != Some(decision_id) {
@@ -294,12 +343,13 @@ async fn join_queue(State(s): State<Shared>, Json(req): Json<JoinQueue>) -> Resp
                 ],
                 seed(),
             );
-            insert_game(&s, game).await;
-            queue.get_mut(&other_id).unwrap().matched = Some((id.clone(), 2001));
-            queue.insert(ticket_id.clone(), Ticket { name, deck: req.deck, matched: Some((id.clone(), 2002)), created: now() });
+            let created = insert_game(&s, game).await;
+            let token = |i: usize| created["players"][i]["token"].as_str().unwrap_or("").to_string();
+            queue.get_mut(&other_id).unwrap().matched = Some((id.clone(), 2001, token(0)));
+            queue.insert(ticket_id.clone(), Ticket { name, deck: req.deck, matched: Some((id.clone(), 2002, token(1))), created: now() });
             drop(queue);
             s.queue_changed.notify_waiters();
-            Json(json!({"ticket": ticket_id, "status": "matched", "gameId": id, "player": 2002})).into_response()
+            Json(json!({"ticket": ticket_id, "status": "matched", "gameId": id, "player": 2002, "token": token(1)})).into_response()
         }
         None => {
             queue.insert(ticket_id.clone(), Ticket { name, deck: req.deck, matched: None, created: now() });
@@ -316,8 +366,8 @@ async fn poll_queue(State(s): State<Shared>, Path(ticket): Path<String>) -> Resp
             let mut queue = s.queue.lock().await;
             let Some(t) = queue.get_mut(&ticket) else { return error(StatusCode::NOT_FOUND, "Unknown ticket", true) };
             t.created = t.created.max(now().saturating_sub(60));
-            if let Some((g, p)) = &t.matched {
-                return Json(json!({"ticket": ticket, "status": "matched", "gameId": g, "player": p})).into_response();
+            if let Some((g, p, tok)) = &t.matched {
+                return Json(json!({"ticket": ticket, "status": "matched", "gameId": g, "player": p, "token": tok})).into_response();
             }
         }
         if tokio::time::timeout_at(deadline, notified).await.is_err() {
