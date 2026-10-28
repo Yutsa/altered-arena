@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
 """Builds the client card catalog and starter deck list from the engine export.
 
-Input:  engine/data/cards.json, engine/data/starters.json (tools: server/tools/export_cards.php)
+Input:  engine/data/cards.min.json, engine/data/starters.min.json (tools: server/tools/export_cards.php)
 Output: protocol/data/cards.json (CardCatalog), protocol/data/decks.json (DeckSummary[])
 """
 import json, os, sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 src = os.path.join(ROOT, 'engine', 'data')
-cards = json.load(open(os.path.join(src, 'cards.json')))
-starters = json.load(open(os.path.join(src, 'starters.json')))
+cards = json.load(open(os.path.join(src, 'cards.min.json')))
+starters = json.load(open(os.path.join(src, 'starters.min.json')))
 
 RARITY = {0: 'common', 1: 'rare', 2: 'unique', 3: 'exalted'}
 KEYWORDS = ['fleeting', 'anchored', 'asleep', 'gigantic', 'tough', 'defender', 'eternal', 'seasoned', 'scout', 'cooldown']

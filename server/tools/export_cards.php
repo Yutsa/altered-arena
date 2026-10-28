@@ -1,10 +1,10 @@
 <?php
 /**
  * Exports every card definition of the PHP engine (GAME_DIR) as data for the new engine:
- *   cards.json   class name => properties (effects are the engine's flow trees)
- *   starters.json  starter deck id => [class name => count]
+ *   cards.min.json    class name => properties (effects are the engine's flow trees)
+ *   starters.min.json starter deck id => [class name => count]
  *   constants.json engine constants (locations, types, keywords...)
- * Run in the server container: php tools/export_cards.php /out
+ * Run in the server container: php tools/export_cards.php /engine-data (engine/data mounted there)
  */
 require dirname(__DIR__) . '/src/bootstrap.php';
 
@@ -27,7 +27,7 @@ foreach (glob(GAME_DIR . '/modules/php/Cards/*/*.php') as $file) {
   }
 }
 ksort($cards);
-file_put_contents("$out/cards.json", json_encode($cards, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+file_put_contents("$out/cards.min.json", json_encode($cards, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
 
 $starters = [];
 foreach (glob(GAME_DIR . '/modules/php/Cards/StarterDecks/*.inc.php') as $file) {
@@ -39,7 +39,7 @@ foreach (glob(GAME_DIR . '/modules/php/Cards/StarterDecks/*.inc.php') as $file) 
   }
 }
 ksort($starters);
-file_put_contents("$out/starters.json", json_encode($starters, JSON_PRETTY_PRINT));
+file_put_contents("$out/starters.min.json", json_encode($starters));
 
 $consts = array_filter(get_defined_constants(true)['user'], fn($v) => is_scalar($v));
 file_put_contents("$out/constants.json", json_encode($consts, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));

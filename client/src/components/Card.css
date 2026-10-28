@@ -1,0 +1,353 @@
+/* A card is drawn at any width: everything inside is sized in cqw (percent of the card width). */
+.card {
+  --fc: var(--f-NE);
+  --fc-dark: color-mix(in oklab, var(--fc) 55%, black);
+  width: var(--card-w, 100px);
+  aspect-ratio: 362 / 505;
+  container-type: inline-size;
+  position: relative;
+  flex: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+.card-mini { --card-w: var(--card-mini-w); }
+.card-small { --card-w: var(--card-small-w); }
+.card-hand { --card-w: var(--card-hand-w); }
+.card-zoom { --card-w: var(--card-zoom-w); }
+
+.f-AX { --fc: var(--f-AX); }
+.f-BR { --fc: var(--f-BR); }
+.f-LY { --fc: var(--f-LY); }
+.f-MU { --fc: var(--f-MU); }
+.f-OD { --fc: var(--f-OD); }
+.f-YZ { --fc: var(--f-YZ); }
+.f-NE { --fc: var(--f-NE); }
+
+.card-inner {
+  position: absolute;
+  inset: 0;
+  border-radius: 5.5cqw;
+  overflow: hidden;
+  background: #1a1b26;
+  box-shadow: 0 0.8cqw 3cqw rgb(0 0 0 / 0.55);
+  transition: filter 0.2s, transform 0.25s;
+}
+.card-art {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  pointer-events: none;
+}
+.card-art-missing {
+  background:
+    radial-gradient(circle at 50% 35%, color-mix(in oklab, var(--fc) 60%, white 10%), transparent 70%),
+    linear-gradient(160deg, var(--fc-dark), #111);
+}
+.card-frame {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  border: 1.8cqw solid var(--fc);
+  box-shadow:
+    inset 0 0 0 0.6cqw rgb(255 255 255 / 0.25),
+    inset 0 0 6cqw rgb(0 0 0 / 0.45);
+  pointer-events: none;
+}
+.card-back .card-inner { border: 1.5cqw solid #2b2d42; }
+
+/* Costs: hand cost (big) and reserve cost (small), top left */
+.card-costs {
+  position: absolute;
+  top: 3cqw;
+  left: 3cqw;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1cqw;
+}
+.cost {
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  font-family: var(--font-title);
+  line-height: 1;
+  color: #fff;
+  box-shadow: 0 0.5cqw 1.5cqw rgb(0 0 0 / 0.6);
+}
+.cost-hand {
+  width: 17cqw;
+  height: 17cqw;
+  font-size: 12cqw;
+  background: radial-gradient(circle at 35% 30%, #4b4f6b, #15172a);
+  border: 1.2cqw solid var(--fc);
+}
+.cost-reserve {
+  width: 13cqw;
+  height: 13cqw;
+  font-size: 9cqw;
+  background: radial-gradient(circle at 35% 30%, #e9e2cf, #a89f86);
+  color: #23212a;
+  border: 0.9cqw solid var(--fc);
+}
+.cost.down { color: #7dffb0; text-shadow: 0 0 2cqw #0f0; }
+.cost-reserve.down { color: #0b6b33; }
+.cost.up { color: #ff8a8a; }
+.cost-reserve.up { color: #a01010; }
+
+.card-rarity {
+  position: absolute;
+  top: 4cqw;
+  right: 4cqw;
+  width: 6cqw;
+  height: 6cqw;
+  transform: rotate(45deg);
+  border: 0.6cqw solid rgb(255 255 255 / 0.8);
+  box-shadow: 0 0 1.5cqw rgb(0 0 0 / 0.8);
+}
+.r-common { background: #b7b7b7; }
+.r-rare { background: #3fa3ff; }
+.r-unique { background: #f5a623; }
+.r-exalted { background: #c35cff; }
+
+/* Name plate */
+.card-plate {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  padding: 1.6cqw 5cqw 1.8cqw;
+  background: linear-gradient(90deg, color-mix(in oklab, var(--fc) 92%, black), var(--fc-dark));
+  color: #fff;
+  text-align: center;
+  box-shadow: 0 0.6cqw 2cqw rgb(0 0 0 / 0.5);
+}
+.card-name {
+  font-family: var(--font-title);
+  font-size: 8.5cqw;
+  line-height: 1;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.card-typeline {
+  font-size: 4.6cqw;
+  line-height: 1.15;
+  opacity: 0.85;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.t-hero .card-plate { top: auto; bottom: 33%; }
+.t-spell .card-plate,
+.t-permanent .card-plate { top: 47%; }
+
+/* Stats: forest / mountain / ocean, on the left above the name plate */
+.card-stats {
+  position: absolute;
+  left: 3cqw;
+  top: 26%;
+  display: flex;
+  flex-direction: column;
+  gap: 1.2cqw;
+}
+.stat {
+  display: flex;
+  align-items: center;
+  gap: 0.5cqw;
+  min-width: 17cqw;
+  height: 10.5cqw;
+  padding: 0 1.6cqw 0 1.2cqw;
+  border-radius: 5.5cqw;
+  color: #fff;
+  font-family: var(--font-title);
+  font-size: 8.5cqw;
+  box-shadow: 0 0.5cqw 1.5cqw rgb(0 0 0 / 0.6);
+  border: 0.6cqw solid rgb(255 255 255 / 0.5);
+}
+.stat .glyph { font-size: 6.5cqw; }
+.stat b { font-weight: normal; margin-left: auto; }
+.stat-forest { background: var(--b-forest); }
+.stat-mountain { background: var(--b-mountain); }
+.stat-ocean { background: var(--b-ocean); }
+.stat.up { box-shadow: 0 0 0 0.8cqw #7dffb0, 0 0 4cqw #7dffb0; }
+.stat.down { box-shadow: 0 0 0 0.8cqw #ff6b6b, 0 0 4cqw #ff6b6b; }
+
+/* Rules text: shown on hand cards when big enough, always when zoomed */
+.card-text {
+  position: absolute;
+  left: 4cqw;
+  right: 4cqw;
+  top: 63%;
+  bottom: 3.5cqw;
+  padding: 2.2cqw 3cqw;
+  border-radius: 2.5cqw;
+  background: rgb(246 241 230 / 0.94);
+  color: #1f1b16;
+  font-size: 5.2cqw;
+  line-height: 1.22;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5cqw;
+}
+.t-hero .card-text { top: 69%; }
+.t-spell .card-text,
+.t-permanent .card-text { top: 60%; }
+.card-support {
+  border-top: 0.4cqw solid rgb(0 0 0 / 0.25);
+  padding-top: 1.2cqw;
+  font-size: 0.95em;
+}
+.card-support > .glyph { margin-right: 0.3em; color: var(--fc-dark); }
+.card-hand .card-text { display: none; }
+@container (min-width: 170px) {
+  .card-hand .card-text { display: flex; }
+}
+.card-mini .card-plate,
+.card-small .card-plate {
+  top: auto;
+  bottom: 0;
+  padding: 1.5cqw 2cqw 2cqw;
+}
+.card-mini .card-typeline,
+.card-small .card-typeline { display: none; }
+.card-mini .card-name { font-size: 11cqw; }
+.card-small .card-name { font-size: 10cqw; }
+.card-mini .card-stats,
+.card-small .card-stats {
+  top: auto;
+  bottom: 17cqw;
+  left: 2cqw;
+  right: 2cqw;
+  flex-direction: row;
+  justify-content: space-between;
+  gap: 1cqw;
+}
+.card-mini .stat,
+.card-small .stat {
+  min-width: 0;
+  flex: 1;
+  height: 19cqw;
+  justify-content: center;
+  padding: 0;
+  font-size: 15cqw;
+  border-radius: 4cqw;
+  border-width: 0.8cqw;
+}
+.card-mini .stat .glyph,
+.card-small .stat .glyph { display: none; }
+.card-mini .stat b,
+.card-small .stat b { margin: 0; }
+.card-mini .cost-hand { width: 26cqw; height: 26cqw; font-size: 18cqw; }
+.card-mini .cost-reserve { width: 20cqw; height: 20cqw; font-size: 14cqw; }
+.card-mini .card-rarity { display: none; }
+@container (max-width: 64px) {
+  .card-mini .card-plate { display: none; }
+  .card-mini .card-stats { bottom: 3cqw; }
+}
+
+.card-slots {
+  position: absolute;
+  top: 3cqw;
+  right: 3cqw;
+  display: flex;
+  gap: 2cqw;
+  font-size: 6cqw;
+  color: #fff;
+}
+.card-slots span {
+  background: rgb(0 0 0 / 0.65);
+  border-radius: 3cqw;
+  padding: 0.8cqw 2cqw;
+}
+
+/* Badges: boosts, statuses, counters (top right) */
+.card-badges {
+  position: absolute;
+  top: 3cqw;
+  right: 3cqw;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1.2cqw;
+}
+.badge {
+  display: flex;
+  align-items: center;
+  gap: 0.6cqw;
+  height: 13cqw;
+  min-width: 13cqw;
+  padding: 0 1.2cqw;
+  border-radius: 7cqw;
+  background: rgb(10 10 20 / 0.85);
+  border: 0.6cqw solid rgb(255 255 255 / 0.4);
+  color: #fff;
+  font-family: var(--font-title);
+  font-size: 8cqw;
+  justify-content: center;
+}
+.badge img { width: 10cqw; height: 10cqw; }
+.badge-boost { background: #d9480f; border-color: #ffc078; }
+.badge-text { font-size: 5.5cqw; text-transform: uppercase; }
+.card-mini .badge { height: 22cqw; min-width: 22cqw; font-size: 14cqw; border-radius: 11cqw; }
+.card-mini .badge img { width: 17cqw; height: 17cqw; }
+.card-mini .badge-text { font-size: 9cqw; }
+.card-zoom .badge { height: 10cqw; min-width: 10cqw; font-size: 6cqw; }
+.card-zoom .badge img { width: 8cqw; height: 8cqw; }
+
+.card-extra-cost {
+  position: absolute;
+  bottom: 40%;
+  right: 3cqw;
+  background: #c92a2a;
+  color: #fff;
+  border-radius: 6cqw;
+  padding: 1cqw 3cqw;
+  font-family: var(--font-title);
+  font-size: 12cqw;
+  border: 0.8cqw solid #fff;
+}
+
+.card.is-exhausted .card-inner { filter: grayscale(0.6) brightness(0.65); }
+
+/* Inline icons in rich text */
+.glyph {
+  font-family: 'icomoon' !important;
+  font-style: normal;
+  font-weight: normal;
+  line-height: 1;
+  display: inline-flex;
+  position: relative;
+  vertical-align: -0.12em;
+  speak: never;
+}
+.glyph-layer { position: absolute; left: 0; top: 0; }
+.glyph-white { color: #fff; }
+.mana-icon {
+  display: inline-grid;
+  place-items: center;
+  min-width: 1.25em;
+  height: 1.25em;
+  padding: 0 0.15em;
+  border-radius: 50%;
+  background: #2c2f4a;
+  color: #fff;
+  font-family: var(--font-title);
+  font-size: 0.85em;
+  line-height: 1;
+  vertical-align: 0.05em;
+}
+.rt-keyword { font-weight: 600; }
+.rt-keyword-icon { display: inline-flex; align-items: center; gap: 0.1em; }
+.rt-icon { width: 1.15em; height: 1.15em; vertical-align: -0.2em; }
+.rt-paren { font-style: italic; opacity: 0.8; }
+.rt-rare { color: #9c2f8a; font-weight: 600; }
+.rt-ref { font-weight: 600; }
+.rt-name { font-weight: 600; color: var(--accent-2); }
+.rt-name-link { cursor: pointer; text-decoration: underline dotted; text-underline-offset: 2px; }
+.card-text .rt-name { color: inherit; }

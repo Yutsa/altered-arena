@@ -1,0 +1,105 @@
+.tumult-wrap {
+  position: relative;
+  padding: 0 var(--gutter);
+}
+.tumult {
+  display: grid;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  gap: 3px;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 16px rgb(0 0 0 / 0.4);
+}
+.region {
+  position: relative;
+  height: var(--region-h);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  padding: 2px 0;
+  min-width: 0;
+}
+.region::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgb(0 0 0 / 0.25), transparent 30%, transparent 70%, rgb(0 0 0 / 0.25));
+  pointer-events: none;
+}
+.region.face-down {
+  background: url('/img/region-back.jpg') center / cover, #2a1f45;
+}
+.region.k-heroRegion,
+.region.k-companionRegion {
+  box-shadow: inset 0 0 0 2px rgb(255 255 255 / 0.35);
+}
+.region-biomes {
+  display: flex;
+  gap: 2px;
+  font-size: clamp(11px, 2.2vw, 20px);
+  color: rgb(255 255 255 / 0.92);
+  text-shadow: 0 1px 3px rgb(0 0 0 / 0.8);
+  z-index: 1;
+}
+.region-markers {
+  display: flex;
+  gap: 2px;
+  z-index: 2;
+  min-height: var(--marker);
+}
+.marker {
+  width: var(--marker);
+  height: var(--marker);
+  padding: 0;
+  border-radius: 50%;
+  border: 2px solid var(--me);
+  background: #111;
+  box-shadow: 0 2px 6px rgb(0 0 0 / 0.6);
+  display: grid;
+  place-items: center;
+  color: #fff;
+  font-weight: 700;
+  font-size: 11px;
+}
+.marker img { width: 100%; height: 100%; border-radius: 50%; }
+.marker.theirs { border-color: var(--opp); }
+.marker:disabled { cursor: default; opacity: 1; }
+.marker.blocked { filter: grayscale(0.8); }
+.marker.selectable {
+  cursor: pointer;
+  animation: pulse 1.2s ease-in-out infinite;
+  border-color: var(--accent);
+}
+.marker.picked { box-shadow: 0 0 0 3px var(--accent), 0 0 14px var(--accent); }
+
+.cast-zone {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: min(42%, 260px);
+  height: calc(var(--region-h) + 30px);
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  display: none;
+  z-index: 5;
+}
+.cast-zone.drop-valid {
+  display: grid;
+  place-items: center;
+  background: radial-gradient(circle, rgb(140 100 255 / 0.55), rgb(80 40 200 / 0.25) 60%, transparent 72%);
+  border: 2px dashed rgb(200 180 255 / 0.9);
+}
+.cast-zone.drop-over {
+  background: radial-gradient(circle, rgb(170 140 255 / 0.85), rgb(100 60 230 / 0.4) 60%, transparent 75%);
+}
+.limbo {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  gap: 6px;
+  z-index: 6;
+  filter: drop-shadow(0 0 18px rgb(170 140 255 / 0.9));
+}
