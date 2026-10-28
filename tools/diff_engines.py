@@ -224,6 +224,8 @@ def play_game(n, decks):
             refs = {c['id']: c['ref'] for c in ps['cards']}
             src = refs.get(pend.get('sourceCardId'))
             problems.append(f'php now asks: {pend.get("kind")} "{pend.get("prompt", "")}" {[c["label"] for c in pend.get("choices", [])]}' + (f' (source {src})' if src else ''))
+            plog = [l['text'] for l in pview.get('log', [])[-10:] if l['text'] and 'Undo' not in l['text']]
+            problems.append('php log: ' + ' | '.join(plog[-8:]))
             if any(p.startswith('expedition positions') for p in problems):
                 rview = call(opt.rust, 'GET', f'/api/v1/games/{rid}')
                 st = lambda v: {p['id']: {k: tuple(e['stats'].values()) for k, e in p['expeditions'].items()} for p in v['players']}
@@ -231,9 +233,9 @@ def play_game(n, decks):
             rw = call(opt.rust, 'GET', f'/api/v1/games/{rid}?{rq(2001)}').get('waitingFor') or [2001]
             rpend = call(opt.rust, 'GET', f'/api/v1/games/{rid}?{rq(rw[0])}').get('decision') or {}
             problems.append(f'rust now asks {rw}: {rpend.get("kind")} "{rpend.get("prompt", "")}" {[c["label"] for c in rpend.get("choices", [])]}')
-            asks = problems[-2:]
+            asks = problems[-3:]
             tail = '\n      '.join('  ' + h for h in history[-4:-1])
-            return 'state differs after ' + (history[-1] if history else 'setup') + ':\n      ' + '\n      '.join(asks + problems[:-2][:6]) + ('\n      earlier:\n      ' + tail if tail else ''), step
+            return 'state differs after ' + (history[-1] if history else 'setup') + ':\n      ' + '\n      '.join(asks + problems[:-3][:6]) + ('\n      earlier:\n      ' + tail if tail else ''), step
         pv = call(opt.php, 'GET', f'/api/v1/games/{pid}?player=2001')
         if pv.get('phase') == 'ended':
             rv = call(opt.rust, 'GET', f'/api/v1/games/{rid}?{rq(2001)}')

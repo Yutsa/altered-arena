@@ -648,6 +648,17 @@ fn target(g: &mut Game, a: &Map<String, Value>, ctx: Ctx, optional: bool) {
 }
 
 pub fn apply_targets(g: &mut Game, cards: &[CardId], effect: Option<&Value>, ctx: &Ctx) {
+    // A ready Mana Orb chosen as target: an exhausted one is readied in exchange (the player
+    // keeps the same available mana, as in the original engine)
+    for &c in cards {
+        if g.card(c).zone == Zone::Mana && !g.card(c).exhausted {
+            let owner = g.card(c).controller;
+            if let Some(other) = g.players[owner].mana.iter().copied().find(|&m| m != c && g.card(m).exhausted) {
+                g.card_mut(other).exhausted = false;
+                g.card_mut(c).exhausted = true;
+            }
+        }
+    }
     let Some(effect) = effect else { return };
     for &c in cards.iter().rev() {
         let mut c2 = ctx.clone();

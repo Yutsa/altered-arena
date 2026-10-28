@@ -63,6 +63,9 @@ pub struct Event {
     /// Only the cards in `listeners` react (a card leaving a zone)
     #[serde(default)]
     pub only_listeners: bool,
+    /// A phase trigger (Noon, Dusk...): only the cards of `seat` listen
+    #[serde(default)]
+    pub phase: bool,
     /// MoveExpedition: the expedition that moved
     #[serde(default)]
     pub side: Option<Side>,
@@ -637,7 +640,14 @@ impl Game {
         let mut queued = vec![];
         for id in listeners {
             let card = self.card(id);
+            if event.phase && card.controller != event.seat {
+                continue;
+            }
             let in_reserve = card.zone == Zone::Reserve && !event.listeners.contains(&id);
+            // An exhausted card in Reserve has no active ∞ ability
+            if in_reserve && card.exhausted {
+                continue;
+            }
             let passive = if in_reserve {
                 card.def().prop("effectInfinity").and_then(|v| v.get("effectPassive"))
             } else {
@@ -901,7 +911,7 @@ impl Game {
             }
             Step::TriggersFor(phase, seat) => {
                 let before = self.reactions.len();
-                self.emit(Event { trigger: phase.name().into(), seat, ..Default::default() });
+                self.emit(Event { trigger: phase.name().into(), seat, phase: true, ..Default::default() });
                 if phase == TriggerPhase::BeforeNight {
                     // Effects delayed "after Rest" (AfterRestSabotage...)
                     let delayed = std::mem::take(&mut self.mods.special.after_rest[seat]);
