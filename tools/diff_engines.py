@@ -220,7 +220,7 @@ def play_game(n, decks):
             # PHP asks about effects that can't do anything (no valid target...), with Pass; Rust skips them
             if d.get('kind') == 'choice' and any(c['id'] == 99 for c in d['choices']):
                 rdec = call(opt.rust, 'GET', f'/api/v1/games/{rid}?{rq(w[0])}').get('decision')
-                if rdec is None or rdec['kind'] == 'turn':
+                if rdec is None or rdec['kind'] != 'choice':
                     call(opt.php, 'POST', f'/api/v1/games/{pid}/answer?player={w[0]}', {'decisionId': d['id'], 'type': 'choice', 'id': 99})
                     continue
         ps = call(opt.php, 'GET', f'/api/oracle/games/{pid}/state')
@@ -283,6 +283,8 @@ def play_game(n, decks):
         if rd is None:
             extra = [c['label'] for c in pd.get('choices', [])]
             return f'rust has no decision for {player}; php asks "{pd["prompt"]}" ({pd["kind"]}) {extra}, rust waits for {rv.get("waitingFor")} after {history[-1] if history else ""}', step
+        if rd['kind'] != pd['kind'] and any('rolls a' in l['text'] for l in call(opt.rust, 'GET', f'/api/v1/games/{rid}').get('log', [])[-6:]):
+            return 'INCONCLUSIVE: a die was rolled (random in both engines)', step
         if rd['kind'] != pd['kind']:
             return f'decision kind differs: php {pd["kind"]} "{pd["prompt"]}" {[c["label"] for c in pd.get("choices", [])]} / rust {rd["kind"]} "{rd["prompt"]}" after {history[-1] if history else ""}', step
         if pd['kind'] == 'turn':

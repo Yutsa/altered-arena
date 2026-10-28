@@ -97,7 +97,8 @@ pub fn run(g: &mut Game, action: &str, a: &Map<String, Value>, node: &Value, ctx
         "Gain" => gain(g, a, &ctx),
         "Loose" => loose(g, a, &ctx),
         "Draw" => {
-            for seat in players_arg(&ctx, s(a, "players")) {
+            // Without "players", everyone draws (the original engine's default is ALL)
+            for seat in players_arg(&ctx, Some(s(a, "players").unwrap_or("all"))) {
                 let drawn = g.draw(seat, i(a, "n", 1), ctx.source);
                 if !drawn.is_empty() {
                     g.emit(Event { trigger: "Draw".into(), seat, n: drawn.len() as i32, source: ctx.source, ..Default::default() });
@@ -619,6 +620,9 @@ pub fn target_candidates(g: &Game, a: &Map<String, Value>, ctx: &Ctx) -> Vec<(Ca
                 if !effects.iter().any(|e| def.effect(&format!("effect{}", e)).is_some()) {
                     continue;
                 }
+            }
+            if b(a, "ascendedOnly") && !g.is_card_expedition_ascended(id) {
+                continue;
             }
             if b(a, "augmentOnly") && c.boosts == 0 && c.counter == 0 {
                 continue;
