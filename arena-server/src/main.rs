@@ -8,6 +8,10 @@
 //! Environment: PORT (8080), CLIENT_DIR (client/dist), ART_DIR (../AlteredBGA/img/illustrations),
 //! PROTOCOL_DIR (protocol/data), DATA_DIR (data).
 
+/// Faster than the system allocator for many small allocations, and less fragmentation
+#[global_allocator]
+static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
+
 use altered_engine::model::Seat;
 use altered_engine::{Answer, Game, PlayerConfig};
 use axum::extract::{Path, Query, State};
