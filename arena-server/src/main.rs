@@ -70,6 +70,10 @@ fn new_token() -> String {
     buf.iter().map(|b| format!("{:02x}", b)).collect()
 }
 
+fn json_bytes(body: Vec<u8>) -> Response {
+    ([(header::CONTENT_TYPE, "application/json")], body).into_response()
+}
+
 fn error(status: StatusCode, msg: impl Into<String>, user: bool) -> Response {
     (status, Json(json!({"error": msg.into(), "user": user}))).into_response()
 }
@@ -277,7 +281,7 @@ async fn view_game(State(s): State<Shared>, Path(id): Path<String>, Query(q): Qu
     let g = e.game.lock().await;
     // Without a token: spectator view (no hidden cards, no decision)
     match seat_of(&g, &q, &headers) {
-        Ok(seat) => Json(g.view(seat)).into_response(),
+        Ok(seat) => json_bytes(g.view_json(seat)),
         Err(r) => r,
     }
 }
@@ -309,11 +313,11 @@ async fn answer(
         return error(StatusCode::BAD_REQUEST, err.0, true);
     }
     g.run_bots();
-    let view = g.view(Some(seat));
+    let view = g.view_json(Some(seat));
     drop(g);
     e.changed.notify_waiters();
     s.dirty.lock().await.insert(id);
-    Json(view).into_response()
+    json_bytes(view)
 }
 
 // ---------------------------------------------------------------------------

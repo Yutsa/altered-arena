@@ -160,6 +160,14 @@ async fn play_seat(client: reqwest::Client, url: String, game: String, player: u
     }
 }
 
+/// Server CPU time used so far, in seconds (ps TIME: [[dd-]hh:]mm:ss.cc)
+fn cpu_seconds(pid: u32) -> f64 {
+    let out = std::process::Command::new("ps").args(["-o", "time=", "-p", &pid.to_string()]).output();
+    let Ok(out) = out else { return 0.0 };
+    let s = String::from_utf8_lossy(&out.stdout).trim().to_string();
+    s.split(':').fold(0.0, |acc, part| acc * 60.0 + part.parse::<f64>().unwrap_or(0.0))
+}
+
 fn sample_process(pid: u32) -> Option<(u64, f64)> {
     let out = std::process::Command::new("ps").args(["-o", "rss=,%cpu=", "-p", &pid.to_string()]).output().ok()?;
     let s = String::from_utf8_lossy(&out.stdout);
@@ -190,6 +198,7 @@ async fn main() {
     let start = Instant::now();
     let until = start + Duration::from_secs(duration);
     let base_rss = if pid > 0 { sample_process(pid).map(|s| s.0).unwrap_or(0) } else { 0 };
+    let cpu_start = if pid > 0 { cpu_seconds(pid) } else { 0.0 };
 
     // Sampler
     let samples = Arc::new(Mutex::new(Vec::<(f64, u64, f64)>::new()));
@@ -267,6 +276,7 @@ async fn main() {
     progress.abort();
 
     let elapsed = start.elapsed().as_secs_f64();
+    let cpu_used = if pid > 0 { cpu_seconds(pid) - cpu_start } else { 0.0 };
     let mut lat = stats.latencies_us.lock().await.clone();
     lat.sort_unstable();
     let pct = |p: f64| if lat.is_empty() { 0.0 } else { lat[((lat.len() as f64 - 1.0) * p) as usize] as f64 / 1000.0 };
@@ -290,6 +300,9 @@ async fn main() {
         "createLatencyMs": {"p50": cpct(0.5), "p95": cpct(0.95), "p99": cpct(0.99)},
         "serverRssMB": {"idle": base_rss as f64 / 1024.0, "max": max_rss as f64 / 1024.0},
         "serverCpuPercentAvg": avg_cpu,
+        "serverCpuSeconds": cpu_used,
+        "serverCpuMsPerAnswer": if stats.answers.load(Ordering::Relaxed) > 0 { cpu_used * 1000.0 / stats.answers.load(Ordering::Relaxed) as f64 } else { 0.0 },
+        "serverRssKBPerGame": (max_rss.saturating_sub(base_rss)) as f64 / games.max(1) as f64,
     });
     println!("{}", serde_json::to_string_pretty(&result).unwrap());
 }
