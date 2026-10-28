@@ -255,6 +255,9 @@ pub struct Modifiers {
     /// A card was played through an effect (Rush...) since the effect asked for it
     #[serde(default)]
     pub bonus_played: bool,
+    /// Mana paid by the last "pay X" (for "n": "paidMana")
+    #[serde(default)]
+    pub last_paid: i32,
     /// State of the special effects (global Tough, after-Rest effects, next-card modifiers...)
     #[serde(default)]
     pub special: crate::special::SpecialMods,

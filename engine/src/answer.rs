@@ -190,6 +190,7 @@ impl Game {
                 match then {
                     NumberThen::Pay => {
                         self.pay(seat, value);
+                        self.mods.last_paid = value;
                     }
                     NumberThen::Die { .. } => {}
                 }

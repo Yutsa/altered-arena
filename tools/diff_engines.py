@@ -114,7 +114,9 @@ def pick_answer(d):
     if k == 'player': return a | {'type': 'player', 'player': rnd.choice(d['players'])}
     if k == 'number': return a | {'type': 'number', 'value': rnd.choice(d['values'])}
     if k == 'location': return a | {'type': 'location', 'key': rnd.choice(d['locations'])['key']}
-    if k == 'exchange': return a | {'type': 'exchange', 'hand': rnd.choice(d['hand']), 'reserve': rnd.choice(d['reserve'])}
+    if k == 'exchange':
+        if not d['hand'] or not d['reserve']: return a | {'type': 'pass'}
+        return a | {'type': 'exchange', 'hand': rnd.choice(d['hand']), 'reserve': rnd.choice(d['reserve'])}
     if k == 'cleanup': return a | {'type': 'cleanup', 'reserve': rnd.sample(d['reserve']['cardIds'], d['reserve']['n']),
                                    'landmarks': rnd.sample(d['landmarks']['cardIds'], d['landmarks']['n'])}
     if k == 'buttons' and d['buttons']: return a | {'type': 'button', 'key': d['buttons'][0]['key']}
@@ -178,6 +180,10 @@ def play_game(n, decks):
         if w:
             d = call(opt.php, 'GET', f'/api/v1/games/{pid}?player={w[0]}').get('decision') or {}
             opts = [c for c in d.get('choices', []) if c['enabled']]
+            # "Choose up to N targets" with nothing to choose: PHP asks anyway, Rust skips it
+            if d.get('kind') == 'select' and not d.get('cardIds') and d.get('min', 0) == 0:
+                call(opt.php, 'POST', f'/api/v1/games/{pid}/answer?player={w[0]}', {'decisionId': d['id'], 'type': 'select', 'cardIds': []})
+                continue
             # "Confirm the switch of player": a BGA UI step
             if d.get('kind') == 'confirm':
                 call(opt.php, 'POST', f'/api/v1/games/{pid}/answer?player={w[0]}', {'decisionId': d['id'], 'type': 'confirm'})

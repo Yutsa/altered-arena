@@ -778,7 +778,14 @@ fn invoke_token(g: &mut Game, a: &Map<String, Value>, ctx: Ctx, optional: bool) 
         g.unsupported(format!("token {:?}", s(a, "tokenType")));
         return;
     };
-    let n = i(a, "n", 1).max(1);
+    let n = match a.get("n") {
+        Some(Value::String(x)) if x == "paidMana" => g.mods.last_paid,
+        Some(Value::String(x)) if x == "landmarks3" => (g.players[ctx.seat].landmarks.len() as i32).min(3),
+        _ => i(a, "n", 1).max(1),
+    };
+    if n <= 0 {
+        return;
+    }
     let owner = match (s(a, "targetPlayer"), s(a, "pId")) {
         (Some("opponent"), _) | (_, Some("opponent")) => Game::other(ctx.seat),
         _ => ctx.seat,
