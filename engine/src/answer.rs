@@ -59,13 +59,10 @@ impl Game {
             return Ok(());
         }
         let Some(index) = self.pending.iter().position(|p| p.seat == seat) else { return err("Nothing to decide") };
-        let pending = self.pending[index].clone();
-        let backup = self.clone();
-        self.pending.remove(index);
-        if let Err(e) = self.apply(pending, answer) {
-            let undo = self.undo_point.take();
-            *self = backup;
-            self.undo_point = undo;
+        // Answers are validated before anything changes: a refused answer leaves the game as it was
+        let pending = self.pending.remove(index);
+        if let Err(e) = self.apply(pending.clone(), answer) {
+            self.pending.insert(index, pending);
             return Err(e);
         }
         self.seq += 1;

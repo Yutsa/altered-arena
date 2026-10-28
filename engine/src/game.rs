@@ -422,8 +422,9 @@ impl Game {
     pub fn log_line(&mut self, seat: Option<Seat>, text: String) {
         self.seq += 1;
         self.log.push(LogLine { seq: self.seq, text, player: seat });
-        if self.log.len() > 300 {
-            self.log.drain(0..100);
+        // Views show the last 100 lines
+        if self.log.len() > 120 {
+            self.log.drain(0..20);
         }
     }
     pub fn unsupported(&mut self, what: String) {
@@ -896,7 +897,12 @@ impl Game {
         crate::special::on_turn_start(self);
         self.stack.push(Task::Step(Step::AfterAction));
         self.ask_turn(seat, None);
-        self.set_undo_point(seat);
+        // Bots never undo
+        if !self.players[seat].bot {
+            self.set_undo_point(seat);
+        } else {
+            self.forget_undo();
+        }
     }
 
     /// Asks a player for their Afternoon action (or a bonus play allowed by an effect)
