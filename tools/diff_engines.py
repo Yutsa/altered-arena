@@ -129,6 +129,9 @@ def translate(ans, pd, rd):
         src = next((c.get('sourceCardId') for c in pd['choices'] if c['id'] == ans['id']), None)
         same = [c for c in rd.get('choices', []) if src is not None and c.get('sourceCardId') == src]
         if same:
+            words = lambda t: set(w.strip('[](),.:').lower() for w in t.replace('put it in', 'send to').split()) - {'to', 'a', 'the', 'of', 'card(s)', '1', 'target', 'up'}
+            pw = words(label)
+            same.sort(key=lambda c: -len(pw & words(c['label'])))
             out['id'] = same[0]['id']
             return out
         idx = [c['id'] for c in pd['choices']].index(ans['id'])
@@ -161,10 +164,23 @@ def play_game(n, decks):
     rq = lambda player: f'player={player}&token={tokens[player]}'
     history = []
     for step in range(opt.max):
+        # Confirmations the BGA UI asks for (single irreversible effect, with undo on): answer them first
+        w = call(opt.php, 'GET', f'/api/v1/games/{pid}?player=2001').get('waitingFor') or []
+        if w:
+            d = call(opt.php, 'GET', f'/api/v1/games/{pid}?player={w[0]}').get('decision') or {}
+            opts = [c for c in d.get('choices', []) if c['enabled']]
+            if d.get('kind') == 'choice' and len(opts) == 1 and opts[0]['id'] != 99:
+                call(opt.php, 'POST', f'/api/v1/games/{pid}/answer?player={w[0]}', {'decisionId': d['id'], 'type': 'choice', 'id': opts[0]['id']})
+                continue
         ps = call(opt.php, 'GET', f'/api/oracle/games/{pid}/state')
         rs = call(opt.rust, 'GET', f'/api/debug/games/{rid}/state')
         problems = diff(ps, rs)
         if problems:
+            pend = call(opt.php, 'GET', f'/api/v1/games/{pid}?player={(call(opt.php, "GET", f"/api/v1/games/{pid}?player=2001").get("waitingFor") or [2001])[0]}').get('decision') or {}
+            problems.append(f'php now asks: {pend.get("kind")} "{pend.get("prompt", "")}" {[c["label"] for c in pend.get("choices", [])]}')
+            rw = call(opt.rust, 'GET', f'/api/v1/games/{rid}?{rq(2001)}').get('waitingFor') or [2001]
+            rpend = call(opt.rust, 'GET', f'/api/v1/games/{rid}?{rq(rw[0])}').get('decision') or {}
+            problems.append(f'rust now asks {rw}: {rpend.get("kind")} "{rpend.get("prompt", "")}" {[c["label"] for c in rpend.get("choices", [])]}')
             return 'state differs after ' + (history[-1] if history else 'setup') + ':\n      ' + '\n      '.join(problems[:6]), step
         pv = call(opt.php, 'GET', f'/api/v1/games/{pid}?player=2001')
         if pv.get('phase') == 'ended':
@@ -186,6 +202,19 @@ def play_game(n, decks):
             continue
         rv = call(opt.rust, 'GET', f'/api/v1/games/{rid}?{rq(player)}')
         rd = rv.get('decision')
+        if rd is not None and rd['kind'] != 'choice' and pd['kind'] == 'choice' and any(c['id'] == 99 for c in pd['choices']):
+            # PHP asks "do it or pass" before the effect's own decision, which Rust asks directly (with a pass option)
+            non_pass = [c for c in pd['choices'] if c['id'] != 99 and c['enabled']]
+            if len(non_pass) == 1:
+                take = rnd.random() < 0.8 or not rd.get('canPass')
+                call(opt.php, 'POST', f'/api/v1/games/{pid}/answer?player={player}', {'decisionId': pd['id'], 'type': 'choice', 'id': non_pass[0]['id'] if take else 99})
+                if not take:
+                    call(opt.rust, 'POST', f'/api/v1/games/{rid}/answer?{rq(player)}', {'decisionId': rd['id'], 'type': 'pass'})
+                continue
+        if rd is None and pd['kind'] == 'choice' and any(c['id'] == 99 for c in pd['choices']):
+            # The original engine asks to confirm an effect that does nothing (its condition fails): pass it
+            call(opt.php, 'POST', f'/api/v1/games/{pid}/answer?player={player}', {'decisionId': pd['id'], 'type': 'choice', 'id': 99})
+            continue
         if rd is None:
             extra = [c['label'] for c in pd.get('choices', [])]
             return f'rust has no decision for {player}; php asks "{pd["prompt"]}" ({pd["kind"]}) {extra}, rust waits for {rv.get("waitingFor")} after {history[-1] if history else ""}', step

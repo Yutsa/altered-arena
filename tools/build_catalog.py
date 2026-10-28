@@ -14,6 +14,13 @@ starters = json.load(open(os.path.join(src, 'starters.min.json')))
 RARITY = {0: 'common', 1: 'rare', 2: 'unique', 3: 'exalted'}
 KEYWORDS = ['fleeting', 'anchored', 'asleep', 'gigantic', 'tough', 'defender', 'eternal', 'seasoned', 'scout', 'cooldown']
 
+ART = os.path.join(os.path.dirname(ROOT), 'AlteredBGA', 'img', 'illustrations')
+art_index = {}
+if os.path.isdir(ART):
+    for folder in os.listdir(ART):
+        for f in os.listdir(os.path.join(ART, folder)):
+            art_index[os.path.splitext(f)[0]] = folder
+
 catalog = {}
 for ref, p in cards.items():
     d = {
@@ -28,6 +35,8 @@ for ref, p in cards.items():
         'effect': p.get('effectDesc', '') or '',
         'keywords': [k for k in KEYWORDS if p.get(k)],
     }
+    if d['asset'] in art_index:
+        d['art'] = f"{art_index[d['asset']]}/{d['asset']}.jpg"
     for k in ('costHand', 'costReserve', 'forest', 'mountain', 'ocean', 'reserveSlots', 'landmarkSlots'):
         if isinstance(p.get(k), int):
             d[k] = p[k]

@@ -18,7 +18,7 @@
  * Authentication: each human seat gets a secret `token` when the game is created (GameCreated)
  * or matched (MatchTicket). Send it as `token=` or `Authorization: Bearer <token>`. Without a
  * token, a GameView is a spectator view (no hidden cards, no decision) and answers are refused.
- * Card art: /assets/cards/{faction}/{asset}.jpg (asset from the catalog).
+ * Card art: /assets/cards/{art} (`art` from the catalog; absent when there is no art file).
  */
 
 export type PlayerId = number;
@@ -56,13 +56,16 @@ export interface CardDef {
   faction: Faction;
   rarity: 'common' | 'rare' | 'unique' | 'exalted';
   asset: string; // art file name, without extension
+  /** Path of the art under /assets/cards/ (its folder is not always the card's faction) */
+  art?: string;
   costHand?: number;
   costReserve?: number;
   forest?: number;
   mountain?: number;
   ocean?: number;
   /** Rules text. Markup: {J} played, {R} reserve, {H} hand, {T} exhaust, {D} discard, {1} mana cost,
-   * [[keyword]] or <KEYWORD> keywords, #...# delimits a reminder. Clients render it as they like. */
+   * <KEYWORD>, $<KEYWORD> (with reminder), $[KEYWORD], <KEYWORD:arg> keywords; #...# delimits text
+   * specific to the rare version. Clients render it as they like. */
   effect: string;
   support?: string; // text of the support ability (in Reserve)
   flavor?: string;
