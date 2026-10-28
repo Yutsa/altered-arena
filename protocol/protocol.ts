@@ -15,8 +15,9 @@
  *   POST /api/v1/matchmaking  {name, deck}    -> MatchTicket (status 'waiting' or 'matched')
  *   GET  /api/v1/matchmaking/{ticket}         -> MatchTicket (long poll, up to 20 s)
  *   DELETE /api/v1/matchmaking/{ticket}       leave the queue
- * Authentication: each human seat gets a secret `token` when the game is created (GameCreated)
- * or matched (MatchTicket). Send it as `token=` or `Authorization: Bearer <token>`. Without a
+  * Authentication: each human seat gets a secret `token` when the game is created (GameCreated)
+ * or matched (MatchTicket). Send it as `Authorization: Bearer <token>` (`token=` query parameter
+ * accepted for tools; keep secrets out of URLs). Without a
  * token, a GameView is a spectator view (no hidden cards, no decision) and answers are refused.
  * Card art: /assets/cards/{art} (`art` from the catalog; absent when there is no art file).
  */

@@ -21,9 +21,10 @@ The game server must be running (`docker compose up -d` in `altered-arena/` for 
 URLs:
 
 - `/` lobby: play against the bot, find an opponent (matchmaking), two players (hot seat), join.
-- `/?game=ID&player=PID&token=T` a seat of a game. The token is the seat secret returned by
-  `POST /games` or matchmaking; tokens are also kept in localStorage, so `?game=ID&player=PID` reopens
-  a seat on the device that created it. Without a token the view is a spectator view.
+- `/?game=ID&player=PID` a seat of a game. The seat's secret token (returned by `POST /games` or
+  matchmaking) is kept in localStorage and sent in the `Authorization` header, never in URLs. Share
+  links carry it in the fragment (`#token=T`, never sent to the server), stored then removed from the
+  address bar. Without a token the view is a spectator view.
 - `/?game=ID` watch a game as a spectator.
 - `/?replay` (dev only) step through recorded GameViews (`?replay=/file.json` loads a file from
   `public/`). Answers are not sent but shown as a toast, to check the renderers without a server.

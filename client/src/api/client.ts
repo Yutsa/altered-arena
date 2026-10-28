@@ -24,21 +24,19 @@ export class ApiError extends Error {
 
 const BASE = '/api/v1';
 
-/** Query string of a seat: player id and its secret token (without a token the view is a spectator view) */
-function seat(player: PlayerId | null, token?: string | null): string {
-  const q = new URLSearchParams();
-  if (player !== null) q.set('player', String(player));
-  if (token) q.set('token', token);
-  return q.toString();
+/** Query string of a seat (the seat's secret token goes in a header, never in URLs) */
+function seat(player: PlayerId | null): string {
+  return player !== null ? `player=${player}` : '';
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
+async function request<T>(path: string, init?: RequestInit, token?: string | null): Promise<T> {
   let res: Response;
+  const headers: Record<string, string> = {};
+  if (init?.body) headers['Content-Type'] = 'application/json';
+  // Without a token, a game view is a spectator view
+  if (token) headers.Authorization = `Bearer ${token}`;
   try {
-    res = await fetch(BASE + path, {
-      ...init,
-      headers: init?.body ? { 'Content-Type': 'application/json' } : undefined,
-    });
+    res = await fetch(BASE + path, { ...init, headers });
   } catch (e) {
     if ((e as Error).name === 'AbortError') throw e;
     throw new ApiError('Network error: the game server is unreachable', 0, false);
@@ -66,14 +64,16 @@ export const api = {
   /** With `since`, the server waits (up to ~20 s) for a view newer than `since`. */
   view: (gameId: string, player: PlayerId | null, token: string | null | undefined, since?: number, signal?: AbortSignal) =>
     request<GameView>(
-      `/games/${encodeURIComponent(gameId)}?${seat(player, token)}${since !== undefined ? `&since=${since}` : ''}`,
+      `/games/${encodeURIComponent(gameId)}?${seat(player)}${since !== undefined ? `&since=${since}` : ''}`,
       { signal },
+      token,
     ),
   answer: (gameId: string, player: PlayerId | null, token: string | null | undefined, answer: Answer) =>
-    request<GameView>(`/games/${encodeURIComponent(gameId)}/answer?${seat(player, token)}`, {
-      method: 'POST',
-      body: JSON.stringify(answer),
-    }),
+    request<GameView>(
+      `/games/${encodeURIComponent(gameId)}/answer?${seat(player)}`,
+      { method: 'POST', body: JSON.stringify(answer) },
+      token,
+    ),
   /** Joins the matchmaking queue */
   matchmake: (name: string, deck: string) =>
     request<MatchTicket>('/matchmaking', { method: 'POST', body: JSON.stringify({ name, deck }) }),

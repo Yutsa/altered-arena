@@ -102,7 +102,7 @@ export function Lobby({ onJoin }: { onJoin: (gameId: string, player: PlayerId, t
   );
 
   const link = (gameId: string, p: PlayerId, token?: string) =>
-    `${location.origin}${location.pathname}?game=${encodeURIComponent(gameId)}&player=${p}${token ? `&token=${encodeURIComponent(token)}` : ''}`;
+    `${location.origin}${location.pathname}?game=${encodeURIComponent(gameId)}&player=${p}${token ? `#token=${encodeURIComponent(token)}` : ''}`;
   const selectedDeck = decks?.find((d) => d.id === deck);
 
   return (

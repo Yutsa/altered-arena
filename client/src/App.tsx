@@ -10,9 +10,13 @@ const ReplayScreen = import.meta.env.DEV ? lazy(() => import('./dev/ReplayScreen
 
 type Route = { name: 'lobby' } | { name: 'game'; gameId: string; player: PlayerId | null; token: string | null } | { name: 'replay' };
 
-/** URL of a seat: ?game=ID&player=PID&token=T (the token is the seat's secret; without it the view is a spectator view) */
+/**
+ * URL of a seat: ?game=ID&player=PID. Its secret token stays on this device (localStorage); share
+ * links carry it in the fragment (#token=T), which browsers never send to the server.
+ */
 export function gameSearch(gameId: string, player: PlayerId, token?: string | null): string {
-  return `?game=${encodeURIComponent(gameId)}&player=${player}${token ? `&token=${encodeURIComponent(token)}` : ''}`;
+  saveToken(gameId, player, token);
+  return `?game=${encodeURIComponent(gameId)}&player=${player}`;
 }
 
 function parse(): Route {
@@ -20,8 +24,13 @@ function parse(): Route {
   const game = q.get('game');
   const player = Number(q.get('player'));
   if (game && player) {
-    const token = q.get('token') ?? tokenOf(game, player);
-    saveToken(game, player, token);
+    const fromLink = new URLSearchParams(location.hash.slice(1)).get('token') ?? q.get('token');
+    if (fromLink) {
+      saveToken(game, player, fromLink);
+      // Keep the secret out of the address bar and history
+      history.replaceState(history.state, '', `${location.pathname}?game=${encodeURIComponent(game)}&player=${player}`);
+    }
+    const token = tokenOf(game, player);
     return { name: 'game', gameId: game, player, token };
   }
   if (game) return { name: 'game', gameId: game, player: null, token: null }; // spectator
