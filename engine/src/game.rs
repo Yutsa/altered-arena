@@ -60,6 +60,9 @@ pub struct Event {
     pub discard: bool,
     /// Discarded for its support ability
     pub support: bool,
+    /// Only the cards in `listeners` react (a card leaving a zone)
+    #[serde(default)]
+    pub only_listeners: bool,
     /// MoveExpedition: the expedition that moved
     #[serde(default)]
     pub side: Option<Side>,
@@ -218,6 +221,8 @@ pub enum Task {
     SpellCleanup { card: CardId },
     /// A play from hand/reserve finished resolving (ends the turn unless it was a bonus play)
     PlayDone { turn_play: bool },
+    /// The rest of a sequence after a Rush (ChooseAssignment): only if a card was played
+    IfBonusPlayed { node: Value, ctx: Ctx },
     /// Triggered abilities waiting to resolve: the player picks the order
     /// (abilities, whether independent ones resolve first without asking)
     Reactions(Vec<(Value, Ctx)>, bool),
@@ -236,6 +241,9 @@ pub struct Modifiers {
     pub next_token_anchored: [bool; 2],
     /// The active player played a card this turn (ends the turn)
     pub played: bool,
+    /// A card was played through an effect (Rush...) since the effect asked for it
+    #[serde(default)]
+    pub bonus_played: bool,
     /// State of the special effects (global Tough, after-Rest effects, next-card modifiers...)
     #[serde(default)]
     pub special: crate::special::SpecialMods,
@@ -261,6 +269,9 @@ pub struct Game {
     pub log: Vec<LogLine>,
     pub seq: u64,
     pub next_decision: u64,
+    /// Reactions to cards leaving during the Rest, resolved at the end of the Night
+    #[serde(default)]
+    pub after_night: Vec<(Value, Ctx)>,
     /// First-day mana choices, applied once both players have chosen
     #[serde(default)]
     pub setup_mana: [Option<Vec<CardId>>; 2],
@@ -341,6 +352,7 @@ impl Game {
             log: vec![],
             seq: 0,
             next_decision: 0,
+            after_night: vec![],
             setup_mana: [None, None],
             unsupported: vec![],
             undo_point: None,
@@ -566,9 +578,36 @@ impl Game {
     // ------------------------------------------------------------------
 
     /// Queues the reactions of every listening card to `event`
+    /// A card left a zone: the card itself reacts to "Leave<Zone>", every other card to
+    /// "OtherLeave<Zone>" (Card::checkLeaveListener). At night, the reactions wait for the end of
+    /// the Night (AfterNightCleanup in the original engine).
+    pub fn emit_leave(&mut self, mut ev: Event, night: bool) {
+        let from = ev.from.unwrap_or(Zone::Gone);
+        let kind = if from.is_expedition() {
+            "LeaveExpedition"
+        } else if from == Zone::Landmark {
+            "LeaveLandmark"
+        } else {
+            "LeaveOther"
+        };
+        if let Some(c) = ev.card {
+            ev.seat = self.card(c).controller;
+        }
+        let before = self.reactions.len();
+        self.emit(Event { trigger: kind.into(), only_listeners: true, ..ev.clone() });
+        self.emit(Event { trigger: format!("Other{}", kind), listeners: vec![], only_listeners: false, ..ev });
+        if night {
+            let fired: Vec<(Value, Ctx)> = self.reactions.drain(before..).collect();
+            self.after_night.extend(fired);
+        }
+    }
+
     pub fn emit(&mut self, event: Event) {
         let mut listeners: Vec<CardId> = vec![];
         for seat in self.turn_order() {
+            if event.only_listeners {
+                break;
+            }
             let p = &self.players[seat];
             if let Some(h) = p.hero {
                 listeners.push(h);
@@ -638,6 +677,11 @@ impl Game {
                 Task::Run { node, ctx } => crate::flow::run_node(self, &node, ctx),
                 Task::SpellCleanup { card } => self.spell_cleanup(card),
                 Task::Reactions(list, auto) => self.order_reactions(list, auto),
+                Task::IfBonusPlayed { node, ctx } => {
+                    if self.mods.bonus_played {
+                        crate::flow::run_node(self, &node, ctx);
+                    }
+                }
                 Task::PlayDone { turn_play } => {
                     if turn_play {
                         self.mods.played = true;
@@ -817,6 +861,12 @@ impl Game {
                     // Effects delayed "after Rest" (AfterRestSabotage...)
                     let delayed = std::mem::take(&mut self.mods.special.after_rest[seat]);
                     self.reactions.extend(delayed);
+                }
+                if phase == TriggerPhase::EndOfNight {
+                    // Reactions to cards that left during the Rest
+                    let (mine, others): (Vec<_>, Vec<_>) = std::mem::take(&mut self.after_night).into_iter().partition(|(_, c)| c.seat == seat);
+                    self.after_night = others;
+                    self.reactions.extend(mine);
                 }
                 // Several abilities on the same phase: the player orders them all (noIndependent)
                 let fired: Vec<(Value, Ctx)> = self.reactions.drain(before..).collect();
@@ -1108,7 +1158,8 @@ impl Game {
             } else {
                 self.move_card(id, Zone::Reserve, None);
             }
-            self.emit(Event { trigger: "LeaveExpedition".into(), seat, card: Some(id), from: Some(from), to: Some(self.card(id).zone), listeners: vec![id], fleeting, ascended, boosts: Some(boosts), ..Default::default() });
+            let to = self.card(id).zone;
+            self.emit_leave(Event { seat, card: Some(id), from: Some(from), to: Some(to), listeners: vec![id], fleeting, ascended, boosts: Some(boosts), ..Default::default() }, true);
         }
     }
 

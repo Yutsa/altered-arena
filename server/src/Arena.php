@@ -426,7 +426,7 @@ class Arena
         $zone = match (true) {
           str_starts_with($loc, 'deck-') => 'deck',
           str_starts_with($loc, 'board-hero') => 'hero',
-          str_starts_with($loc, 'reveal-') => 'hand', // revealed cards stay in their owner's hand
+          str_starts_with($loc, 'reveal-') => 'reveal', // revealed (from hand or deck): not compared
           $loc == 'stormLeft' => 'heroExpedition',
           $loc == 'stormRight' => 'companionExpedition',
           default => $loc,

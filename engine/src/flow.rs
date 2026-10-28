@@ -97,7 +97,17 @@ pub fn run_node(g: &mut Game, node: &Value, ctx: Ctx) {
                 });
             }
             _ => {
-                for c in childs.iter().rev() {
+                // Rush: what follows "play a card" in a sequence happens only if a card was played
+                let rush = childs.iter().position(|c| c.get("action").and_then(Value::as_str) == Some("ChooseAssignment"));
+                let (now, after) = match rush {
+                    Some(k) if kind == "seq" && k + 1 < childs.len() => (&childs[..=k], Some(&childs[k + 1..])),
+                    _ => (&childs[..], None),
+                };
+                if let Some(after) = after {
+                    let rest = serde_json::json!({"type": "seq", "childs": after});
+                    g.stack.push(Task::IfBonusPlayed { node: rest, ctx: ctx.clone() });
+                }
+                for c in now.iter().rev() {
                     g.stack.push(Task::Run { node: c.clone(), ctx: ctx.clone() });
                 }
             }
@@ -218,7 +228,10 @@ pub fn describe(g: &Game, node: &Value, ctx: &Ctx) -> String {
         "DrawMana" => "Put the top card of your deck in Mana".into(),
         "AfterYou" => "Pass to your opponent (After You)".into(),
         "Exchange" => "Exchange a card of your hand with your Reserve".into(),
-        "CheckCondition" => a.get("effect").map(|e| describe(g, e, ctx)).unwrap_or_default(),
+        "CheckCondition" => match a.get("description").and_then(Value::as_str) {
+            Some(d) => d.to_string(),
+            None => a.get("effect").map(|e| describe(g, e, ctx)).unwrap_or_default(),
+        },
         "SpecialEffect" => a.get("effect").and_then(Value::as_str).map(humanize).unwrap_or_default(),
         other => humanize(other),
     }

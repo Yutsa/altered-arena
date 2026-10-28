@@ -32,7 +32,9 @@ pub fn card_arg(g: &Game, a: &Map<String, Value>, ctx: &Ctx) -> Option<CardId> {
         None | Some(Value::Null) => ctx.target.or(event_card),
         Some(Value::String(x)) => match x.as_str() {
             "me" | "source" => ctx.source,
-            "EFFECT" | "effect" | "event" => event_card.or(ctx.target),
+            // Inside a Target's effect, the original engine rewrites EFFECT to the chosen card
+            "EFFECT" | "effect" => ctx.target.or(event_card),
+            "event" => event_card.or(ctx.target),
             "Target" => ctx.target,
             _ => x.parse().ok(),
         },
@@ -58,7 +60,8 @@ fn players_arg(ctx: &Ctx, v: Option<&str>) -> Vec<Seat> {
 pub fn is_doable(g: &Game, action: &str, a: &Map<String, Value>, ctx: &Ctx) -> bool {
     match action {
         "Pay" | "AfterYou" => g.mana_available(ctx.seat) >= i(a, "pay", 0),
-        "Target" | "DiscardDo" => !target_candidates(g, a, ctx).is_empty(),
+        // "Up to" targets can always be chosen (possibly none)
+        "Target" | "DiscardDo" => b(a, "upTo") || !target_candidates(g, a, ctx).is_empty(),
         "Tap" => (if a.contains_key("cardId") { card_arg(g, a, ctx) } else { ctx.source }).map(|c| !g.card(c).exhausted).unwrap_or(false),
         "Discard" => {
             if let Some(src) = s(a, "source").filter(|x| !x.is_empty()) {
@@ -70,7 +73,11 @@ pub fn is_doable(g: &Game, action: &str, a: &Map<String, Value>, ctx: &Ctx) -> b
         "Spend" => card_arg(g, a, ctx).map(|c| g.card(c).boosts + g.card(c).counter >= i(a, "n", 1)).unwrap_or(false),
         "Exchange" => !g.players[ctx.seat].hand.is_empty() && !g.players[ctx.seat].reserve.is_empty(),
         "ChooseAssignment" => true,
-        "CheckCondition" => true,
+        // Doable when its condition holds or it has an effect for the opposite case
+        "CheckCondition" => {
+            crate::conditions::check_condition_action(g, a, ctx)
+                || a.get("oppositeEffect").map(|o| !o.is_null() && o.as_str() != Some("OPPOSITE")).unwrap_or(false)
+        }
         _ => true,
     }
 }
@@ -139,7 +146,15 @@ pub fn run(g: &mut Game, action: &str, a: &Map<String, Value>, node: &Value, ctx
         }
         "TargetPlayer" => {
             let effect = a.get("effect").cloned();
-            let options: Vec<Seat> = if b(a, "opponentsOnly") { vec![Game::other(ctx.seat)] } else { vec![ctx.seat, Game::other(ctx.seat)] };
+            // opponentsOnly defaults to true in the original engine
+            let opponents_only = a.get("opponentsOnly").and_then(Value::as_bool).unwrap_or(true);
+            let options: Vec<Seat> = if b(a, "onlyMe") {
+                vec![ctx.seat]
+            } else if opponents_only {
+                vec![Game::other(ctx.seat)]
+            } else {
+                vec![ctx.seat, Game::other(ctx.seat)]
+            };
             if options.len() == 1 {
                 if let Some(e) = effect {
                     let mut c = ctx.clone();
@@ -203,7 +218,10 @@ pub fn run(g: &mut Game, action: &str, a: &Map<String, Value>, node: &Value, ctx
                 .or_else(|| ctx.source.and_then(|c| g.card(c).zone.side()));
             match side {
                 Some(side) => {
-                    g.move_expedition(seat, side, n);
+                    // "If it does, your other Expedition moves the other way" (Cable Car Station)
+                    if g.move_expedition(seat, side, n) && b(a, "moveOtherExpedition") {
+                        g.move_expedition(seat, side.other(), -n);
+                    }
                 }
                 None => {
                     let options = vec![(seat, Side::Hero), (seat, Side::Companion)];
@@ -259,6 +277,7 @@ pub fn run(g: &mut Game, action: &str, a: &Map<String, Value>, node: &Value, ctx
                 max_base_cost: a.get("maxBaseCost").and_then(Value::as_i64).map(|v| v as i32),
                 mandatory: b(a, "mandatory"),
             };
+            g.mods.bonus_played = false;
             g.ask_turn(ctx.seat, Some(bonus));
         }
         "PlayCard" => {
@@ -664,12 +683,7 @@ pub fn move_with_events(g: &mut Game, c: CardId, to: Zone, sacrifice: bool, exha
         ..Default::default()
     };
     g.emit(ev.clone());
-    let leave = Event { fleeting, boosts: Some(boosts), ascended, ..ev };
-    if from.is_expedition() {
-        g.emit(Event { trigger: "LeaveExpedition".into(), ..leave });
-    } else if from == Zone::Landmark {
-        g.emit(Event { trigger: "LeaveLandmark".into(), ..leave });
-    }
+    g.emit_leave(Event { fleeting, boosts: Some(boosts), ascended, ..ev }, false);
 }
 
 fn discard(g: &mut Game, a: &Map<String, Value>, ctx: Ctx) {

@@ -43,7 +43,7 @@ def normalize(state):
     zones = {}
     for c in state['cards']:
         z = c['zone']
-        if z not in ZONES_COMPARED:
+        if z not in ZONES_COMPARED or c['id'] in state.get('_ignore', ()):
             continue
         key = (c['owner'], z)
         exhausted = c['exhausted'] if z not in ('deck', 'hand', 'discard') else False
@@ -66,6 +66,9 @@ def normalize(state):
 
 
 def diff(php, rust):
+    # Cards the original engine holds as "revealed" (no equivalent zone in Rust) are not compared
+    revealed = {c['id'] for c in php['cards'] if c['zone'] == 'reveal'}
+    php['_ignore'] = rust['_ignore'] = revealed
     (pz, pp), (rz, rp) = normalize(php), normalize(rust)
     problems = []
     if pp != rp:
@@ -129,7 +132,9 @@ def translate(ans, pd, rd):
         src = next((c.get('sourceCardId') for c in pd['choices'] if c['id'] == ans['id']), None)
         same = [c for c in rd.get('choices', []) if src is not None and c.get('sourceCardId') == src]
         if same:
-            words = lambda t: set(w.strip('[](),.:').lower() for w in t.replace('put it in', 'send to').split()) - {'to', 'a', 'the', 'of', 'card(s)', '1', 'target', 'up'}
+            import re
+            syn = {'give': 'gain', 'put': 'send', 'inc': 'gain', 'counter': 'counter'}
+            words = lambda t: {syn.get(w, w) for w in re.findall(r'[a-z]+', t.lower())} - {'to', 'a', 'the', 'of', 'card', 's', 'up', 'it', 'in', 'choose', 'then'}
             pw = words(label)
             same.sort(key=lambda c: -len(pw & words(c['label'])))
             out['id'] = same[0]['id']
@@ -169,9 +174,22 @@ def play_game(n, decks):
         if w:
             d = call(opt.php, 'GET', f'/api/v1/games/{pid}?player={w[0]}').get('decision') or {}
             opts = [c for c in d.get('choices', []) if c['enabled']]
-            if d.get('kind') == 'choice' and len(opts) == 1 and opts[0]['id'] != 99:
-                call(opt.php, 'POST', f'/api/v1/games/{pid}/answer?player={w[0]}', {'decisionId': d['id'], 'type': 'choice', 'id': opts[0]['id']})
+            # "Confirm the switch of player": a BGA UI step
+            if d.get('kind') == 'confirm':
+                call(opt.php, 'POST', f'/api/v1/games/{pid}/answer?player={w[0]}', {'decisionId': d['id'], 'type': 'confirm'})
                 continue
+            # Ordering identical abilities (The Hunger's boosts): any order gives the same result
+            labels = {c['label'] for c in opts}
+            if d.get('kind') == 'choice' and len(opts) > 1 and len(labels) == 1 and opts[0]['id'] != 99:
+                rdec = call(opt.rust, 'GET', f'/api/v1/games/{rid}?{rq(w[0])}').get('decision')
+                if not rdec or rdec['kind'] != 'choice':
+                    call(opt.php, 'POST', f'/api/v1/games/{pid}/answer?player={w[0]}', {'decisionId': d['id'], 'type': 'choice', 'id': opts[0]['id']})
+                    continue
+            if d.get('kind') == 'choice' and len(opts) == 1 and opts[0]['id'] != 99:
+                rdec = call(opt.rust, 'GET', f'/api/v1/games/{rid}?{rq(w[0])}').get('decision')
+                if not rdec or rdec['kind'] != 'choice':
+                    call(opt.php, 'POST', f'/api/v1/games/{pid}/answer?player={w[0]}', {'decisionId': d['id'], 'type': 'choice', 'id': opts[0]['id']})
+                    continue
             # PHP asks about effects that can't do anything (no valid target...), with Pass; Rust skips them
             if d.get('kind') == 'choice' and any(c['id'] == 99 for c in d['choices']):
                 rdec = call(opt.rust, 'GET', f'/api/v1/games/{rid}?{rq(w[0])}').get('decision')
@@ -181,13 +199,17 @@ def play_game(n, decks):
         ps = call(opt.php, 'GET', f'/api/oracle/games/{pid}/state')
         rs = call(opt.rust, 'GET', f'/api/debug/games/{rid}/state')
         problems = diff(ps, rs)
+        if problems and any('rolls a' in l['text'] for l in call(opt.rust, 'GET', f'/api/v1/games/{rid}').get('log', [])[-6:]):
+            return 'INCONCLUSIVE: a die was rolled (random in both engines)', step
         if problems:
             pend = call(opt.php, 'GET', f'/api/v1/games/{pid}?player={(call(opt.php, "GET", f"/api/v1/games/{pid}?player=2001").get("waitingFor") or [2001])[0]}').get('decision') or {}
             problems.append(f'php now asks: {pend.get("kind")} "{pend.get("prompt", "")}" {[c["label"] for c in pend.get("choices", [])]}')
             rw = call(opt.rust, 'GET', f'/api/v1/games/{rid}?{rq(2001)}').get('waitingFor') or [2001]
             rpend = call(opt.rust, 'GET', f'/api/v1/games/{rid}?{rq(rw[0])}').get('decision') or {}
             problems.append(f'rust now asks {rw}: {rpend.get("kind")} "{rpend.get("prompt", "")}" {[c["label"] for c in rpend.get("choices", [])]}')
-            return 'state differs after ' + (history[-1] if history else 'setup') + ':\n      ' + '\n      '.join(problems[:6]), step
+            asks = problems[-2:]
+            tail = '\n      '.join('  ' + h for h in history[-4:-1])
+            return 'state differs after ' + (history[-1] if history else 'setup') + ':\n      ' + '\n      '.join(asks + problems[:-2][:6]) + ('\n      earlier:\n      ' + tail if tail else ''), step
         pv = call(opt.php, 'GET', f'/api/v1/games/{pid}?player=2001')
         if pv.get('phase') == 'ended':
             rv = call(opt.rust, 'GET', f'/api/v1/games/{rid}?{rq(2001)}')
@@ -231,6 +253,11 @@ def play_game(n, decks):
             rp = sorted((p['cardId'], tuple(sorted(p['destinations']))) for p in rd['play'])
             if pp != rp:
                 return f'playable cards differ: php {pp} / rust {rp}', step
+        if pd['kind'] == 'choice' and rd['kind'] == 'choice':
+            pe = sum(1 for c in pd['choices'] if c['enabled'] and c['id'] != 99)
+            re_ = sum(1 for c in rd['choices'] if c['enabled'] and c['label'] != 'Skip')
+            if pe != re_:
+                return f'enabled choices differ for "{pd["prompt"]}": php {[(c["label"], c["enabled"]) for c in pd["choices"]]} / rust {[(c["label"], c["enabled"]) for c in rd["choices"]]}', step
         if pd['kind'] == 'select' and sorted(pd['cardIds']) != sorted(rd['cardIds']):
             return f'selectable cards differ for "{pd["prompt"]}": php {sorted(pd["cardIds"])} / rust {sorted(rd["cardIds"])}', step
         pres = call(opt.php, 'POST', f'/api/v1/games/{pid}/answer?player={player}', ans)
@@ -253,9 +280,16 @@ def play_game(n, decks):
 
 decks = call(opt.php, 'GET', '/api/v1/decks')
 results = []
+results_steps = []
 for n in range(opt.games):
     problem, steps = play_game(n, decks)
     results.append(problem)
-    print(f'game {n + 1}: {"identical until the end" if problem is None else "DIVERGES"} ({steps} decisions)' + ('' if problem is None else '\n    ' + problem), flush=True)
+    results_steps.append(steps)
+    print(f'game {n + 1}: {"identical until the end" if problem is None else ("inconclusive" if problem.startswith("INCONCLUSIVE") else "DIVERGES")} ({steps} decisions)' + ('' if problem is None else '\n    ' + problem), flush=True)
 same = sum(1 for r in results if r is None)
-print(f'\n{same}/{len(results)} games identical from start to end')
+inconclusive = sum(1 for r in results if r and r.startswith('INCONCLUSIVE'))
+print(f'\n{same}/{len(results)} games identical from start to end, {inconclusive} stopped by a die roll')
+import statistics
+div = [st for r, st in zip(results, results_steps) if r and not r.startswith('INCONCLUSIVE')]
+if div:
+    print(f'decisions before the first difference: median {statistics.median(div)}, mean {statistics.mean(div):.1f}')

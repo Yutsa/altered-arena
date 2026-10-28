@@ -179,6 +179,9 @@ impl Game {
         self.log_line(Some(seat), format!("{} plays [[{}]]{}{} ({} mana)", name, def.name, from_label, where_, cost));
 
         // Resolution: effects, then (spells) cleanup, then the end of the play
+        if bonus.is_some() {
+            self.mods.bonus_played = true;
+        }
         self.stack.push(Task::PlayDone { turn_play: bonus.is_none() });
         if def.card_type == CardType::Spell {
             self.stack.push(Task::SpellCleanup { card: id });
