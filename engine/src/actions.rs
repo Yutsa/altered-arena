@@ -235,6 +235,7 @@ pub fn run(g: &mut Game, action: &str, a: &Map<String, Value>, node: &Value, ctx
             g.forget_undo();
             let name = g.players[ctx.seat].name.clone();
             g.log_line(Some(ctx.seat), format!("{} rolls a {}", name, roll));
+            g.emit(Event { trigger: "RollDie".into(), seat: ctx.seat, n: roll, source: ctx.source, ..Default::default() });
             if let Some(Value::Object(effects)) = a.get("effect") {
                 if let Some(e) = die_effect(effects, roll) {
                     g.stack.push(Task::Run { node: e, ctx });
@@ -595,7 +596,10 @@ fn target(g: &mut Game, a: &Map<String, Value>, ctx: Ctx, optional: bool) {
             min,
             max,
             costs: candidates.into_iter().filter(|(_, t)| *t > 0).collect(),
-            then: SelectThen::Effect { effect },
+            then: SelectThen::Effect {
+                effect,
+                limits: (a.get("totalCost").and_then(Value::as_i64).map(|v| v as i32), a.get("totalMountain").and_then(Value::as_i64).map(|v| v as i32)),
+            },
             picker,
         },
         ctx,
@@ -646,9 +650,10 @@ pub fn move_with_events(g: &mut Game, c: CardId, to: Zone, sacrifice: bool, exha
         _ => "discards",
     };
     g.log_line(Some(seat), format!("{} {} [[{}]]", pname, verb, name));
+    // The event's player is the one doing it (an opponent's card can be sabotaged)
     let ev = Event {
         trigger: "Discard".into(),
-        seat,
+        seat: ctx.seat,
         card: Some(c),
         from: Some(from),
         to: Some(to),

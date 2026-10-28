@@ -123,7 +123,12 @@ pub enum SelectThen {
     /// Mana at setup
     SetupMana,
     /// Run `effect` once per selected card, with the card as target
-    Effect { effect: Option<Value> },
+    Effect {
+        effect: Option<Value>,
+        /// Limits on the selected cards' total hand cost and mountain (totalCost, totalMountain)
+        #[serde(default)]
+        limits: (Option<i32>, Option<i32>),
+    },
     /// Move the cards to a zone (Discard action with a source)
     Move { to: Zone, exhausted: bool, sacrifice: bool },
 }
@@ -671,12 +676,14 @@ impl Game {
                 source: ctx.source,
             })
             .collect();
+        // When every remaining ability is optional, the player may skip them all
+        let all_optional = list.iter().all(|(n, _)| n.get("optional").and_then(Value::as_bool).unwrap_or(false));
         self.ask(Pending {
             id: 0,
             seat: chooser,
             prompt: "Choose which effect to resolve first".into(),
             source: None,
-            can_pass: false,
+            can_pass: all_optional,
             kind: PendingKind::Order { options, reactions: list },
             ctx: Ctx::of(chooser, None),
         });
@@ -982,7 +989,7 @@ impl Game {
             }
         }
         for (seat, side, biomes, from_ascension) in moves {
-            if self.move_expedition(seat, side, 1) {
+            if self.move_expedition_ex(seat, side, 1, false) {
                 if let Some(m) = self.players[seat].records.storm_moves[side.index()].as_mut() {
                     m.biomes = biomes;
                     m.from_ascension = from_ascension;
@@ -999,7 +1006,13 @@ impl Game {
             .any(|&c| self.card(c).def().flag("defender") && !self.card(c).has(Status::Asleep))
     }
 
+    /// Moves an expedition by an effect (cards react to it)
     pub fn move_expedition(&mut self, seat: Seat, side: Side, n: i32) -> bool {
+        self.move_expedition_ex(seat, side, n, true)
+    }
+
+    /// `notify`: false for the Dusk advance, which the original engine doesn't announce to listeners
+    pub fn move_expedition_ex(&mut self, seat: Seat, side: Side, n: i32, notify: bool) -> bool {
         let pos = self.players[seat].position[side.index()];
         let delta = if side == Side::Hero { n } else { -n };
         let new = (pos + delta).clamp(0, 7);
@@ -1020,7 +1033,9 @@ impl Game {
         let name = self.players[seat].name.clone();
         let label = if side == Side::Hero { "hero" } else { "companion" };
         self.log_line(Some(seat), format!("{}'s {} expedition moves {} to region {}", name, label, if n > 0 { "forward" } else { "back" }, new));
-        self.emit(Event { trigger: "MoveExpedition".into(), seat, n, side: Some(side), ascended, ..Default::default() });
+        if notify {
+            self.emit(Event { trigger: "MoveExpedition".into(), seat, n, side: Some(side), ascended, ..Default::default() });
+        }
         true
     }
 

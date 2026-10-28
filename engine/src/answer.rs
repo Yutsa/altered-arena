@@ -4,6 +4,7 @@ use crate::actions::{apply_targets, create_token, move_with_events};
 use crate::game::*;
 use crate::model::*;
 use serde::Deserialize;
+use serde_json::Value;
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(tag = "type", rename_all = "camelCase", rename_all_fields = "camelCase")]
@@ -101,7 +102,11 @@ impl Game {
                 if id >= rest.len() {
                     return err("Unknown choice");
                 }
-                let (node, c) = rest.remove(id);
+                let (mut node, c) = rest.remove(id);
+                // Choosing an optional ability is accepting it
+                if let Value::Object(m) = &mut node {
+                    m.remove("optional");
+                }
                 self.stack.push(Task::Reactions(rest, true));
                 self.stack.push(Task::Run { node, ctx: c });
                 Ok(())
@@ -126,7 +131,18 @@ impl Game {
                             }
                         }
                     }
-                    SelectThen::Effect { effect } => {
+                    SelectThen::Effect { effect, limits } => {
+                        let (mut cost, mut mountain) = (0, 0);
+                        for &c in &ids {
+                            cost += self.card(c).def().cost_hand;
+                            mountain += self.card(c).stats()[1];
+                        }
+                        if limits.0.map(|l| cost > l).unwrap_or(false) {
+                            return err("Total hand cost exceeds the limit of the effect");
+                        }
+                        if limits.1.map(|l| mountain > l).unwrap_or(false) {
+                            return err("Total mountain exceeds the limit of the effect");
+                        }
                         let extra: i32 = ids.iter().map(|c| costs.iter().find(|(x, _)| x == c).map(|(_, t)| *t).unwrap_or(0)).sum();
                         if extra > 0 && !self.pay(seat, extra) {
                             return err("You can't pay the extra cost of Tough");

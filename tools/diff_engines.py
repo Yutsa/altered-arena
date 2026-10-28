@@ -172,6 +172,12 @@ def play_game(n, decks):
             if d.get('kind') == 'choice' and len(opts) == 1 and opts[0]['id'] != 99:
                 call(opt.php, 'POST', f'/api/v1/games/{pid}/answer?player={w[0]}', {'decisionId': d['id'], 'type': 'choice', 'id': opts[0]['id']})
                 continue
+            # PHP asks about effects that can't do anything (no valid target...), with Pass; Rust skips them
+            if d.get('kind') == 'choice' and any(c['id'] == 99 for c in d['choices']):
+                rdec = call(opt.rust, 'GET', f'/api/v1/games/{rid}?{rq(w[0])}').get('decision')
+                if rdec is None or rdec['kind'] == 'turn':
+                    call(opt.php, 'POST', f'/api/v1/games/{pid}/answer?player={w[0]}', {'decisionId': d['id'], 'type': 'choice', 'id': 99})
+                    continue
         ps = call(opt.php, 'GET', f'/api/oracle/games/{pid}/state')
         rs = call(opt.rust, 'GET', f'/api/debug/games/{rid}/state')
         problems = diff(ps, rs)

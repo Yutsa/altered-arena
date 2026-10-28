@@ -1147,7 +1147,7 @@ fn ask_select(g: &mut Game, ctx: Ctx, cards: Vec<CardId>, min: usize, max: usize
         prompt: format!("{}{}", source_prefix(g, src), prompt),
         source: src,
         can_pass: min == 0,
-        kind: PendingKind::Select { cards, min, max, costs: vec![], then: SelectThen::Effect { effect: Some(effect) }, picker },
+        kind: PendingKind::Select { cards, min, max, costs: vec![], then: SelectThen::Effect { effect: Some(effect), limits: (None, None) }, picker },
         ctx,
     });
 }
