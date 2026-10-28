@@ -21,25 +21,45 @@
 
 - **Custom decks and Uniques** (the original builds Unique effects from "trinity" codes at runtime,
   `FlowConvertor`): only starter decks can be chosen.
-- **Exact parity with the BGA engine.** Measured with `tools/diff_engines.py` (both engines from
-  the same position, same random decisions, full state compared after each decision), on 20 games
-  (~70 decisions each):
+- **Exact parity with the BGA engine** is not reached yet, but it is now measured and improving.
+  `tools/diff_engines.py` starts both engines from the same position, plays the same random
+  decisions in both, and compares the full state after each one. Results on 30 games of 50–140
+  decisions:
 
-  | | |
+  | | First version | Now |
+  | --- | --- | --- |
+  | Games identical from start to end | 1 / 20 | 4 to 8 / 30 (varies between samples) |
+  | First difference (diverging games), median | 12 decisions | 44 decisions |
+  | First difference (diverging games), mean | 21 decisions | 44 decisions |
+
+  Games where a die is rolled stop counting at the roll: the dice are random in both engines.
+
+  First differences in the last run (21 diverging games):
+
+  | Category | Games |
   | --- | --- |
-  | Games identical from start to end | 1 / 20 |
-  | Decisions before the first difference | median 12, mean 21 |
+  | a card's effect gives a different result (zones, boosts, statuses) | 10 |
+  | an answer the BGA engine accepts is refused | 3 |
+  | one engine asks something the other doesn't | 2 |
+  | different playable cards | 2 |
+  | different Dusk movement | 2 |
+  | different targets offered | 1 |
+  | choice options enabled differently | 1 |
 
-  The first difference of a game is rarely a broken rule in general. It is usually one card's
-  effect, or the order of simultaneous triggered abilities. Recent examples:
-  - when a Muna hero's "immediate" ability resolves;
-  - a Reserve ∞ ability that should trigger and doesn't;
-  - the original engine asks to confirm an effect that does nothing, where Rust skips it.
+  The tool reports the first difference of each game with the BGA engine's log at that point. It
+  also saves a trace (`traces/game-N.json`) that
+  `cargo run --release --example replay_trace traces/game-N.json` replays step by step in the Rust
+  engine with its full log.
 
-  Each run of the tool lists the first difference of every game with its context. Fixing those one
-  by one is the way forward; this session started at 0/8 games past the first 3 decisions.
-- Region markers (Nadir & Bubbles), and the original engine's Fen & Crowbar edge cases when the deck
-  is almost empty.
+  The tool tolerates differences that are only about how the BGA client asks:
+  - confirmations ("switch of player", "card is seen");
+  - single-option prompts, and choices of an effect that would do nothing;
+  - the order of several simultaneous abilities that Rust resolves on its own.
+
+  Use `--strict-order` to report ordering differences too.
+- Not implemented: `BoostExchange` and `Gain` with a computed amount (met in ~5 % of self-play
+  games), card biome modifiers (`updateExpeditions`), "behind" Defender exceptions, and Fen &
+  Crowbar's choices when the deck is almost empty.
 - The bot is simple (greedy on statistics, random elsewhere).
 - No accounts: seats are protected by per-seat tokens only.
 
