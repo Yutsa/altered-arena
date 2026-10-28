@@ -1,0 +1,340 @@
+/**
+ * Altered Arena client/server protocol, version 1.
+ *
+ * The server is authoritative. A client fetches a GameView (everything it may see, plus the
+ * decision it must take, if any) and answers decisions with an Answer. Both game servers produce
+ * this protocol: the Rust server (production) and the PHP oracle (the original BGA engine, used to
+ * check that the new engine plays by the same rules).
+ *
+ * HTTP API (JSON):
+ *   GET  /api/v1/cards                       -> CardCatalog (static data of every card)
+ *   GET  /api/v1/decks                       -> DeckSummary[] (starter decks)
+ *   POST /api/v1/games       NewGame         -> GameCreated
+ *   GET  /api/v1/games/{id}?player=P[&since=seq] -> GameView (with since: waits up to 20 s for a newer seq)
+ *   POST /api/v1/games/{id}/answer?player=P  Answer -> GameView | ErrorResponse
+ * Card art: /assets/cards/{faction}/{asset}.jpg (asset from the catalog).
+ */
+
+export type PlayerId = number;
+export type Biome = 'forest' | 'mountain' | 'ocean';
+export type Side = 'hero' | 'companion';
+
+/** Where a card is. Expeditions are the two lines of characters a player sends into the Tumult. */
+export type Zone =
+  | 'hero' // the player's Hero card
+  | 'hand'
+  | 'deck'
+  | 'reserve'
+  | 'landmark'
+  | 'heroExpedition'
+  | 'companionExpedition'
+  | 'discard'
+  | 'mana'
+  | 'limbo'; // a spell being cast, or a card being moved
+
+export type Phase = 'setup' | 'morning' | 'noon' | 'afternoon' | 'dusk' | 'night' | 'tiebreaker' | 'ended';
+
+// ---------------------------------------------------------------------------
+// Static card data
+// ---------------------------------------------------------------------------
+
+export type CardType = 'hero' | 'character' | 'spell' | 'permanent' | 'token';
+export type Faction = 'AX' | 'BR' | 'LY' | 'MU' | 'OD' | 'YZ' | 'NE'; // OD = Ordis
+
+export interface CardDef {
+  ref: string; // engine class name, e.g. "AX_Common_AbySapCourier"
+  name: string;
+  type: CardType;
+  typeline: string; // "Character - Engineer Messenger"
+  subtypes: string[];
+  faction: Faction;
+  rarity: 'common' | 'rare' | 'unique' | 'exalted';
+  asset: string; // art file name, without extension
+  costHand?: number;
+  costReserve?: number;
+  forest?: number;
+  mountain?: number;
+  ocean?: number;
+  /** Rules text. Markup: {J} played, {R} reserve, {H} hand, {T} exhaust, {D} discard, {1} mana cost,
+   * [[keyword]] or <KEYWORD> keywords, #...# delimits a reminder. Clients render it as they like. */
+  effect: string;
+  support?: string; // text of the support ability (in Reserve)
+  flavor?: string;
+  artist?: string;
+  keywords: string[]; // 'fleeting', 'anchored', 'asleep', 'gigantic', 'tough', 'defender', 'eternal', 'seasoned', 'scout'...
+  reserveSlots?: number; // heroes
+  landmarkSlots?: number; // heroes
+}
+
+export type CardCatalog = Record<string, CardDef>;
+
+export interface DeckSummary {
+  id: string; // e.g. "ax_1_sierra"
+  name: string; // hero name
+  faction: Faction;
+  heroRef: string;
+  size: number;
+}
+
+// ---------------------------------------------------------------------------
+// Game state as seen by one player
+// ---------------------------------------------------------------------------
+
+export interface CardView {
+  id: number;
+  ref: string | null; // null when face down (opponent's mana...)
+  owner: PlayerId;
+  /** Player who controls it, when not the owner */
+  controller?: PlayerId;
+  zone: Zone;
+  /** Order in its zone (left to right) */
+  position: number;
+  exhausted: boolean;
+  /** Current statistics, boosts included (characters) */
+  stats?: Record<Biome, number>;
+  /** Current costs, reductions included (cards that can be played) */
+  costHand?: number;
+  costReserve?: number;
+  boosts: number;
+  /** Other counters on the card, by name */
+  counters: Record<string, number>;
+  /** Status keywords currently applying: fleeting, anchored, asleep, tough, defender, gigantic... */
+  statuses: string[];
+  /** Token cards are created by effects and disappear when they leave play */
+  token?: boolean;
+}
+
+export interface ExpeditionView {
+  /** Region index (0..7) on the Tumult track: hero expeditions start at 0 and go up, companion ones start at 7 and go down */
+  position: number;
+  stats: Record<Biome, number>;
+  blocked: boolean;
+}
+
+export interface PlayerView {
+  id: PlayerId;
+  name: string;
+  bot: boolean;
+  faction: Faction | null;
+  heroCardId: number | null;
+  handCount: number;
+  deckCount: number;
+  discardCount: number;
+  manaTotal: number;
+  manaAvailable: number;
+  passed: boolean;
+  reserveSlots: number;
+  landmarkSlots: number;
+  expeditions: Record<Side, ExpeditionView>;
+}
+
+export interface RegionView {
+  index: number; // 0..7
+  /** Biomes of the region; null while the Tumult card is face down */
+  biomes: Biome[] | null;
+  kind: 'heroRegion' | 'tumult' | 'companionRegion';
+}
+
+export interface LogEntry {
+  seq: number;
+  text: string; // plain text with card names in [[double brackets]]
+  player?: PlayerId;
+}
+
+export interface GameView {
+  gameId: string;
+  you: PlayerId | null; // null for a spectator
+  /** Increases with every change of the game */
+  seq: number;
+  day: number;
+  phase: Phase;
+  firstPlayer: PlayerId | null;
+  activePlayer: PlayerId | null;
+  winner: PlayerId | null;
+  players: PlayerView[]; // seat order
+  /** Every card the viewer may see (opponent's hand and decks are only counts) */
+  cards: CardView[];
+  regions: RegionView[];
+  decision: Decision | null; // what `you` must decide now
+  waitingFor: PlayerId[]; // players who must decide
+  log: LogEntry[]; // most recent entries (up to 100)
+}
+
+// ---------------------------------------------------------------------------
+// Decisions and answers
+// ---------------------------------------------------------------------------
+
+export type Destination =
+  | 'heroExpedition'
+  | 'companionExpedition'
+  | 'landmark'
+  | 'reserve'
+  | 'spell' // cast a spell
+  | 'heroExpeditionScout'
+  | 'companionExpeditionScout';
+
+export interface PlayOption {
+  cardId: number;
+  destinations: Destination[];
+  /** Mana it costs (for display) */
+  cost?: number;
+}
+
+export interface ChoiceOption {
+  id: number;
+  label: string;
+  enabled: boolean;
+  sourceCardId?: number;
+}
+
+export interface ExpeditionOption {
+  key: string; // opaque, send back as is
+  player: PlayerId;
+  side: Side;
+}
+
+export interface LocationOption {
+  key: string; // opaque
+  label: string;
+  player?: PlayerId;
+  zone?: Zone;
+}
+
+interface DecisionBase {
+  /** Send it back in the answer: answers to a stale decision are refused */
+  id: string;
+  prompt: string;
+  sourceCardId?: number;
+  /** An optional step: the player may skip it */
+  canPass?: boolean;
+  passLabel?: string;
+  /** Undo the choices made since the last irreversible step */
+  canUndo?: boolean;
+}
+
+/** The Afternoon action: play a card (drag it to a destination), use a support or exhaust ability, or pass */
+export interface TurnDecision extends DecisionBase {
+  kind: 'turn';
+  play: PlayOption[];
+  support: number[]; // reserve cards whose support ability can be used
+  tap: number[]; // cards whose {T} ability can be used
+  canEndTurn: boolean; // "pass" for the rest of the Afternoon
+}
+
+/** Pick cards (mana at setup, targets, discards...) */
+export interface SelectDecision extends DecisionBase {
+  kind: 'select';
+  cardIds: number[];
+  min: number;
+  max: number;
+  /** Optional per-card extra cost shown on the card (e.g. Tough) */
+  costs?: Record<number, number>;
+  /** Cards not on the board (mana, deck, discard...) are shown in a picker */
+  showInPicker?: boolean;
+}
+
+export interface ChoiceDecision extends DecisionBase {
+  kind: 'choice';
+  choices: ChoiceOption[];
+}
+
+export interface ConfirmDecision extends DecisionBase {
+  kind: 'confirm'; // end of turn: confirm (or undo)
+}
+
+export interface ExpeditionDecision extends DecisionBase {
+  kind: 'expedition';
+  expeditions: ExpeditionOption[];
+  min: number;
+  max: number;
+}
+
+export interface PlayerDecision extends DecisionBase {
+  kind: 'player';
+  players: PlayerId[];
+}
+
+export interface NumberDecision extends DecisionBase {
+  kind: 'number';
+  values: number[];
+}
+
+export interface LocationDecision extends DecisionBase {
+  kind: 'location';
+  locations: LocationOption[];
+}
+
+/** Swap a hand card with a reserve card */
+export interface ExchangeDecision extends DecisionBase {
+  kind: 'exchange';
+  hand: number[];
+  reserve: number[];
+}
+
+/** Night: discard cards in excess of the Reserve and Landmark limits */
+export interface CleanupDecision extends DecisionBase {
+  kind: 'cleanup';
+  reserve: { cardIds: number[]; n: number };
+  landmarks: { cardIds: number[]; n: number };
+}
+
+export interface DeckDecision extends DecisionBase {
+  kind: 'deck';
+  decks: DeckSummary[];
+}
+
+/** A decision the client cannot render natively: plain buttons */
+export interface ButtonsDecision extends DecisionBase {
+  kind: 'buttons';
+  buttons: { key: string; label: string }[];
+}
+
+export type Decision =
+  | TurnDecision
+  | SelectDecision
+  | ChoiceDecision
+  | ConfirmDecision
+  | ExpeditionDecision
+  | PlayerDecision
+  | NumberDecision
+  | LocationDecision
+  | ExchangeDecision
+  | CleanupDecision
+  | DeckDecision
+  | ButtonsDecision;
+
+export type Answer = { decisionId: string } & (
+  | { type: 'play'; cardId: number; destination: Destination }
+  | { type: 'support'; cardId: number }
+  | { type: 'tap'; cardId: number }
+  | { type: 'endTurn' }
+  | { type: 'select'; cardIds: number[] }
+  | { type: 'choice'; id: number }
+  | { type: 'confirm' }
+  | { type: 'expedition'; keys: string[] }
+  | { type: 'player'; player: PlayerId }
+  | { type: 'number'; value: number }
+  | { type: 'location'; key: string }
+  | { type: 'exchange'; hand: number; reserve: number }
+  | { type: 'cleanup'; reserve: number[]; landmarks: number[] }
+  | { type: 'deck'; deck: string }
+  | { type: 'button'; key: string }
+  | { type: 'pass' } // skip an optional step
+  | { type: 'undo' }
+);
+
+export interface NewGame {
+  players: { name: string; bot?: boolean; deck?: string }[]; // deck: DeckSummary id, else chosen in game
+  seed?: number;
+}
+
+export interface GameCreated {
+  gameId: string;
+  players: { id: PlayerId; name: string; bot: boolean }[];
+}
+
+export interface ErrorResponse {
+  error: string;
+  /** true when the move is illegal (the player can retry), false for server errors */
+  user?: boolean;
+}

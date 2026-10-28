@@ -1,0 +1,30 @@
+# Altered Arena: game server (unchanged AlteredBGA engine + JSON API) and its database.
+# GAME_DIR points to the AlteredBGA checkout whose rules are served (default: ../AlteredBGA).
+services:
+  db:
+    image: mariadb:10.6
+    environment:
+      MARIADB_ROOT_PASSWORD: root
+    volumes:
+      - arena-db:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect"]
+      interval: 2s
+      retries: 30
+  server:
+    build: ./server
+    depends_on:
+      db: { condition: service_healthy }
+    environment:
+      DB_HOST: db
+      GAME_DIR: /game
+      CLIENT_DIR: /client
+    ports:
+      - "${ARENA_PORT:-8080}:8080"
+    volumes:
+      - ./server:/server
+      - ./protocol:/protocol:ro
+      - ${GAME_DIR:-../AlteredBGA}:/game:ro
+      - ./client/dist:/client:ro
+volumes:
+  arena-db:

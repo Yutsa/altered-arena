@@ -1,0 +1,212 @@
+[
+ {
+  "id": "ax_1_sierra",
+  "name": "Sierra & Oddball",
+  "faction": "AX",
+  "heroRef": "AX_Common_SierraOddball",
+  "size": 39
+ },
+ {
+  "id": "ax_2_treyst",
+  "name": "Treyst & Rossum",
+  "faction": "AX",
+  "heroRef": "AX_Common_TreystRossum",
+  "size": 39
+ },
+ {
+  "id": "ax_3_subhash",
+  "name": "Subhash & Marmo",
+  "faction": "AX",
+  "heroRef": "AX_Common_SubhashMarmo",
+  "size": 39
+ },
+ {
+  "id": "ax_65_isaree",
+  "name": "Isaree & Pebble",
+  "faction": "AX",
+  "heroRef": "AX_Common_IsareePebble",
+  "size": 39
+ },
+ {
+  "id": "ax_85_della",
+  "name": "Della & Bolt",
+  "faction": "AX",
+  "heroRef": "AX_Common_DellaBolt",
+  "size": 39
+ },
+ {
+  "id": "br_105_gretel",
+  "name": "Gretel & Rust",
+  "faction": "BR",
+  "heroRef": "BR_Common_GretelRust",
+  "size": 39
+ },
+ {
+  "id": "br_1_kojo",
+  "name": "Kojo & Booda",
+  "faction": "BR",
+  "heroRef": "BR_Common_KojoBooda",
+  "size": 39
+ },
+ {
+  "id": "br_2_atsadi",
+  "name": "Atsadi & Surge",
+  "faction": "BR",
+  "heroRef": "BR_Common_AtsadiSurge",
+  "size": 39
+ },
+ {
+  "id": "br_3_basira",
+  "name": "Basira & Kaizaimon",
+  "faction": "BR",
+  "heroRef": "BR_Common_BasiraKaizaimon",
+  "size": 39
+ },
+ {
+  "id": "br_65_sol",
+  "name": "Sol & Halua",
+  "faction": "BR",
+  "heroRef": "BR_Common_SolHalua",
+  "size": 39
+ },
+ {
+  "id": "ly_105_yeonggi",
+  "name": "Yeong-Gi & Ember",
+  "faction": "LY",
+  "heroRef": "LY_Common_YeongGiEmber",
+  "size": 39
+ },
+ {
+  "id": "ly_1_nevenka",
+  "name": "Nevenka & Blotch",
+  "faction": "LY",
+  "heroRef": "LY_Common_NevenkaBlotch",
+  "size": 39
+ },
+ {
+  "id": "ly_2_auraq",
+  "name": "Auraq & Kibble",
+  "faction": "LY",
+  "heroRef": "LY_Common_AuraqKibble",
+  "size": 39
+ },
+ {
+  "id": "ly_3_fen",
+  "name": "Fen & Crowbar",
+  "faction": "LY",
+  "heroRef": "LY_Common_FenCrowbar",
+  "size": 39
+ },
+ {
+  "id": "ly_65_nadir",
+  "name": "Nadir & Bubbles",
+  "faction": "LY",
+  "heroRef": "LY_Common_NadirBubbles",
+  "size": 39
+ },
+ {
+  "id": "mu_1_teija",
+  "name": "Teija & Nauraa",
+  "faction": "MU",
+  "heroRef": "MU_Common_TeijaNauraa",
+  "size": 39
+ },
+ {
+  "id": "mu_2_arjun",
+  "name": "Arjun & Spike",
+  "faction": "MU",
+  "heroRef": "MU_Common_ArjunSpike",
+  "size": 39
+ },
+ {
+  "id": "mu_3_rin",
+  "name": "Rin & Orchid",
+  "faction": "MU",
+  "heroRef": "MU_Common_RinOrchid",
+  "size": 39
+ },
+ {
+  "id": "mu_65_kauri",
+  "name": "Kauri & Puff",
+  "faction": "MU",
+  "heroRef": "MU_Common_KauriPuff",
+  "size": 39
+ },
+ {
+  "id": "mu_85_turuun",
+  "name": "Turuun & Benih",
+  "faction": "MU",
+  "heroRef": "MU_Common_TuruunBenih",
+  "size": 39
+ },
+ {
+  "id": "or_1_sigismar",
+  "name": "Sigismar & Wingspan",
+  "faction": "OD",
+  "heroRef": "OD_Common_SigismarWingspan",
+  "size": 39
+ },
+ {
+  "id": "or_2_waru",
+  "name": "Waru & Mack",
+  "faction": "OD",
+  "heroRef": "OD_Common_WaruMack",
+  "size": 39
+ },
+ {
+  "id": "or_3_gulrang",
+  "name": "Gulrang & Tocsin",
+  "faction": "OD",
+  "heroRef": "OD_Common_GulrangTocsin",
+  "size": 39
+ },
+ {
+  "id": "or_65_zhen",
+  "name": "Zhen & Zephyr",
+  "faction": "OD",
+  "heroRef": "OD_Common_ZhenZephyr",
+  "size": 39
+ },
+ {
+  "id": "or_85_matz",
+  "name": "Matz & Hive",
+  "faction": "OD",
+  "heroRef": "OD_Common_MatzHive",
+  "size": 39
+ },
+ {
+  "id": "yz_105_sam",
+  "name": "Sam & Spook",
+  "faction": "YZ",
+  "heroRef": "YZ_Common_SamSpook",
+  "size": 39
+ },
+ {
+  "id": "yz_1_akesha",
+  "name": "Akesha & Taru",
+  "faction": "YZ",
+  "heroRef": "YZ_Common_AkeshaTaru",
+  "size": 39
+ },
+ {
+  "id": "yz_2_lindiwe",
+  "name": "Lindiwe & Maw",
+  "faction": "YZ",
+  "heroRef": "YZ_Common_LindiweMaw",
+  "size": 39
+ },
+ {
+  "id": "yz_3_afanas",
+  "name": "Afanas & Senka",
+  "faction": "YZ",
+  "heroRef": "YZ_Common_AfanasSenka",
+  "size": 39
+ },
+ {
+  "id": "yz_65_moyo",
+  "name": "Moyo & Silk",
+  "faction": "YZ",
+  "heroRef": "YZ_Common_MoyoSilk",
+  "size": 39
+ }
+]
