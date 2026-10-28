@@ -1110,11 +1110,25 @@ impl Game {
     }
 
     /// An opposing Defender in the facing expedition keeps an expedition from moving forward
+    /// Defender: the expedition a Defender is in can't move forward (Players::getBlockedExpeditions),
+    /// unless a card there ignores Defenders; an "opposite defender" blocks the other expedition
+    /// of every player
     fn defended(&self, seat: Seat, side: Side) -> bool {
-        let opp = Game::other(seat);
-        self.players[opp].expeditions[side.index()]
+        let p = &self.players[seat];
+        let mine: Vec<CardId> = p.expeditions[side.index()]
             .iter()
-            .any(|&c| self.card(c).def().flag("defender") && !self.card(c).has(Status::Asleep))
+            .copied()
+            .chain(p.expeditions[side.other().index()].iter().copied().filter(|&c| self.card(c).is_gigantic()))
+            .collect();
+        let has_defender = mine.iter().any(|&c| self.card(c).def().flag("defender"));
+        let ignored = mine.iter().any(|&c| {
+            let d = self.card(c).def();
+            d.flag("ignoreDefender") || (d.flag("defenderIgnoreContact") && self.in_contact(seat, side))
+        });
+        let opposite = (0..2).any(|s| {
+            self.players[s].expeditions[side.other().index()].iter().any(|&c| self.card(c).def().flag("oppositeDefender"))
+        });
+        (has_defender && !ignored) || opposite
     }
 
     /// Moves an expedition by an effect (cards react to it)

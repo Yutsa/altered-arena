@@ -527,15 +527,15 @@ pub fn target_candidates(g: &Game, a: &Map<String, Value>, ctx: &Ctx) -> Vec<(Ca
         for id in ids {
             let c = g.card(id);
             let def = c.def();
-            let type_name = match (def.is_token, def.card_type) {
-                (true, _) => "token",
-                (_, CardType::Character) => "character",
-                (_, CardType::Spell) => "spell",
-                (_, CardType::Permanent) => "permanent",
-                (_, CardType::Token) => "token",
-                (_, CardType::Hero) => "hero",
+            // Tokens have their printed type (a Brassbug is a character, an Aerolith a permanent)
+            let type_name = match def.card_type {
+                CardType::Character => "character",
+                CardType::Spell => "spell",
+                CardType::Permanent => "permanent",
+                CardType::Token => "token",
+                CardType::Hero => "hero",
             };
-            if !types.iter().any(|t| t == type_name || (t == "character" && type_name == "token" && false)) {
+            if !types.iter().any(|t| t == type_name || (t == "token" && def.is_token && type_name == "character")) {
                 continue;
             }
             if b(a, "excludeSelf") && Some(id) == ctx.source {
@@ -869,9 +869,13 @@ pub fn zone_key(z: Zone) -> &'static str {
 
 pub fn create_token(g: &mut Game, def: u16, seat: Seat, zone: Zone, ctx: &Ctx) -> CardId {
     let id = g.create_card(def, seat, zone);
-    if g.mods.next_token_anchored[seat] {
-        g.card_mut(id).add_status(Status::Anchored);
-        g.mods.next_token_anchored[seat] = false;
+    // "The next token gains Anchored" follows the effect's controller, wherever the token goes
+    for s in [ctx.seat, seat] {
+        if g.mods.next_token_anchored[s] {
+            g.card_mut(id).add_status(Status::Anchored);
+            g.mods.next_token_anchored[s] = false;
+            break;
+        }
     }
     crate::special::on_token_created(g, id);
     let name = g.card(id).name();
