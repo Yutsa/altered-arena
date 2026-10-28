@@ -193,7 +193,7 @@ impl Card {
         }
     }
     pub fn is_character_like(&self) -> bool {
-        matches!(self.def().card_type, CardType::Character | CardType::Token) || self.def().is_token
+        matches!(self.def().card_type, CardType::Character | CardType::Token)
     }
     /// Statistics with boosts and modifiers (never below 0)
     pub fn stats(&self) -> [i32; 3] {

@@ -184,6 +184,12 @@ def play_game(n, decks):
             if d.get('kind') == 'select' and not d.get('cardIds') and d.get('min', 0) == 0:
                 call(opt.php, 'POST', f'/api/v1/games/{pid}/answer?player={w[0]}', {'decisionId': d['id'], 'type': 'select', 'cardIds': []})
                 continue
+            # "Confirm that the card is seen" (reveal) and similar single buttons: BGA UI steps
+            if d.get('kind') == 'buttons' and len(d.get('buttons', [])) == 1:
+                rdec = call(opt.rust, 'GET', f'/api/v1/games/{rid}?{rq(w[0])}').get('decision')
+                if not rdec or rdec['kind'] != 'buttons':
+                    call(opt.php, 'POST', f'/api/v1/games/{pid}/answer?player={w[0]}', {'decisionId': d['id'], 'type': 'button', 'key': d['buttons'][0]['key']})
+                    continue
             # "Confirm the switch of player": a BGA UI step
             if d.get('kind') == 'confirm':
                 call(opt.php, 'POST', f'/api/v1/games/{pid}/answer?player={w[0]}', {'decisionId': d['id'], 'type': 'confirm'})
