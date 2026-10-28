@@ -38,6 +38,30 @@ impl Game {
         cost.max(0)
     }
 
+    /// Cost to play a card to a given destination: some cards cost more or less depending on
+    /// where they go (playLimitation: Lyra DJ "-2Contact", "+3StartingRegion", "-2Multi")
+    pub fn play_cost_at(&self, seat: Seat, id: CardId, dest: Dest) -> i32 {
+        let mut cost = self.play_cost(seat, id, dest.is_scout());
+        if dest.is_scout() {
+            return cost;
+        }
+        let limitation = self.card(id).def().prop("playLimitation").and_then(Value::as_str).unwrap_or("");
+        let side = dest.zone().side();
+        match (limitation, side) {
+            ("+3StartingRegion", Some(Side::Hero)) if self.players[seat].position[0] == 0 => cost += 3,
+            ("+3StartingRegion", Some(Side::Companion)) if self.players[seat].position[1] == 7 => cost += 3,
+            ("-2Contact", Some(side)) if self.in_contact(seat, side) => cost -= 2,
+            ("-2Multi", _) => {
+                let opp = &self.players[Game::other(seat)];
+                if opp.expeditions.iter().flatten().any(|&c| self.card(c).is_character_like()) {
+                    cost -= 2;
+                }
+            }
+            _ => {}
+        }
+        cost.max(0)
+    }
+
     fn destinations(&self, id: CardId, scout: bool) -> Vec<Dest> {
         let def = self.card(id).def();
         if scout {
@@ -76,8 +100,10 @@ impl Game {
             }
             let free = bonus.map(|b| b.free).unwrap_or(false);
             let mut dests = vec![];
-            if free || self.play_cost(seat, id, false) <= mana {
-                dests.extend(self.destinations(id, false));
+            for d in self.destinations(id, false) {
+                if free || self.play_cost_at(seat, id, d) <= mana {
+                    dests.push(d);
+                }
             }
             if c.zone == Zone::Hand && def.int("scout") > 0 && bonus.is_none() && self.play_cost(seat, id, true) <= mana {
                 dests.extend(self.destinations(id, true));
@@ -130,7 +156,7 @@ impl Game {
             return err("This card can't be played there");
         }
         let free = bonus.map(|b| b.free).unwrap_or(false);
-        let cost = if free { 0 } else { self.play_cost(seat, id, dest.is_scout()) };
+        let cost = if free { 0 } else { self.play_cost_at(seat, id, dest) };
         if !self.pay(seat, cost) {
             return err("Not enough mana");
         }
@@ -233,8 +259,11 @@ impl Game {
         let mut all: Vec<(Value, Ctx)> = effects.into_iter().map(|e| (e, ctx.clone())).collect();
         // A spell resolves on its own; the abilities it triggers wait until it is done
         if def.card_type != CardType::Spell {
-            all.extend(self.reactions.drain(before..));
-            self.stack.push(Task::Reactions(all, true));
+            // Card effects plus triggered abilities: the player orders everything (noIndependent)
+            let triggered: Vec<(Value, Ctx)> = self.reactions.drain(before..).collect();
+            let auto = all.is_empty() || triggered.is_empty();
+            all.extend(triggered);
+            self.stack.push(Task::Reactions(all, auto));
         } else {
             self.stack.push(Task::SpellEffects(all));
         }

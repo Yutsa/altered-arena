@@ -94,7 +94,7 @@ impl Game {
                 }
                 Ok(())
             }
-            (PendingKind::Order { reactions, spell, .. }, Answer::Choice { id }) => {
+            (PendingKind::Order { reactions, spell, auto, .. }, Answer::Choice { id }) => {
                 let mut rest = reactions;
                 if id >= rest.len() {
                     return err("Unknown choice");
@@ -104,7 +104,7 @@ impl Game {
                 if let Value::Object(m) = &mut node {
                     m.remove("optional");
                 }
-                self.stack.push(if spell { Task::SpellEffects(rest) } else { Task::Reactions(rest, true) });
+                self.stack.push(if spell { Task::SpellEffects(rest) } else { Task::Reactions(rest, auto) });
                 self.stack.push(Task::Run { node, ctx: c });
                 Ok(())
             }

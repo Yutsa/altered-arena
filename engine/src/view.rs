@@ -300,7 +300,7 @@ impl Game {
         let extra = match &p.kind {
             PendingKind::Turn { play, support, tap, can_end, .. } => json!({
                 "kind": "turn",
-                "play": play.iter().map(|(c, d)| json!({"cardId": c, "destinations": d, "cost": self.play_cost(p.seat, *c, false)})).collect::<Vec<_>>(),
+                "play": play.iter().map(|(c, d)| json!({"cardId": c, "destinations": d, "cost": d.iter().map(|&x| self.play_cost_at(p.seat, *c, x)).min().unwrap_or(0)})).collect::<Vec<_>>(),
                 "support": support,
                 "tap": tap,
                 "canEndTurn": can_end,

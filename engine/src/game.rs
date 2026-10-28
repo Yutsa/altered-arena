@@ -146,6 +146,9 @@ pub enum PendingKind {
         reactions: Vec<(Value, Ctx)>,
         #[serde(default)]
         spell: bool,
+        /// Independent abilities resolve without asking (false: the player orders everything)
+        #[serde(default)]
+        auto: bool,
     },
     Select { cards: Vec<CardId>, min: usize, max: usize, costs: Vec<(CardId, i32)>, then: SelectThen, picker: bool },
     Expedition { options: Vec<(Seat, Side)>, min: usize, max: usize, effect: Option<Value> },
@@ -734,7 +737,7 @@ impl Game {
     }
 
     fn order_reactions_ex(&mut self, mut list: Vec<(Value, Ctx)>, auto_independent: bool, spell: bool) {
-        let again = |rest: Vec<(Value, Ctx)>| if spell { Task::SpellEffects(rest) } else { Task::Reactions(rest, true) };
+        let again = |rest: Vec<(Value, Ctx)>| if spell { Task::SpellEffects(rest) } else { Task::Reactions(rest, auto_independent) };
         if list.len() <= 1 {
             if let Some((node, ctx)) = list.pop() {
                 self.stack.push(Task::Run { node, ctx });
@@ -768,7 +771,7 @@ impl Game {
             prompt: "Choose which effect to resolve first".into(),
             source: None,
             can_pass: all_optional,
-            kind: PendingKind::Order { options, reactions: list, spell },
+            kind: PendingKind::Order { options, reactions: list, spell, auto: auto_independent },
             ctx: Ctx::of(chooser, None),
         });
     }
