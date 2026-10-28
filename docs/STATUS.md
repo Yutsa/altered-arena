@@ -12,7 +12,7 @@
   triggered abilities with the original ordering rules, undo within a turn.
 - **Cards**: the 30 starter decks are playable; the data of all 1976 cards is loaded. Every trigger
   condition used by a card and every named special effect of the original engine are implemented,
-  except `MarkRegion`, `BoostExchange`, and `Gain` with a computed amount (met in ~7 % of
+  except `BoostExchange` and `Gain` with a computed amount (met in ~5 % of
   self-play games; logged as "not implemented" when met).
 - Bot vs bot: 1000 games on every pair of starter decks all end (avg 6.2 days), 0.3 ms per game.
 - Server: see `PERFORMANCE.md` (1000 simultaneous games ≈ 0.3 core, 140 MB).
