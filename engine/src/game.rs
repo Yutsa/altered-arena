@@ -92,6 +92,8 @@ pub struct ChoiceOpt {
     /// Effect to run if chosen (None: skip)
     pub node: Option<Value>,
     pub enabled: bool,
+    #[serde(default)]
+    pub source: Option<CardId>,
 }
 
 /// Limits of a play allowed by an effect ("you may play a card for free...")
@@ -117,6 +119,8 @@ pub enum SelectThen {
 pub enum PendingKind {
     Turn { play: Vec<(CardId, Vec<Dest>)>, support: Vec<CardId>, tap: Vec<CardId>, can_end: bool, bonus: Option<BonusPlay> },
     Choice { options: Vec<ChoiceOpt> },
+    /// Order of triggered abilities (shown as a choice)
+    Order { options: Vec<ChoiceOpt>, reactions: Vec<(Value, Ctx)> },
     Select { cards: Vec<CardId>, min: usize, max: usize, costs: Vec<(CardId, i32)>, then: SelectThen, picker: bool },
     Expedition { options: Vec<(Seat, Side)>, min: usize, max: usize, effect: Option<Value> },
     Player { options: Vec<Seat>, effect: Option<Value> },
@@ -161,6 +165,8 @@ pub enum Step {
     EndOfNight,
     /// Triggers of a phase for every player in turn order (first player first)
     Triggers(TriggerPhase),
+    /// Triggers of a phase for one player (all cards may react to it)
+    TriggersFor(TriggerPhase, Seat),
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -194,6 +200,9 @@ pub enum Task {
     SpellCleanup { card: CardId },
     /// A play from hand/reserve finished resolving (ends the turn unless it was a bonus play)
     PlayDone { turn_play: bool },
+    /// Triggered abilities waiting to resolve: the player picks the order
+    /// (abilities, whether independent ones resolve first without asking)
+    Reactions(Vec<(Value, Ctx)>, bool),
 }
 
 /// Per-turn and per-day modifiers set by effects ("the next character you play gains a boost"...)
@@ -231,6 +240,9 @@ pub struct Game {
     pub log: Vec<LogLine>,
     pub seq: u64,
     pub next_decision: u64,
+    /// First-day mana choices, applied once both players have chosen
+    #[serde(default)]
+    pub setup_mana: [Option<Vec<CardId>>; 2],
     /// Effects the engine does not implement yet, met during this game (for coverage reports)
     pub unsupported: Vec<String>,
     /// State at the start of the current decision sequence, for undo (no hidden information revealed since)
@@ -305,6 +317,7 @@ impl Game {
             log: vec![],
             seq: 0,
             next_decision: 0,
+            setup_mana: [None, None],
             unsupported: vec![],
             undo_point: None,
             undo_owner: None,
@@ -582,16 +595,18 @@ impl Game {
             let at_step = matches!(self.stack.last(), None | Some(Task::Step(_)) | Some(Task::PlayDone { .. }));
             if at_step && !self.reactions.is_empty() {
                 let reactions = std::mem::take(&mut self.reactions);
-                for (node, ctx) in reactions.into_iter().rev() {
-                    self.stack.push(Task::Run { node, ctx });
-                }
+                self.stack.push(Task::Reactions(reactions, true));
                 continue;
             }
             let Some(task) = self.stack.pop() else { return };
+            for u in crate::conditions::take_unknown() {
+                self.unsupported(u);
+            }
             match task {
                 Task::Step(step) => self.step(step),
                 Task::Run { node, ctx } => crate::flow::run_node(self, &node, ctx),
                 Task::SpellCleanup { card } => self.spell_cleanup(card),
+                Task::Reactions(list, auto) => self.order_reactions(list, auto),
                 Task::PlayDone { turn_play } => {
                     if turn_play {
                         self.mods.played = true;
@@ -601,6 +616,45 @@ impl Game {
         }
         self.log_line(None, "The engine stopped: too many steps".into());
         self.phase = Phase::Ended;
+    }
+
+    /// Several abilities triggered at once: the player chooses which resolves first (as in the
+    /// original engine, the choice is asked even when the order doesn't matter)
+    fn order_reactions(&mut self, mut list: Vec<(Value, Ctx)>, auto_independent: bool) {
+        if list.len() <= 1 {
+            if let Some((node, ctx)) = list.pop() {
+                self.stack.push(Task::Run { node, ctx });
+            }
+            return;
+        }
+        if auto_independent {
+            if let Some(i) = list.iter().position(|(n, c)| crate::flow::is_independent(self, n, c)) {
+                let (node, ctx) = list.remove(i);
+                self.stack.push(Task::Reactions(list, true));
+                self.stack.push(Task::Run { node, ctx });
+                return;
+            }
+        }
+        let seats: Vec<Seat> = list.iter().map(|(_, c)| c.seat).collect();
+        let chooser = if seats.iter().all(|&s| s == seats[0]) { seats[0] } else { self.active };
+        let options = list
+            .iter()
+            .map(|(node, ctx)| ChoiceOpt {
+                label: format!("{}{}", crate::flow::source_prefix(self, ctx.source), crate::flow::describe(self, node, ctx)),
+                node: None,
+                enabled: true,
+                source: ctx.source,
+            })
+            .collect();
+        self.ask(Pending {
+            id: 0,
+            seat: chooser,
+            prompt: "Choose which effect to resolve first".into(),
+            source: None,
+            can_pass: false,
+            kind: PendingKind::Order { options, reactions: list },
+            ctx: Ctx::of(chooser, None),
+        });
     }
 
     pub fn ask(&mut self, mut p: Pending) {
@@ -703,9 +757,17 @@ impl Game {
                 self.stack.push(Task::Step(Step::Triggers(TriggerPhase::Noon)));
             }
             Step::Triggers(phase) => {
-                for seat in self.turn_order() {
-                    self.emit(Event { trigger: phase.name().into(), seat, ..Default::default() });
-                }
+                let order = self.turn_order();
+                self.stack.push(Task::Step(Step::TriggersFor(phase, order[1])));
+                self.stack.push(Task::Step(Step::TriggersFor(phase, order[0])));
+            }
+            Step::TriggersFor(phase, seat) => {
+                let before = self.reactions.len();
+                self.emit(Event { trigger: phase.name().into(), seat, ..Default::default() });
+                // Several abilities on the same phase: the player orders them all (noIndependent)
+                let fired: Vec<(Value, Ctx)> = self.reactions.drain(before..).collect();
+                let auto = fired.len() <= 1;
+                self.stack.push(Task::Reactions(fired, auto));
             }
             Step::Afternoon => {
                 if self.phase != Phase::Afternoon {

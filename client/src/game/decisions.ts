@@ -4,6 +4,7 @@
  * scripts/check-decisions.ts can drive a whole game through it.
  */
 import type {
+  Answer,
   CardDef,
   CardView,
   CleanupDecision,
@@ -16,6 +17,10 @@ import type {
   TurnDecision,
   Zone,
 } from '@protocol';
+
+type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never;
+/** An Answer without its decisionId (added when it is sent) */
+export type AnswerBody = DistributiveOmit<Answer, 'decisionId'>;
 
 export interface UIState {
   decisionId: string | null;

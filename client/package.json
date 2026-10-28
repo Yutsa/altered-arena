@@ -6,9 +6,9 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.node.json",
     "preview": "vite preview",
-    "check:decisions": "node --experimental-strip-types scripts/check-decisions.ts"
+    "check:decisions": "node scripts/check-decisions.ts"
   },
   "dependencies": {
     "motion": "^12.43.0",

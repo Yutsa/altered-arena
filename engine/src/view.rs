@@ -195,9 +195,13 @@ impl Game {
                 "tap": tap,
                 "canEndTurn": can_end,
             }),
-            PendingKind::Choice { options } => json!({
+            PendingKind::Choice { options } | PendingKind::Order { options, .. } => json!({
                 "kind": "choice",
-                "choices": options.iter().enumerate().map(|(i, o)| json!({"id": i, "label": o.label, "enabled": o.enabled})).collect::<Vec<_>>(),
+                "choices": options.iter().enumerate().map(|(i, o)| {
+                    let mut c = json!({"id": i, "label": o.label, "enabled": o.enabled});
+                    if let Some(s) = o.source { c["sourceCardId"] = json!(s); }
+                    c
+                }).collect::<Vec<_>>(),
             }),
             PendingKind::Select { cards, min, max, costs, picker, .. } => {
                 let costs: serde_json::Map<String, Value> = costs.iter().map(|(c, t)| (c.to_string(), json!(t))).collect();

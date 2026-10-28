@@ -24,6 +24,8 @@ pub mod game;
 pub mod model;
 pub mod play;
 pub mod rng;
+pub mod snapshot;
+pub mod special;
 pub mod view;
 
 pub use answer::Answer;

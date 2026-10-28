@@ -202,10 +202,9 @@ impl Game {
         if dest.is_scout() {
             effects.push(json!({"action": "Discard", "args": {"cardId": "me", "destination": "reserve"}}));
         }
+        // The effects of a played card resolve in the order its player chooses
         let ctx = Ctx::of(seat, Some(id));
-        for e in effects.into_iter().rev() {
-            self.stack.push(Task::Run { node: e, ctx: ctx.clone() });
-        }
+        self.stack.push(Task::Reactions(effects.into_iter().map(|e| (e, ctx.clone())).collect(), true));
         self.emit(Event {
             trigger: "ChooseAssignment".into(),
             seat,

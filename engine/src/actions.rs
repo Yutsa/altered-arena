@@ -8,16 +8,16 @@ use crate::game::*;
 use crate::model::*;
 use serde_json::{Map, Value};
 
-fn i(a: &Map<String, Value>, k: &str, d: i32) -> i32 {
+pub fn i(a: &Map<String, Value>, k: &str, d: i32) -> i32 {
     a.get(k).and_then(Value::as_i64).map(|v| v as i32).unwrap_or(d)
 }
-fn s<'a>(a: &'a Map<String, Value>, k: &str) -> Option<&'a str> {
+pub fn s<'a>(a: &'a Map<String, Value>, k: &str) -> Option<&'a str> {
     a.get(k).and_then(Value::as_str)
 }
-fn b(a: &Map<String, Value>, k: &str) -> bool {
+pub fn b(a: &Map<String, Value>, k: &str) -> bool {
     a.get(k).and_then(Value::as_bool).unwrap_or(false)
 }
-fn list(a: &Map<String, Value>, k: &str) -> Option<Vec<String>> {
+pub fn list(a: &Map<String, Value>, k: &str) -> Option<Vec<String>> {
     match a.get(k) {
         Some(Value::Array(v)) => Some(v.iter().filter_map(|x| x.as_str().map(String::from)).collect()),
         Some(Value::String(x)) => Some(vec![x.clone()]),
@@ -59,7 +59,7 @@ pub fn is_doable(g: &Game, action: &str, a: &Map<String, Value>, ctx: &Ctx) -> b
     match action {
         "Pay" | "AfterYou" => g.mana_available(ctx.seat) >= i(a, "pay", 0),
         "Target" | "DiscardDo" => !target_candidates(g, a, ctx).is_empty(),
-        "Tap" | "Exhaust" => card_arg(g, a, ctx).or(ctx.source).map(|c| !g.card(c).exhausted).unwrap_or(false),
+        "Tap" => (if a.contains_key("cardId") { card_arg(g, a, ctx) } else { ctx.source }).map(|c| !g.card(c).exhausted).unwrap_or(false),
         "Discard" => {
             if let Some(src) = s(a, "source").filter(|x| !x.is_empty()) {
                 Zone::from_engine(src).map(|z| !g.players[ctx.seat].zone(z).is_empty()).unwrap_or(false)
@@ -97,7 +97,8 @@ pub fn run(g: &mut Game, action: &str, a: &Map<String, Value>, node: &Value, ctx
         }
         "InvokeToken" => invoke_token(g, a, ctx, optional),
         "Exhaust" | "Tap" => {
-            let card = if action == "Tap" { card_arg(g, a, &ctx).or(ctx.source) } else { card_arg(g, a, &ctx) };
+            // Tap = exhaust the ability's own card (a cost), unless a card is given
+            let card = if action == "Tap" { if a.contains_key("cardId") { card_arg(g, a, &ctx) } else { ctx.source } } else { card_arg(g, a, &ctx) };
             if let Some(c) = card {
                 g.card_mut(c).exhausted = true;
                 g.emit(Event { trigger: "Exhaust".into(), seat: ctx.seat, card: Some(c), source: ctx.source, ..Default::default() });
@@ -330,7 +331,7 @@ pub fn run(g: &mut Game, action: &str, a: &Map<String, Value>, node: &Value, ctx
                 card.counter = (card.counter - n).max(0);
             }
         }
-        "SpecialEffect" => special(g, a, node, ctx),
+        "SpecialEffect" => crate::special::special(g, a, node, ctx),
         other => g.unsupported(format!("action {}", other)),
     }
 }
@@ -539,6 +540,9 @@ pub fn target_candidates(g: &Game, a: &Map<String, Value>, ctx: &Ctx) -> Vec<(Ca
                 continue;
             }
             let tough = if c.controller != ctx.seat && !b(a, "ignoreTough") { def.int("tough") } else { 0 };
+            if tough > g.mana_available(ctx.seat) {
+                continue;
+            }
             out.push((id, tough));
         }
     }
@@ -706,18 +710,28 @@ fn invoke_token(g: &mut Game, a: &Map<String, Value>, ctx: Ctx, optional: bool) 
         return;
     };
     let n = i(a, "n", 1).max(1);
-    let owner = match s(a, "pId") {
-        Some("opponent") => Game::other(ctx.seat),
+    let owner = match (s(a, "targetPlayer"), s(a, "pId")) {
+        (Some("opponent"), _) | (_, Some("opponent")) => Game::other(ctx.seat),
         _ => ctx.seat,
     };
     let locs = list(a, "targetLocation").unwrap_or_else(|| vec!["stormLeft".into(), "stormRight".into()]);
-    let all_players = b(a, "allPlayers") || (a.get("targetPlayer").is_none() && locs.len() > 1 && a.get("pId").is_none() && false);
+    let all_players = b(a, "allPlayers") || (a.get("targetPlayer").is_none() && locs.len() > 1);
     let mut options: Vec<(String, String, Seat, Zone)> = vec![];
     let seats = if all_players { vec![ctx.seat, Game::other(ctx.seat)] } else { vec![owner] };
+    // In the expedition chosen by an enclosing TargetExpedition
+    if let (Some(side), true) = (ctx.side, a.get("targetLocation").is_none()) {
+        let seat = ctx.target_seat.unwrap_or(owner);
+        for _ in 0..n {
+            create_token(g, token.index, seat, side.zone(), &ctx);
+        }
+        return;
+    }
+    // Where the source card is, or was when it left (reactions to leaving an expedition)
+    let event_from = ctx.event.as_ref().filter(|e| e.card == ctx.source).and_then(|e| e.from).filter(|z| z.is_expedition());
     for &seat in &seats {
         for l in &locs {
             let zone = match l.as_str() {
-                "source" | "initialSource" => ctx.source.map(|c| g.card(c).zone).filter(|z| z.is_expedition()).or(ctx.target_from.filter(|z| z.is_expedition())),
+                "source" | "initialSource" => ctx.source.map(|c| g.card(c).zone).filter(|z| z.is_expedition()).or(event_from).or(ctx.target_from.filter(|z| z.is_expedition())),
                 "oppositeSource" => ctx.source.and_then(|c| g.card(c).zone.side()).map(|s| s.other().zone()),
                 other => Zone::from_engine(other),
             };
@@ -787,53 +801,4 @@ pub fn create_token(g: &mut Game, def: u16, seat: Seat, zone: Zone, ctx: &Ctx) -
         ..Default::default()
     });
     id
-}
-
-fn special(g: &mut Game, a: &Map<String, Value>, _node: &Value, ctx: Ctx) {
-    let effect = s(a, "effect").unwrap_or("");
-    let inner = a.get("args").and_then(Value::as_object).cloned().unwrap_or_default();
-    let seat = ctx.seat;
-    match effect {
-        "costReduction" => {
-            let kind = s(&inner, "type").unwrap_or("all").to_string();
-            let r = i(&inner, "reduction", 1);
-            g.mods.cost_reductions.push((seat, kind, r));
-        }
-        "nextCharacterGains1Boost" => g.mods.next_character_boost[seat] += i(&inner, "n", 1),
-        "nextReserveCharacterGains1Boost" => g.mods.next_reserve_character_boost[seat] += 1,
-        "nextAnimalGains1Boost" => g.mods.next_animal_boost[seat] += 1,
-        "nextCharacterFleeting" => g.mods.next_character_fleeting[seat] = true,
-        "nextTokenAnchored" => g.mods.next_token_anchored[seat] = true,
-        "nextCharacterCost3Anchored" => g.mods.next_character_anchored[seat] = true,
-        "incCounter" | "gainCounter" => {
-            if let Some(c) = card_arg(g, a, &ctx).or(ctx.source) {
-                g.card_mut(c).counter += i(&inner, "counter", 1).max(1);
-            }
-        }
-        "boostAllSubtype" => {
-            let sub = s(&inner, "subType").or(s(&inner, "subtype")).unwrap_or("").to_string();
-            for c in g.in_play(seat) {
-                if g.card(c).def().has_subtype(&sub) && g.card(c).is_character_like() {
-                    g.card_mut(c).boosts += 1;
-                }
-            }
-        }
-        "allCharacterFleeting" => {
-            for c in g.in_play(seat) {
-                if g.card(c).is_character_like() {
-                    g.card_mut(c).add_status(Status::Fleeting);
-                }
-            }
-        }
-        "exhaustAllCards" => {
-            for c in g.in_play(seat) {
-                g.card_mut(c).exhausted = true;
-            }
-        }
-        other => {
-            g.unsupported(format!("special {}", other));
-            let name = ctx.source.map(|c| g.card(c).name()).unwrap_or("?");
-            g.log_line(None, format!("(Not implemented yet: [[{}]] effect \"{}\")", name, other));
-        }
-    }
 }

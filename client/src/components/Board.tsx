@@ -6,6 +6,14 @@ import { BiomeGlyph, Glyph } from './Glyph';
 import { BIOMES } from './Card';
 import './Board.css';
 
+/** A location option of the current decision that designates this zone of this player, if any */
+function useLocation(player: PlayerView, zone: Zone) {
+  const { decision, send } = useGameCtx();
+  if (decision?.kind !== 'location') return null;
+  const loc = decision.locations.find((l) => l.player === player.id && l.zone === zone);
+  return loc ? () => void send({ type: 'location', key: loc.key }) : null;
+}
+
 function ExpeditionStats({ player, side }: { player: PlayerView; side: Side }) {
   const { view } = useGameCtx();
   const exp = player.expeditions[side];
@@ -32,6 +40,7 @@ export function ExpeditionRow({ player, side, mine }: { player: PlayerView; side
   const cards = zoneCards(player.id, zone);
   const opt = decision?.kind === 'expedition' ? decision.expeditions.find((o) => o.player === player.id && o.side === side) : undefined;
   const picked = !!opt && ui.keys.includes(opt.key);
+  const pickLocation = useLocation(player, zone);
   const scoutDest = side === 'hero' ? 'heroExpeditionScout' : 'companionExpeditionScout';
   const onPick = opt
     ? () => {
@@ -60,9 +69,14 @@ export function ExpeditionRow({ player, side, mine }: { player: PlayerView; side
           {picked ? 'Selected' : 'Choose'}
         </button>
       )}
+      {pickLocation && (
+        <button type="button" className="exp-pick" onClick={pickLocation}>
+          Choose
+        </button>
+      )}
     </>
   );
-  const cls = `expedition exp-${side} ${mine ? 'mine' : 'theirs'} ${opt ? 'selectable' : ''} ${picked ? 'picked' : ''}`;
+  const cls = `expedition exp-${side} ${mine ? 'mine' : 'theirs'} ${opt || pickLocation ? 'selectable' : ''} ${picked ? 'picked' : ''}`;
   if (mine)
     return (
       <DropZone destination={zone} className={cls} label={side === 'hero' ? 'Hero expedition' : 'Companion expedition'}>
@@ -79,6 +93,7 @@ export function ZoneRow({ player, zone, mine }: { player: PlayerView; zone: 'res
   const slots = zone === 'reserve' ? player.reserveSlots : player.landmarkSlots;
   const empty = Math.max(0, slots - cards.length);
   const label = zone === 'reserve' ? 'Reserve' : 'Landmarks';
+  const pickLocation = useLocation(player, zone);
   const body = (
     <>
       <div className="zone-title">
@@ -95,9 +110,14 @@ export function ZoneRow({ player, zone, mine }: { player: PlayerView; zone: 'res
           <div key={`e${i}`} className="slot-empty" />
         ))}
       </div>
+      {pickLocation && (
+        <button type="button" className="exp-pick" onClick={pickLocation}>
+          Choose
+        </button>
+      )}
     </>
   );
-  const cls = `zone-row zone-${zone} ${mine ? 'mine' : 'theirs'}`;
+  const cls = `zone-row zone-${zone} ${mine ? 'mine' : 'theirs'} ${pickLocation ? 'selectable' : ''}`;
   return mine ? (
     <DropZone destination={zone} className={cls} label={label}>
       {body}

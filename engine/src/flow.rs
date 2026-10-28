@@ -72,13 +72,14 @@ pub fn run_node(g: &mut Game, node: &Value, ctx: Ctx) {
             "xor" | "or" => {
                 let options: Vec<ChoiceOpt> = childs
                     .iter()
-                    .map(|c| ChoiceOpt { label: describe(g, c, &ctx), node: Some(c.clone()), enabled: is_doable(g, c, &ctx) })
+                    .map(|c| ChoiceOpt { label: describe(g, c, &ctx), node: Some(c.clone()), enabled: is_doable(g, c, &ctx), source: None })
                     .collect();
                 let enabled: Vec<&ChoiceOpt> = options.iter().filter(|o| o.enabled).collect();
                 if enabled.is_empty() {
                     return;
                 }
-                if enabled.len() == 1 {
+                // The original engine only decides alone when there is a single option at all
+                if enabled.len() == 1 && options.len() == 1 {
                     let n = enabled[0].node.clone().unwrap();
                     g.stack.push(Task::Run { node: n, ctx });
                     return;
@@ -95,10 +96,6 @@ pub fn run_node(g: &mut Game, node: &Value, ctx: Ctx) {
                 });
             }
             _ => {
-                // A sequence whose cost can't be paid doesn't happen at all
-                if kind == "seq" && !is_doable(g, node, &ctx) {
-                    return;
-                }
                 for c in childs.iter().rev() {
                     g.stack.push(Task::Run { node: c.clone(), ctx: ctx.clone() });
                 }
@@ -128,8 +125,8 @@ fn ask_yes_no(g: &mut Game, node: &Value, ctx: Ctx) {
         can_pass: false,
         kind: PendingKind::Choice {
             options: vec![
-                ChoiceOpt { label, node: Some(without_optional(node)), enabled: true },
-                ChoiceOpt { label: "Skip".into(), node: None, enabled: true },
+                ChoiceOpt { label, node: Some(without_optional(node)), enabled: true, source: None },
+                ChoiceOpt { label: "Skip".into(), node: None, enabled: true, source: None },
             ],
         },
         ctx,
@@ -244,4 +241,30 @@ fn humanize(s: &str) -> String {
         }
     }
     out
+}
+
+/// "Independent" effects need no decision and can resolve in any order: among simultaneous
+/// effects, the original engine resolves them first without asking (Gain, CheckCondition...)
+pub fn is_independent(g: &Game, node: &Value, ctx: &Ctx) -> bool {
+    if is_optional(node) || node.get("noIndependent").and_then(Value::as_bool).unwrap_or(false) {
+        return false;
+    }
+    if let Some(childs) = node.get("childs").and_then(Value::as_array) {
+        let kind = node.get("type").and_then(Value::as_str).unwrap_or("seq");
+        if kind != "seq" && kind != "parallel" && childs.len() > 1 {
+            return false;
+        }
+        return childs.iter().all(|c| is_independent(g, c, ctx));
+    }
+    let a = args(node);
+    match node.get("action").and_then(Value::as_str).unwrap_or("") {
+        "Gain" | "CheckCondition" | "ActivateEffect" | "SpellCleanup" => true,
+        "Loose" => !a.get("upTo").and_then(Value::as_bool).unwrap_or(false),
+        "InvokeToken" => {
+            ctx.side.is_some()
+                || (a.get("targetLocation").and_then(Value::as_array).map(|l| l.len() == 1).unwrap_or(false)
+                    && !a.get("allPlayers").and_then(Value::as_bool).unwrap_or(false))
+        }
+        _ => false,
+    }
 }

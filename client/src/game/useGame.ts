@@ -3,8 +3,8 @@ import type { Answer, GameView, LogEntry, PlayerId } from '@protocol';
 import { api, ApiError } from '../api/client';
 import { toast } from './toasts';
 
-/** An answer without its decisionId: the hook adds the id of the current decision. */
-export type AnswerBody = Answer extends infer A ? (A extends { decisionId: string } ? Omit<A, 'decisionId'> : never) : never;
+import type { AnswerBody } from './decisions';
+export type { AnswerBody };
 
 export interface GameState {
   view: GameView | null;
@@ -18,10 +18,11 @@ export interface GameState {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-function mergeLog(prev: LogEntry[], next: LogEntry[]): LogEntry[] {
-  if (!next.length) return prev;
-  const last = prev.length ? prev[prev.length - 1].seq : -1;
-  const fresh = next.filter((e) => e.seq > last);
+/** Engine bookkeeping lines that mean nothing to a player ("Undo here" checkpoints, empty "[]") */
+const NOISE = /^\s*(\[\]+\]?|Undo here)?\s*$/;
+
+function mergeLog(prev: LogEntry[], next: LogEntry[], lastSeq: number): LogEntry[] {
+  const fresh = next.filter((e) => e.seq > lastSeq && !NOISE.test(e.text));
   if (!fresh.length) return prev;
   return [...prev, ...fresh].slice(-500);
 }
@@ -42,9 +43,10 @@ export function useGame(gameId: string, player: PlayerId): GameState {
     const cur = viewRef.current;
     if (cur && v.seq < cur.seq) return;
     if (cur && v.seq === cur.seq && v.decision?.id === cur.decision?.id) return;
+    const lastSeq = cur ? Math.max(-1, ...cur.log.map((e) => e.seq)) : -1;
     viewRef.current = v;
     setView(v);
-    setLog((l) => mergeLog(l, v.log));
+    setLog((l) => mergeLog(l, v.log, lastSeq));
   }, []);
 
   useEffect(() => {

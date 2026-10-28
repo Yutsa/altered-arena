@@ -1,0 +1,145 @@
+.game {
+  height: 100dvh;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-areas: 'top' 'table';
+  overflow: hidden;
+}
+.game.log-open { grid-template-columns: minmax(0, 1fr) 300px; grid-template-areas: 'top top' 'table log'; }
+@media (max-width: 1199px) {
+  /* The log is a drawer over the table */
+  .game.log-open { grid-template-columns: minmax(0, 1fr); grid-template-areas: 'top' 'table'; }
+  .game.log-open .log {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: min(380px, 88vw);
+    z-index: 120;
+    padding-top: env(safe-area-inset-top);
+    box-shadow: -20px 0 50px rgb(0 0 0 / 0.6);
+    background: var(--panel-solid);
+  }
+  .game.log-open .dock-ticker { display: block; }
+}
+.topbar {
+  grid-area: top;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: calc(4px + env(safe-area-inset-top)) var(--gutter) 4px;
+  border-bottom: 1px solid var(--line);
+  background: rgb(10 11 24 / 0.7);
+  backdrop-filter: blur(6px);
+  min-height: 42px;
+}
+.conn { width: 10px; height: 10px; border-radius: 50%; margin-left: auto; }
+.conn.ok { background: #37b24d; }
+.conn.down { background: #f03e3e; animation: blink 1s infinite; }
+.log-toggle { display: flex; gap: 4px; align-items: center; }
+.table {
+  grid-area: table;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+}
+.game .log { grid-area: log; display: none; }
+.game.log-open .log { display: flex; }
+.board-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+}
+.board {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px 0 12px;
+  width: 100%;
+  max-width: 1400px;
+  min-height: 100%;
+  margin: 0 auto;
+}
+.board > .side { flex: 1; }
+
+/* One player's side: bar, reserve, landmarks, two expeditions */
+.side {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 6px;
+  padding: 0 var(--gutter);
+}
+.side.theirs { grid-template-areas: 'bar bar bar bar bar bar' 'res res res lmk lmk lmk' 'hero hero hero comp comp comp'; grid-template-rows: auto auto 1fr; }
+.side.mine { grid-template-rows: 1fr auto auto; }
+.side.mine { grid-template-areas: 'hero hero hero comp comp comp' 'res res res lmk lmk lmk' 'bar bar bar bar bar bar'; }
+@media (min-width: 900px) {
+  .side.theirs { grid-template-areas: 'bar bar res res lmk lmk' 'hero hero hero comp comp comp'; grid-template-rows: auto 1fr; }
+  .side.mine { grid-template-areas: 'hero hero hero comp comp comp' 'bar bar res res lmk lmk'; grid-template-rows: 1fr auto; }
+}
+.a-bar { grid-area: bar; min-width: 0; }
+.a-reserve { grid-area: res; min-width: 0; }
+.a-landmark { grid-area: lmk; min-width: 0; }
+.a-hero { grid-area: hero; min-width: 0; }
+.a-companion { grid-area: comp; min-width: 0; }
+
+.dock {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas: 'ticker' 'decision' 'hand';
+  gap: 6px;
+  padding: 6px var(--gutter) calc(4px + env(safe-area-inset-bottom));
+  background: linear-gradient(180deg, transparent, rgb(8 9 20 / 0.92) 25%);
+  position: relative;
+  z-index: 10;
+}
+.dock-ticker { grid-area: ticker; min-width: 0; }
+.dock-decision { grid-area: decision; min-width: 0; }
+.dock-hand { grid-area: hand; min-width: 0; display: flex; }
+.game.log-open .dock-ticker { display: none; }
+@media (min-width: 1000px) {
+  .dock {
+    grid-template-columns: minmax(0, 1fr) minmax(320px, 420px);
+    grid-template-areas: 'hand ticker' 'hand decision';
+    align-items: end;
+  }
+  .dock-decision { align-self: end; }
+}
+
+.end-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 150;
+  display: grid;
+  place-items: center;
+  background: rgb(5 6 15 / 0.7);
+  backdrop-filter: blur(4px);
+}
+.end-card {
+  text-align: center;
+  padding: 28px 36px;
+  border-radius: 20px;
+  background: var(--panel-solid);
+  border: 2px solid var(--line);
+  box-shadow: 0 30px 80px rgb(0 0 0 / 0.6);
+  max-width: calc(100vw - 32px);
+}
+.end-card.won { border-color: #ffd43b; box-shadow: 0 0 60px -10px #ffd43b; }
+.end-title { font-family: var(--font-title); font-size: clamp(40px, 10vw, 72px); text-transform: uppercase; letter-spacing: 0.04em; }
+.end-card.won .end-title { color: #ffd43b; }
+.end-card.lost .end-title { color: #ff8787; }
+.end-sub { color: var(--muted); margin: 6px 0 18px; }
+.end-buttons { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+
+.phase-indicator { display: flex; align-items: center; gap: 8px; font-size: 13px; min-width: 0; }
+.pi-day { font-weight: 700; white-space: nowrap; }
+.pi-phases { display: flex; gap: 2px; }
+.pi-phases img { width: 22px; height: 22px; opacity: 0.3; filter: grayscale(1); transition: all 0.3s; }
+.pi-phases img.current { opacity: 1; filter: none; transform: scale(1.25); }
+.pi-label { color: var(--accent-2); font-weight: 600; white-space: nowrap; }
+@media (max-width: 420px) {
+  .pi-phases img { width: 18px; height: 18px; }
+}

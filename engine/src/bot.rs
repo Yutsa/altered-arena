@@ -38,6 +38,7 @@ impl Game {
                     _ => Answer::Pass,
                 }
             }
+            PendingKind::Order { .. } => Answer::Choice { id: 0 },
             PendingKind::Choice { options } => {
                 let enabled: Vec<usize> = options.iter().enumerate().filter(|(_, o)| o.enabled && o.node.is_some()).map(|(i, _)| i).collect();
                 match enabled.first() {

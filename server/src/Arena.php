@@ -400,4 +400,73 @@ class Arena
       ], $rows),
     ];
   }
+
+  /**
+   * Full state (hidden information included), in the snapshot format of the Rust engine
+   * (Game::from_snapshot): used to start the new engine from the same position and compare them.
+   */
+  public static function oracleState(int $gameId): array
+  {
+    $config = self::openGame($gameId);
+    return self::request(null, function () use ($config) {
+      $game = new \altered();
+      $tokensOn = [];
+      $positions = [];
+      foreach (\ALT\Managers\Meeples::getAll() as $m) {
+        $loc = $m->getLocation();
+        if (str_starts_with($loc, 'card-')) {
+          $tokensOn[(int) substr($loc, 5)][] = $m->getType();
+        } elseif (str_starts_with($loc, 'storm-') && in_array($m->getType(), ['hero', 'companion'])) {
+          $positions[(int) $m->getPId()][$m->getType()] = (int) substr($loc, 6);
+        }
+      }
+      $cards = [];
+      foreach (\ALT\Managers\Cards::getAll() as $id => $c) {
+        $loc = $c->getLocation();
+        $zone = match (true) {
+          str_starts_with($loc, 'deck-') => 'deck',
+          str_starts_with($loc, 'board-hero') => 'hero',
+          $loc == 'stormLeft' => 'heroExpedition',
+          $loc == 'stormRight' => 'companionExpedition',
+          default => $loc,
+        };
+        $tokens = $tokensOn[(int) $id] ?? [];
+        $cards[] = [
+          'id' => (int) $id,
+          'ref' => (new \ReflectionClass($c))->getShortName(),
+          'owner' => (int) $c->getPId(),
+          'zone' => $zone,
+          'order' => (int) $c->getState(),
+          'exhausted' => (bool) $c->isTapped(),
+          'boosts' => count(array_filter($tokens, fn($t) => $t == 'boost')),
+          'statuses' => array_values(array_filter($tokens, fn($t) => in_array($t, ['fleeting', 'anchored', 'asleep']))),
+          'counter' => (int) ($c->getExtraDatas()['counter'] ?? 0),
+        ];
+      }
+      usort($cards, fn($a, $b) => [$a['owner'], $a['zone'], $a['order'], $a['id']] <=> [$b['owner'], $b['zone'], $b['order'], $b['id']]);
+      $players = [];
+      foreach (\ALT\Managers\Players::getAll() as $pId => $p) {
+        $cfg = current(array_filter($config['players'], fn($x) => $x['id'] == $pId));
+        $players[] = [
+          'id' => (int) $pId,
+          'name' => $p->getName(),
+          'bot' => (bool) ($cfg['bot'] ?? false),
+          'position' => [$positions[$pId]['hero'] ?? 0, $positions[$pId]['companion'] ?? 7],
+        ];
+      }
+      $storm = array_map(fn($t) => ['card' => (int) $t['cardId'], 'rotated' => (bool) ($t['rotated'] ?? false), 'revealed' => (bool) ($t['visible'] ?? false)], Globals::getStorm());
+      $state = $game->gamestate->state(true);
+      return [
+        'players' => $players,
+        'first' => (int) Globals::getFirstPlayer(),
+        'day' => (int) Globals::getDay(),
+        'phase' => (int) Globals::getPhase(),
+        'state' => $state['name'] ?? '',
+        'storm' => $storm,
+        'cards' => $cards,
+        // Id of the next card created (tokens): deck selection creates and deletes cards
+        'nextCardId' => (int) \BgaDb::conn()->query("SELECT AUTO_INCREMENT FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'cards'")->fetch_row()[0],
+      ];
+    });
+  }
 }

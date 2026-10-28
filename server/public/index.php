@@ -62,6 +62,8 @@ try {
     respond(200, V1::view((int) $m[1], (int) ($_GET['player'] ?? 0), isset($_GET['since']) ? (int) $_GET['since'] : null));
   } elseif (preg_match('#^/api/v1/games/(\d+)/answer$#', $uri, $m) && $method == 'POST') {
     respond(200, V1::answer((int) $m[1], (int) ($_GET['player'] ?? 0), body()));
+  } elseif (preg_match('#^/api/oracle/games/(\d+)/state$#', $uri, $m)) {
+    respond(200, Arena::oracleState((int) $m[1]));
   } elseif ($uri == '/api/health') {
     respond(200, ['ok' => true]);
   } elseif ($uri == '/api/games' && $method == 'GET') {

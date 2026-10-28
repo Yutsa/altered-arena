@@ -17,11 +17,23 @@ pub const KNOWN: &[&str] = &[
     "isMyselfDiscarded", "hasDeckCards", "checkReserveCards", "isPlayedInSameLocation", "isPlayedInOpponentExpedition",
     "excludeSelf", "hasCardsInHand", "hasReserve", "isReallyPlayed", "hasCardInDiscardPile", "notUsed", "canPay",
     "isNotGigantic", "isOpponentExpeditionNotEmpty", "isFirstPassing", "myExpeditionHasMoved", "myExpeditionHasNotMoved",
-    "isSelfPlayCardEvent", "isNotMeInvoke",
+    "isSelfPlayCardEvent", "isNotMeInvoke", "isCharacterBoostedAndUntap",
 ];
+
+thread_local! {
+    static UNKNOWN: std::cell::RefCell<Vec<String>> = const { std::cell::RefCell::new(Vec::new()) };
+}
+
+/// Unknown conditions met since the last call (reported as unsupported by the game)
+pub fn take_unknown() -> Vec<String> {
+    UNKNOWN.with(|u| std::mem::take(&mut *u.borrow_mut()))
+}
 
 pub fn check_power(g: &Game, power: &Value, ctx: &Ctx) -> bool {
     let mut conds: Vec<&str> = vec![];
+    if let Some(list) = power.get("listeningConditions").and_then(Value::as_array) {
+        conds.extend(list.iter().filter_map(Value::as_str));
+    }
     if let Some(list) = power.get("conditions").and_then(Value::as_array) {
         conds.extend(list.iter().filter_map(Value::as_str));
     }
@@ -174,7 +186,13 @@ pub fn check(g: &Game, cond: &str, ctx: &Ctx) -> bool {
                 .count() as i32;
             cmp(count, n, op)
         }
-        _ => false,
+        "isCharacterBoostedAndUntap" => {
+            !me.exhausted && ev.what.as_deref() == Some("boost") && ev_card.map(|c| c.controller == owner && c.is_character_like()).unwrap_or(false)
+        }
+        _ => {
+            UNKNOWN.with(|u| u.borrow_mut().push(format!("condition {}", name)));
+            false
+        }
     }
 }
 

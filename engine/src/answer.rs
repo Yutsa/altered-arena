@@ -92,6 +92,16 @@ impl Game {
                 }
                 Ok(())
             }
+            (PendingKind::Order { reactions, .. }, Answer::Choice { id }) => {
+                let mut rest = reactions;
+                if id >= rest.len() {
+                    return err("Unknown choice");
+                }
+                let (node, c) = rest.remove(id);
+                self.stack.push(Task::Reactions(rest, true));
+                self.stack.push(Task::Run { node, ctx: c });
+                Ok(())
+            }
             (PendingKind::Select { cards, min, max, costs, then, .. }, Answer::Select { card_ids }) => {
                 let mut ids = card_ids.clone();
                 ids.dedup();
@@ -100,11 +110,17 @@ impl Game {
                 }
                 match then {
                     SelectThen::SetupMana => {
-                        for &c in &ids {
-                            self.move_card(c, Zone::Mana, None);
+                        self.setup_mana[seat] = Some(ids.clone());
+                        if self.setup_mana.iter().all(|m| m.is_some()) {
+                            for s in 0..2 {
+                                let ids = self.setup_mana[s].take().unwrap_or_default();
+                                for &c in &ids {
+                                    self.move_card(c, Zone::Mana, None);
+                                }
+                                let name = self.players[s].name.clone();
+                                self.log_line(Some(s), format!("{} puts {} cards in Mana", name, ids.len()));
+                            }
                         }
-                        let name = self.players[seat].name.clone();
-                        self.log_line(Some(seat), format!("{} puts {} cards in Mana", name, ids.len()));
                     }
                     SelectThen::Effect { effect } => {
                         let extra: i32 = ids.iter().map(|c| costs.iter().find(|(x, _)| x == c).map(|(_, t)| *t).unwrap_or(0)).sum();
@@ -195,7 +211,7 @@ impl Game {
 pub fn kind_name(k: &PendingKind) -> &'static str {
     match k {
         PendingKind::Turn { .. } => "turn",
-        PendingKind::Choice { .. } => "choice",
+        PendingKind::Choice { .. } | PendingKind::Order { .. } => "choice",
         PendingKind::Select { .. } => "select",
         PendingKind::Expedition { .. } => "expedition",
         PendingKind::Player { .. } => "player",

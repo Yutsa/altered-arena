@@ -1,8 +1,14 @@
 [package]
 name = "arena-server"
+description = "Altered Arena game server: rules (altered-engine), HTTP API (protocol v1), matchmaking"
 edition.workspace = true
 version.workspace = true
 license.workspace = true
 
 [dependencies]
 altered-engine = { path = "../engine" }
+axum = "0.8"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time", "fs", "signal"] }
+tower-http = { version = "0.6", features = ["fs", "cors", "compression-gzip"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
