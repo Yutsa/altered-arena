@@ -167,6 +167,8 @@ def play_game(n, decks):
     if 'error' in r:
         return f'cannot load snapshot in rust: {r["error"]}', 0
     rid = r['gameId']
+    trace = {'snapshot': snap, 'answers': []}
+    traces.append(trace)
     tokens = {p['id']: p.get('token', '') for p in r['players']}
     rq = lambda player: f'player={player}&token={tokens[player]}'
     history = []
@@ -254,6 +256,7 @@ def play_game(n, decks):
                 call(opt.php, 'POST', f'/api/v1/games/{pid}/answer?player={player}', {'decisionId': pd['id'], 'type': 'choice', 'id': non_pass[0]['id'] if take else 99})
                 if not take:
                     call(opt.rust, 'POST', f'/api/v1/games/{rid}/answer?{rq(player)}', {'decisionId': rd['id'], 'type': 'pass'})
+                    trace['answers'].append({'player': player, 'answer': {'type': 'pass'}})
                 continue
         if rd is None and pd['kind'] == 'choice' and any(c['id'] == 99 for c in pd['choices']):
             # The original engine asks to confirm an effect that does nothing (its condition fails): pass it
@@ -289,6 +292,7 @@ def play_game(n, decks):
         if 'cardIds' in shown: shown['cards'] = [refs.get(i) for i in shown['cardIds']]
         desc = f'{player} {pd["kind"]} "{pd["prompt"][:70]}" -> {json.dumps(shown)}'
         history.append(desc)
+        trace['answers'].append({'player': player, 'answer': {k: v for k, v in rans.items() if k != 'decisionId'}, 'php': desc})
         if opt.v: print('  ', desc)
         if 'error' in rres:
             return f'rust refused {rans}: {rres["error"]} (php accepted) at {desc}\n      php choices {[(c["id"], c["label"], c.get("sourceCardId")) for c in pd.get("choices", [])]}\n      rust choices {[(c["id"], c["label"], c.get("sourceCardId")) for c in rd.get("choices", [])]}', step
@@ -298,10 +302,15 @@ def play_game(n, decks):
 decks = call(opt.php, 'GET', '/api/v1/decks')
 results = []
 results_steps = []
+traces = []
 for n in range(opt.games):
     problem, steps = play_game(n, decks)
     results.append(problem)
     results_steps.append(steps)
+    if problem and not problem.startswith('INCONCLUSIVE'):
+        import os
+        os.makedirs('traces', exist_ok=True)
+        json.dump(dict(traces[-1], problem=problem), open(f'traces/game-{n + 1}.json', 'w'))
     print(f'game {n + 1}: {"identical until the end" if problem is None else ("inconclusive" if problem.startswith("INCONCLUSIVE") else "DIVERGES")} ({steps} decisions)' + ('' if problem is None else '\n    ' + problem), flush=True)
 same = sum(1 for r in results if r is None)
 inconclusive = sum(1 for r in results if r and r.startswith('INCONCLUSIVE'))

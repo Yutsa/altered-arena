@@ -3,3 +3,4 @@ target/
 client/dist/
 .DS_Store
 *.log
+traces/

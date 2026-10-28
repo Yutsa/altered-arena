@@ -598,7 +598,7 @@ pub fn target_candidates(g: &Game, a: &Map<String, Value>, ctx: &Ctx) -> Vec<(Ca
             if b(a, "noBoostIfBoosted") && c.boosts > 0 {
                 continue;
             }
-            let tough = if c.controller != ctx.seat && !b(a, "ignoreTough") { def.int("tough") + crate::special::global_tough(g, id) } else { 0 };
+            let tough = if c.controller != ctx.seat && !b(a, "ignoreTough") { g.target_cost(id) } else { 0 };
             if tough > g.mana_available(ctx.seat) {
                 continue;
             }

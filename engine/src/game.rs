@@ -141,7 +141,12 @@ pub enum PendingKind {
     Turn { play: Vec<(CardId, Vec<Dest>)>, support: Vec<CardId>, tap: Vec<CardId>, can_end: bool, bonus: Option<BonusPlay> },
     Choice { options: Vec<ChoiceOpt> },
     /// Order of triggered abilities (shown as a choice)
-    Order { options: Vec<ChoiceOpt>, reactions: Vec<(Value, Ctx)> },
+    Order {
+        options: Vec<ChoiceOpt>,
+        reactions: Vec<(Value, Ctx)>,
+        #[serde(default)]
+        spell: bool,
+    },
     Select { cards: Vec<CardId>, min: usize, max: usize, costs: Vec<(CardId, i32)>, then: SelectThen, picker: bool },
     Expedition { options: Vec<(Seat, Side)>, min: usize, max: usize, effect: Option<Value> },
     Player { options: Vec<Seat>, effect: Option<Value> },
@@ -224,8 +229,11 @@ pub enum Task {
     /// The rest of a sequence after a Rush (ChooseAssignment): only if a card was played
     IfBonusPlayed { node: Value, ctx: Ctx },
     /// Triggered abilities waiting to resolve: the player picks the order
-    /// (abilities, whether independent ones resolve first without asking)
+    /// (abilities, whether independent ones resolve first without asking). Abilities triggered
+    /// meanwhile join the list (the original engine's "after finishing" parallel node)
     Reactions(Vec<(Value, Ctx)>, bool),
+    /// A spell's own effects: abilities they trigger wait until the spell is done
+    SpellEffects(Vec<(Value, Ctx)>),
 }
 
 /// Per-turn and per-day modifiers set by effects ("the next character you play gains a boost"...)
@@ -698,7 +706,11 @@ impl Game {
                 Task::Step(step) => self.step(step),
                 Task::Run { node, ctx } => crate::flow::run_node(self, &node, ctx),
                 Task::SpellCleanup { card } => self.spell_cleanup(card),
-                Task::Reactions(list, auto) => self.order_reactions(list, auto),
+                Task::Reactions(mut list, auto) => {
+                    list.extend(self.reactions.drain(..));
+                    self.order_reactions(list, auto)
+                }
+                Task::SpellEffects(list) => self.order_reactions_ex(list, true, true),
                 Task::IfBonusPlayed { node, ctx } => {
                     if self.mods.bonus_played {
                         crate::flow::run_node(self, &node, ctx);
@@ -717,7 +729,12 @@ impl Game {
 
     /// Several abilities triggered at once: the player chooses which resolves first (as in the
     /// original engine, the choice is asked even when the order doesn't matter)
-    fn order_reactions(&mut self, mut list: Vec<(Value, Ctx)>, auto_independent: bool) {
+    fn order_reactions(&mut self, list: Vec<(Value, Ctx)>, auto_independent: bool) {
+        self.order_reactions_ex(list, auto_independent, false)
+    }
+
+    fn order_reactions_ex(&mut self, mut list: Vec<(Value, Ctx)>, auto_independent: bool, spell: bool) {
+        let again = |rest: Vec<(Value, Ctx)>| if spell { Task::SpellEffects(rest) } else { Task::Reactions(rest, true) };
         if list.len() <= 1 {
             if let Some((node, ctx)) = list.pop() {
                 self.stack.push(Task::Run { node, ctx });
@@ -727,7 +744,7 @@ impl Game {
         if auto_independent {
             if let Some(i) = list.iter().position(|(n, c)| crate::flow::is_independent(self, n, c)) {
                 let (node, ctx) = list.remove(i);
-                self.stack.push(Task::Reactions(list, true));
+                self.stack.push(again(list));
                 self.stack.push(Task::Run { node, ctx });
                 return;
             }
@@ -751,7 +768,7 @@ impl Game {
             prompt: "Choose which effect to resolve first".into(),
             source: None,
             can_pass: all_optional,
-            kind: PendingKind::Order { options, reactions: list },
+            kind: PendingKind::Order { options, reactions: list, spell },
             ctx: Ctx::of(chooser, None),
         });
     }

@@ -234,8 +234,10 @@ impl Game {
         // A spell resolves on its own; the abilities it triggers wait until it is done
         if def.card_type != CardType::Spell {
             all.extend(self.reactions.drain(before..));
+            self.stack.push(Task::Reactions(all, true));
+        } else {
+            self.stack.push(Task::SpellEffects(all));
         }
-        self.stack.push(Task::Reactions(all, true));
         // "Immediate" abilities (Teija & Nauraa...) resolve before anything else
         let before_immediate = self.reactions.len();
         self.emit(Event {
@@ -308,5 +310,113 @@ impl Game {
         let name = self.players[seat].name.clone();
         self.log_line(Some(seat), format!("{} passes", name));
         self.emit(Event { trigger: "EndTurn".into(), seat, ..Default::default() });
+    }
+}
+
+impl Game {
+    /// Dynamic Tough strings of a card (completed Feats can add some)
+    fn dynamic_tough(&self, id: CardId) -> Vec<String> {
+        let c = self.card(id);
+        let def = c.def();
+        let mut out: Vec<String> = match def.prop("dynamicTough") {
+            Some(Value::String(s)) if !s.is_empty() => vec![s.clone()],
+            Some(Value::Array(a)) => a.iter().filter_map(|v| v.as_str().map(String::from)).collect(),
+            _ => vec![],
+        };
+        if c.completed {
+            match def.prop("effectCompleted").and_then(|e| e.get("dynamicTough")) {
+                Some(Value::String(s)) if !s.is_empty() => out.push(s.clone()),
+                Some(Value::Array(a)) => out.extend(a.iter().filter_map(|v| v.as_str().map(String::from))),
+                _ => {}
+            }
+        }
+        // "value:condition": the condition is not evaluated here (approximation)
+        out.into_iter().map(|t| t.split(':').next().unwrap_or("").to_string()).collect()
+    }
+
+    /// Tough of a card: the extra mana an opponent pays to target it (Card::getTough)
+    pub fn tough(&self, id: CardId) -> i32 {
+        let c = self.card(id);
+        if !c.zone.in_play() {
+            return 0;
+        }
+        let def = c.def();
+        let seat = c.controller;
+        let mut tough = def.int("tough");
+        for t in self.dynamic_tough(id) {
+            match t.as_str() {
+                "region" if !self.tiebreaker => tough += (self.players[seat].gap() - 1).max(0),
+                "controlledPlants" => tough += self.in_play(seat).iter().filter(|&&x| self.card(x).def().has_subtype("plant")).count() as i32,
+                "tough1" => tough += 1,
+                "tough2" => tough += 2,
+                "exhaustedReserve" => {
+                    tough += self.players.iter().flat_map(|p| p.reserve.iter()).filter(|&&x| self.card(x).exhausted).count() as i32
+                }
+                _ => {}
+            }
+        }
+        let played = self.in_play(seat);
+        if c.is_character_like() {
+            for &src in &played {
+                let scope = self.card(src).def().prop("effectCompleted").and_then(|e| e.get("universalToughScope")).and_then(Value::as_str);
+                let applies = match scope {
+                    Some("expedition") => c.zone.is_expedition(),
+                    Some("expeditionAnchored") => c.zone.is_expedition() && c.has(Status::Anchored),
+                    _ => true,
+                };
+                if !applies {
+                    continue;
+                }
+                for t in self.dynamic_tough(src) {
+                    tough += match t.as_str() {
+                        "universalCharacter2" => 2,
+                        "universalCharacter1" => 1,
+                        _ => 0,
+                    };
+                }
+            }
+            let boosted = played.iter().any(|&x| {
+                let o = self.card(x);
+                (o.zone == c.zone || c.is_gigantic()) && o.def().prop("expeditionTough").and_then(Value::as_str) == Some("boosted")
+            });
+            if boosted && c.boosts > 0 {
+                tough += 1;
+            }
+            let anchored_asleep = played.iter().any(|&x| self.dynamic_tough(x).iter().any(|t| t == "anchoredOrAsleep"));
+            if anchored_asleep && (c.has(Status::Anchored) || c.has(Status::Asleep)) {
+                tough += 1;
+            }
+        }
+        if def.card_type == CardType::Permanent {
+            let mut best = 0;
+            for &l in &self.players[seat].landmarks {
+                let lc = self.card(l);
+                if !lc.completed {
+                    continue;
+                }
+                if let Some(Value::String(dt)) = lc.def().prop("effectCompleted").and_then(|e| e.get("dynamicTough")) {
+                    if let Some(n) = dt.strip_prefix("universalLandmarks").and_then(|n| n.parse::<i32>().ok()) {
+                        best = best.max(n);
+                    }
+                }
+            }
+            tough += best;
+        }
+        tough + crate::special::global_tough(self, id)
+    }
+
+    /// Extra cost to target a card of the opponent (Tough, and completed-Feat protection in Reserve)
+    pub fn target_cost(&self, id: CardId) -> i32 {
+        let c = self.card(id);
+        let mut cost = self.tough(id).max(0);
+        if c.zone == Zone::Reserve && c.is_character_like() {
+            for &l in &self.players[c.controller].landmarks {
+                let lc = self.card(l);
+                if lc.completed {
+                    cost += lc.def().prop("effectCompleted").and_then(|e| e.get("reserveCharacterTough")).and_then(Value::as_i64).unwrap_or(0) as i32;
+                }
+            }
+        }
+        cost
     }
 }
