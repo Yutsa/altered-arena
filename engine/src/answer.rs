@@ -228,6 +228,18 @@ impl Game {
                 self.move_card(h, Zone::Reserve, None);
                 Ok(())
             }
+            (PendingKind::Buttons { buttons }, Answer::Button { key }) => {
+                if !buttons.iter().any(|(k, _)| *k == key) {
+                    return err("Unknown button");
+                }
+                let (biome, region) = key.split_once(':').unwrap_or(("", ""));
+                let (Some(b), Ok(r)) = (Biome::from_engine(biome), region.parse::<i32>()) else { return err("Bad button") };
+                self.players[seat].records.region_markers.push((r, b));
+                self.players[seat].records.markers_used += 1;
+                let name = self.players[seat].name.clone();
+                self.log_line(Some(seat), format!("{} places a {} marker on region {}", name, biome, r));
+                Ok(())
+            }
             (_, Answer::Confirm) => Ok(()),
             (kind, a) => err(format!("Answer {:?} does not fit this decision ({})", a, kind_name(&kind))),
         }
@@ -245,5 +257,6 @@ pub fn kind_name(k: &PendingKind) -> &'static str {
         PendingKind::Location { .. } => "location",
         PendingKind::Cleanup { .. } => "cleanup",
         PendingKind::Exchange { .. } => "exchange",
+        PendingKind::Buttons { .. } => "buttons",
     }
 }

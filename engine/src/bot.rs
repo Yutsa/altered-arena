@@ -39,6 +39,10 @@ impl Game {
                 }
             }
             PendingKind::Order { .. } => Answer::Choice { id: 0 },
+            PendingKind::Buttons { buttons } => match buttons.first() {
+                Some((k, _)) => Answer::Button { key: k.clone() },
+                None => Answer::Pass,
+            },
             PendingKind::Choice { options } => {
                 let enabled: Vec<usize> = options.iter().enumerate().filter(|(_, o)| o.enabled && o.node.is_some()).map(|(i, _)| i).collect();
                 match enabled.first() {

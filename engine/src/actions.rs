@@ -379,6 +379,34 @@ pub fn run(g: &mut Game, action: &str, a: &Map<String, Value>, node: &Value, ctx
             }
         }
         "SpecialEffect" => crate::special::special(g, a, node, ctx),
+        "MarkRegion" => {
+            // The hero's remaining terrain markers × the visible regions (key "biome:region")
+            let used: Vec<Biome> = g.players[ctx.seat].records.region_markers.iter().map(|(_, b)| *b).collect();
+            let markers: Vec<Biome> = [Biome::Ocean, Biome::Forest, Biome::Mountain].into_iter().filter(|b| !used.contains(b)).collect();
+            let mut buttons = vec![];
+            for b in &markers {
+                let name = match b {
+                    Biome::Forest => "Forest",
+                    Biome::Mountain => "Mountain",
+                    Biome::Ocean => "Ocean",
+                };
+                for (r, _) in g.visible_regions() {
+                    buttons.push((format!("{}:{}", name.to_lowercase(), r), format!("{} marker → region {}", name, r)));
+                }
+            }
+            if buttons.is_empty() {
+                return;
+            }
+            g.ask(Pending {
+                id: 0,
+                seat: ctx.seat,
+                prompt: format!("{}Mark a visible region", source_prefix(g, ctx.source)),
+                source: ctx.source,
+                can_pass: optional,
+                kind: PendingKind::Buttons { buttons },
+                ctx,
+            });
+        }
         other => g.unsupported(format!("action {}", other)),
     }
 }

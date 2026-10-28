@@ -8,7 +8,7 @@ use crate::model::*;
 use serde_json::{Map, Value};
 
 /// Actions that ask the player something themselves (an optional one shows a "pass" option)
-const DECIDING: &[&str] = &["Target", "DiscardDo", "TargetExpedition", "TargetPlayer", "Exchange", "ChooseAssignment", "RollDie", "InvokeToken", "Pay"];
+const DECIDING: &[&str] = &["MarkRegion", "Target", "DiscardDo", "TargetExpedition", "TargetPlayer", "Exchange", "ChooseAssignment", "RollDie", "InvokeToken", "Pay"];
 
 pub fn args(node: &Value) -> Map<String, Value> {
     node.get("args").and_then(Value::as_object).cloned().unwrap_or_default()

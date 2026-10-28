@@ -335,6 +335,10 @@ impl Game {
                 "landmarks": {"cardIds": landmarks, "n": n_landmarks},
             }),
             PendingKind::Exchange { hand, reserve } => json!({"kind": "exchange", "hand": hand, "reserve": reserve}),
+            PendingKind::Buttons { buttons } => json!({
+                "kind": "buttons",
+                "buttons": buttons.iter().map(|(k, l)| json!({"key": k, "label": l})).collect::<Vec<_>>(),
+            }),
         };
         if let (Value::Object(a), Value::Object(b)) = (&mut v, extra) {
             a.extend(b);

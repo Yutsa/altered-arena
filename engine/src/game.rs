@@ -160,6 +160,8 @@ pub enum PendingKind {
     Location { options: Vec<(String, String, Seat, Zone)>, token: String, n: i32 },
     Cleanup { reserve: Vec<CardId>, n_reserve: usize, landmarks: Vec<CardId>, n_landmarks: usize },
     Exchange { hand: Vec<CardId>, reserve: Vec<CardId> },
+    /// Plain buttons: (key, label); used to place a terrain marker on a region
+    Buttons { buttons: Vec<(String, String)> },
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -1082,7 +1084,8 @@ impl Game {
                 if self.players[seat].blocked[side.index()] || self.defended(seat, side) {
                     continue;
                 }
-                let biomes = self.region_biomes(self.players[seat].position[side.index()]);
+                // Terrain markers (Nadir & Bubbles) replace a region's biomes
+                let biomes = self.expedition_biomes(seat, side);
                 // An ascended expedition also wins ties of 1 or more
                 let ascended = self.players[seat].ascended[side.index()];
                 let won: Vec<Biome> = biomes

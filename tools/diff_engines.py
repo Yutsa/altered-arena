@@ -154,6 +154,10 @@ def translate(ans, pd, rd):
         lab = next(l for l in pd['locations'] if l['key'] == ans['key'])
         cand = [l for l in rd.get('locations', []) if l.get('player') == lab.get('player') and l.get('zone') == lab.get('zone')]
         if cand: out['key'] = cand[0]['key']
+    elif t == 'button':
+        lab = next((b['label'] for b in pd.get('buttons', []) if b['key'] == ans['key']), '')
+        same = [b for b in rd.get('buttons', []) if b['label'] == lab]
+        if same: out['key'] = same[0]['key']
     elif t == 'pass' and not rd.get('canPass'):
         skip = [c for c in rd.get('choices', []) if c['label'] == 'Skip']
         if skip: return {'decisionId': rd['id'], 'type': 'choice', 'id': skip[0]['id']}
