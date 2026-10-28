@@ -1,0 +1,11 @@
+[package]
+name = "loadtest"
+description = "Load generator for the Altered Arena server: N concurrent games played by simulated players"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+
+[dependencies]
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "time", "sync"] }
+reqwest = { version = "0.12", default-features = false, features = ["json"] }
+serde_json = "1"

@@ -5,6 +5,7 @@ import type {
   ErrorResponse,
   GameCreated,
   GameView,
+  MatchTicket,
   NewGame,
   PlayerId,
 } from '@protocol';
@@ -22,6 +23,14 @@ export class ApiError extends Error {
 }
 
 const BASE = '/api/v1';
+
+/** Query string of a seat: player id and its secret token (without a token the view is a spectator view) */
+function seat(player: PlayerId | null, token?: string | null): string {
+  const q = new URLSearchParams();
+  if (player !== null) q.set('player', String(player));
+  if (token) q.set('token', token);
+  return q.toString();
+}
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   let res: Response;
@@ -55,14 +64,20 @@ export const api = {
   decks: () => request<DeckSummary[]>('/decks'),
   createGame: (game: NewGame) => request<GameCreated>('/games', { method: 'POST', body: JSON.stringify(game) }),
   /** With `since`, the server waits (up to ~20 s) for a view newer than `since`. */
-  view: (gameId: string, player: PlayerId, since?: number, signal?: AbortSignal) =>
+  view: (gameId: string, player: PlayerId | null, token: string | null | undefined, since?: number, signal?: AbortSignal) =>
     request<GameView>(
-      `/games/${encodeURIComponent(gameId)}?player=${player}${since !== undefined ? `&since=${since}` : ''}`,
+      `/games/${encodeURIComponent(gameId)}?${seat(player, token)}${since !== undefined ? `&since=${since}` : ''}`,
       { signal },
     ),
-  answer: (gameId: string, player: PlayerId, answer: Answer) =>
-    request<GameView>(`/games/${encodeURIComponent(gameId)}/answer?player=${player}`, {
+  answer: (gameId: string, player: PlayerId | null, token: string | null | undefined, answer: Answer) =>
+    request<GameView>(`/games/${encodeURIComponent(gameId)}/answer?${seat(player, token)}`, {
       method: 'POST',
       body: JSON.stringify(answer),
     }),
+  /** Joins the matchmaking queue */
+  matchmake: (name: string, deck: string) =>
+    request<MatchTicket>('/matchmaking', { method: 'POST', body: JSON.stringify({ name, deck }) }),
+  /** Long poll (up to ~20 s) until the ticket is matched */
+  ticket: (ticket: string, signal?: AbortSignal) => request<MatchTicket>(`/matchmaking/${encodeURIComponent(ticket)}`, { signal }),
+  leaveQueue: (ticket: string) => request<unknown>(`/matchmaking/${encodeURIComponent(ticket)}`, { method: 'DELETE' }).catch(() => null),
 };

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { motion } from 'motion/react';
 import type { PlayerView } from '@protocol';
 import { useGameCtx } from '../game/GameContext';
+import { useDrag } from '../game/drag';
 import { PlayerBar } from './PlayerBar';
 import { ExpeditionRow, ZoneRow } from './Board';
 import { Tumult } from './Tumult';
@@ -36,7 +37,16 @@ function Side({ player, mine }: { player: PlayerView; mine: boolean }) {
 
 /** The game table: opponent, Tumult, me, hand, decision, log. */
 export function Table({ onLeave, connected, extraTop }: { onLeave: () => void; connected: boolean; extraTop?: ReactNode }) {
-  const { view, me, opp, log, you } = useGameCtx();
+  const { view, me, opp, log, you, ui } = useGameCtx();
+  const { drag } = useDrag();
+  const offering = ui.selected !== null || drag !== null;
+  // On small screens my expeditions may be scrolled away: bring them into view when a card is about to be played
+  useEffect(() => {
+    if (!offering) return;
+    const el = scrollRef.current?.querySelector('.side.mine .a-hero');
+    el?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }, [offering]);
+  const scrollRef = useRef<HTMLDivElement>(null);
   const [logOpen, setLogOpen] = useState(() => window.matchMedia('(min-width: 1200px)').matches);
   const [seen, setSeen] = useState(0);
   const lastSeq = log.length ? log[log.length - 1].seq : 0;
@@ -44,7 +54,6 @@ export function Table({ onLeave, connected, extraTop }: { onLeave: () => void; c
     if (logOpen) setSeen(lastSeq);
   }, [logOpen, lastSeq]);
   const unread = log.filter((e) => e.seq > seen).length;
-  const scrollRef = useRef<HTMLDivElement>(null);
   return (
     <div className={`game ${logOpen ? 'log-open' : ''}`}>
       <header className="topbar">

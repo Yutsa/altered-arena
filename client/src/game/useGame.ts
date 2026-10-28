@@ -31,7 +31,7 @@ function mergeLog(prev: LogEntry[], next: LogEntry[], lastSeq: number): LogEntry
  * Keeps the GameView of one player up to date: initial fetch, then long polling with `since`,
  * and answers. The most recent view (highest seq) always wins.
  */
-export function useGame(gameId: string, player: PlayerId): GameState {
+export function useGame(gameId: string, player: PlayerId | null, token: string | null): GameState {
   const [view, setView] = useState<GameView | null>(null);
   const [log, setLog] = useState<LogEntry[]>([]);
   const [sending, setSending] = useState(false);
@@ -62,7 +62,7 @@ export function useGame(gameId: string, player: PlayerId): GameState {
         const cur = viewRef.current;
         if (cur?.phase === 'ended') break;
         try {
-          const v = await api.view(gameId, player, cur ? cur.seq : undefined, ctrl.signal);
+          const v = await api.view(gameId, player, token, cur ? cur.seq : undefined, ctrl.signal);
           if (stopped) break;
           failures = 0;
           setConnected(true);
@@ -83,7 +83,7 @@ export function useGame(gameId: string, player: PlayerId): GameState {
       stopped = true;
       ctrl.abort();
     };
-  }, [gameId, player, accept]);
+  }, [gameId, player, token, accept]);
 
   const send = useCallback(
     async (a: AnswerBody) => {
@@ -91,20 +91,20 @@ export function useGame(gameId: string, player: PlayerId): GameState {
       if (!d) return false;
       setSending(true);
       try {
-        const v = await api.answer(gameId, player, { ...a, decisionId: d.id } as Answer);
+        const v = await api.answer(gameId, player, token, { ...a, decisionId: d.id } as Answer);
         accept(v);
         return true;
       } catch (e) {
         const err = e as ApiError;
         toast(err.user ? err.message : `Server error: ${err.message}`);
         // The decision may be stale: refresh the view without waiting for the poll
-        api.view(gameId, player).then(accept, () => {});
+        api.view(gameId, player, token).then(accept, () => {});
         return false;
       } finally {
         setSending(false);
       }
     },
-    [gameId, player, accept],
+    [gameId, player, token, accept],
   );
 
   return { view, log, sending, connected, fatal, send };

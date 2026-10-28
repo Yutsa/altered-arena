@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { PlayerId } from '@protocol';
 import { useCatalog, useDecks } from '../api/catalog';
 import { api, ApiError } from '../api/client';
@@ -6,12 +6,12 @@ import { InspectProvider } from '../game/inspect';
 import { DeckGrid } from '../components/Picker';
 import { Inspector } from '../components/Inspector';
 import { toast } from '../game/toasts';
-import { lastGame, saveDeck, savedDeck, savedName, saveName } from './storage';
+import { lastGame, saveDeck, savedDeck, savedName, saveName, saveToken } from './storage';
 import './Lobby.css';
 
-type Mode = 'bot' | 'hotseat' | 'join';
+type Mode = 'bot' | 'match' | 'hotseat' | 'join';
 
-export function Lobby({ onJoin }: { onJoin: (gameId: string, player: PlayerId) => void }) {
+export function Lobby({ onJoin }: { onJoin: (gameId: string, player: PlayerId, token?: string | null) => void }) {
   const { catalog, error: catErr } = useCatalog();
   const { decks, error: deckErr } = useDecks();
   const [mode, setMode] = useState<Mode>('bot');
@@ -19,9 +19,12 @@ export function Lobby({ onJoin }: { onJoin: (gameId: string, player: PlayerId) =
   const [name2, setName2] = useState('Player 2');
   const [deck, setDeck] = useState<string | null>(savedDeck());
   const [busy, setBusy] = useState(false);
-  const [hotseat, setHotseat] = useState<{ gameId: string; players: { id: PlayerId; name: string }[] } | null>(null);
+  const [hotseat, setHotseat] = useState<{ gameId: string; players: { id: PlayerId; name: string; token?: string }[] } | null>(null);
+  const [ticket, setTicket] = useState<string | null>(null);
+  const ticketRef = useRef<string | null>(null);
   const [joinId, setJoinId] = useState('');
   const [joinPlayer, setJoinPlayer] = useState<PlayerId>(2001);
+  const [joinToken, setJoinToken] = useState('');
   const last = lastGame();
 
   const fail = (e: unknown) => toast(e instanceof ApiError ? e.message : String(e));
@@ -33,7 +36,7 @@ export function Lobby({ onJoin }: { onJoin: (gameId: string, player: PlayerId) =
     saveDeck(deck);
     try {
       const g = await api.createGame({ players: [{ name: name || 'Player', deck }, { name: 'Bot', bot: true }] });
-      onJoin(g.gameId, g.players[0].id);
+      onJoin(g.gameId, g.players[0].id, g.players[0].token);
     } catch (e) {
       fail(e);
     } finally {
@@ -46,6 +49,7 @@ export function Lobby({ onJoin }: { onJoin: (gameId: string, player: PlayerId) =
     saveName(name);
     try {
       const g = await api.createGame({ players: [{ name: name || 'Player 1' }, { name: name2 || 'Player 2' }] });
+      for (const p of g.players) saveToken(g.gameId, p.id, p.token);
       setHotseat({ gameId: g.gameId, players: g.players });
     } catch (e) {
       fail(e);
@@ -54,7 +58,51 @@ export function Lobby({ onJoin }: { onJoin: (gameId: string, player: PlayerId) =
     }
   }
 
-  const link = (gameId: string, p: PlayerId) => `${location.origin}${location.pathname}?game=${encodeURIComponent(gameId)}&player=${p}`;
+  /** Matchmaking: join the queue, then long poll the ticket until matched */
+  async function findOpponent() {
+    if (!deck) return;
+    saveName(name);
+    saveDeck(deck);
+    setBusy(true);
+    try {
+      let t = await api.matchmake(name || 'Player', deck);
+      ticketRef.current = t.ticket;
+      setTicket(t.ticket);
+      while (t.status !== 'matched' && ticketRef.current === t.ticket) {
+        try {
+          t = await api.ticket(t.ticket);
+        } catch (e) {
+          if (e instanceof ApiError && e.user) throw e;
+          await new Promise((r) => setTimeout(r, 2000)); // network hiccup: retry
+        }
+      }
+      if (t.status === 'matched' && t.gameId && t.player && ticketRef.current === t.ticket) {
+        ticketRef.current = null;
+        onJoin(t.gameId, t.player, t.token);
+      }
+    } catch (e) {
+      fail(e);
+    } finally {
+      setBusy(false);
+      setTicket(null);
+    }
+  }
+  function leaveQueue() {
+    const t = ticketRef.current;
+    ticketRef.current = null;
+    setTicket(null);
+    if (t) void api.leaveQueue(t);
+  }
+  // Leave the queue when the lobby closes
+  useEffect(
+    () => () => {
+      if (ticketRef.current) void api.leaveQueue(ticketRef.current);
+    },
+    [],
+  );
+
+  const link = (gameId: string, p: PlayerId, token?: string) =>
+    `${location.origin}${location.pathname}?game=${encodeURIComponent(gameId)}&player=${p}${token ? `&token=${encodeURIComponent(token)}` : ''}`;
   const selectedDeck = decks?.find((d) => d.id === deck);
 
   return (
@@ -66,7 +114,7 @@ export function Lobby({ onJoin }: { onJoin: (gameId: string, player: PlayerId) =
             Altered <span>Arena</span>
           </h1>
           {last && (
-            <button type="button" className="btn" onClick={() => onJoin(last.gameId, last.player)}>
+            <button type="button" className="btn" onClick={() => onJoin(last.gameId, last.player, last.token)}>
               Resume game {last.gameId}
             </button>
           )}
@@ -76,6 +124,7 @@ export function Lobby({ onJoin }: { onJoin: (gameId: string, player: PlayerId) =
           {(
             [
               ['bot', 'Play vs Bot'],
+              ['match', 'Find an opponent'],
               ['hotseat', 'Two players'],
               ['join', 'Join a game'],
             ] as [Mode, string][]
@@ -88,8 +137,11 @@ export function Lobby({ onJoin }: { onJoin: (gameId: string, player: PlayerId) =
 
         {(catErr || deckErr) && <p className="lobby-error">Server unreachable: {catErr ?? deckErr}</p>}
 
-        {mode === 'bot' && (
+        {(mode === 'bot' || mode === 'match') && (
           <section className="lobby-section">
+            {mode === 'match' && (
+              <p className="muted">Waits for another player looking for a game, then starts it. Both players use the deck they picked here.</p>
+            )}
             <label className="field">
               <span>Your name</span>
               <input value={name} onChange={(e) => setName(e.target.value)} maxLength={24} />
@@ -110,9 +162,23 @@ export function Lobby({ onJoin }: { onJoin: (gameId: string, player: PlayerId) =
               >
                 Random
               </button>
-              <button type="button" className="btn primary big" disabled={!deck || busy} onClick={startBot}>
-                {busy ? 'Starting…' : 'Play'}
-              </button>
+              {mode === 'bot' ? (
+                <button type="button" className="btn primary big" disabled={!deck || busy} onClick={startBot}>
+                  {busy ? 'Starting…' : 'Play'}
+                </button>
+              ) : ticket ? (
+                <>
+                  <span className="spinner" />
+                  <span>Looking for an opponent…</span>
+                  <button type="button" className="btn" onClick={leaveQueue}>
+                    Cancel
+                  </button>
+                </>
+              ) : (
+                <button type="button" className="btn primary big" disabled={!deck || busy} onClick={findOpponent}>
+                  Find an opponent
+                </button>
+              )}
             </div>
           </section>
         )}
@@ -140,21 +206,21 @@ export function Lobby({ onJoin }: { onJoin: (gameId: string, player: PlayerId) =
                 {hotseat.players.map((p) => (
                   <div key={p.id} className="hotseat-row">
                     <b>{p.name}</b>
-                    <input readOnly value={link(hotseat.gameId, p.id)} onFocus={(e) => e.currentTarget.select()} />
+                    <input readOnly value={link(hotseat.gameId, p.id, p.token)} onFocus={(e) => e.currentTarget.select()} />
                     <button
                       type="button"
                       className="btn"
                       onClick={() => {
-                        void navigator.clipboard?.writeText(link(hotseat.gameId, p.id));
+                        void navigator.clipboard?.writeText(link(hotseat.gameId, p.id, p.token));
                         toast('Link copied', 'info', 1500);
                       }}
                     >
                       Copy
                     </button>
-                    <button type="button" className="btn ghost" onClick={() => window.open(link(hotseat.gameId, p.id), '_blank')}>
+                    <button type="button" className="btn ghost" onClick={() => window.open(link(hotseat.gameId, p.id, p.token), '_blank')}>
                       New tab
                     </button>
-                    <button type="button" className="btn primary" onClick={() => onJoin(hotseat.gameId, p.id)}>
+                    <button type="button" className="btn primary" onClick={() => onJoin(hotseat.gameId, p.id, p.token)}>
                       Play here
                     </button>
                   </div>
@@ -177,10 +243,14 @@ export function Lobby({ onJoin }: { onJoin: (gameId: string, player: PlayerId) =
                 <option value={2002}>Player 2 (2002)</option>
               </select>
             </label>
-            <button type="button" className="btn primary" disabled={!joinId} onClick={() => onJoin(joinId, joinPlayer)}>
+            <label className="field">
+              <span>Seat token (leave empty to watch as a spectator)</span>
+              <input value={joinToken} onChange={(e) => setJoinToken(e.target.value.trim())} />
+            </label>
+            <button type="button" className="btn primary" disabled={!joinId} onClick={() => onJoin(joinId, joinPlayer, joinToken || null)}>
               Join
             </button>
-            <p className="muted">You can also open a link of the form ?game=ID&amp;player=2001.</p>
+            <p className="muted">You can also open a link of the form ?game=ID&amp;player=2001&amp;token=SECRET.</p>
           </section>
         )}
       </div>

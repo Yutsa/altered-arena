@@ -23,6 +23,7 @@ function write(k: string, v: unknown) {
 export interface LastGame {
   gameId: string;
   player: PlayerId;
+  token?: string | null;
 }
 export const rememberGame = (g: LastGame) => write(KEY_GAME, g);
 export const lastGame = () => read<LastGame>(KEY_GAME);
@@ -39,3 +40,20 @@ export const forgetGame = (gameId: string) => {
     }
   }
 };
+
+const KEY_TOKENS = 'arena.tokens';
+type Tokens = Record<string, Record<string, string>>;
+
+/** Remembers the secret token of a seat, so that the game can be reopened (or the seat switched in hot seat) */
+export function saveToken(gameId: string, player: PlayerId, token: string | null | undefined) {
+  if (!token) return;
+  const all = read<Tokens>(KEY_TOKENS) ?? {};
+  all[gameId] = { ...(all[gameId] ?? {}), [player]: token };
+  // keep the 30 most recent games
+  const keys = Object.keys(all);
+  for (const k of keys.slice(0, Math.max(0, keys.length - 30))) delete all[k];
+  write(KEY_TOKENS, all);
+}
+export function tokenOf(gameId: string, player: PlayerId): string | null {
+  return read<Tokens>(KEY_TOKENS)?.[gameId]?.[player] ?? null;
+}

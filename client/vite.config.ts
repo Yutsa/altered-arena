@@ -3,7 +3,8 @@ import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 import { fileURLToPath } from 'node:url';
 
-const server = process.env.ARENA_SERVER ?? 'http://localhost:8080';
+// Game server the dev server proxies to: ARENA_API=http://localhost:8090 for the Rust server
+const server = process.env.ARENA_API ?? process.env.ARENA_SERVER ?? 'http://localhost:8080';
 
 export default defineConfig({
   resolve: {

@@ -143,3 +143,8 @@
 @media (max-width: 420px) {
   .pi-phases img { width: 18px; height: 18px; }
 }
+.topbar .btn { white-space: nowrap; }
+@media (max-width: 480px) {
+  .pi-phases img:not(.current) { display: none; }
+  .topbar { gap: 6px; }
+}

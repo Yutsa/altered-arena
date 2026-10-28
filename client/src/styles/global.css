@@ -65,7 +65,7 @@
   --card-hand-w: clamp(84px, 9.5vw, 136px);
   --card-zoom-w: min(400px, 80vw, 55dvh);
   --region-h: clamp(54px, 7.5dvh, 80px);
-  --marker: clamp(20px, 3vw, 32px);
+  --marker: calc(var(--region-h) * 0.44);
   --hand-h: calc(var(--card-hand-w) * 1.09);
 }
 @media (max-width: 600px) {

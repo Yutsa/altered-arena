@@ -1,4 +1,5 @@
-// Drives the real UI (DOM clicks) until the game ends. Logs each step in window.__auto.
+// Dev tool: paste in the browser console on a game page (or `eval(await (await fetch("/__autoplay.js")).text())` if copied to public/).
+// Drives the real UI (DOM events) with random legal choices until the game ends; progress in window.__auto.
 window.__auto = { log: [], stop: false, errors: [] };
 const A = window.__auto;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));

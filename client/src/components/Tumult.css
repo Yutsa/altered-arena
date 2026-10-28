@@ -35,7 +35,11 @@
   box-shadow: inset 0 0 0 2px rgb(255 255 255 / 0.35);
 }
 .region-biomes {
+  position: absolute;
+  inset: 0;
   display: flex;
+  align-items: center;
+  justify-content: center;
   gap: 2px;
   font-size: clamp(11px, 2.2vw, 20px);
   color: rgb(255 255 255 / 0.92);
@@ -43,11 +47,17 @@
   z-index: 1;
 }
 .region-markers {
+  position: absolute;
+  left: 0;
+  right: 0;
   display: flex;
+  justify-content: center;
   gap: 2px;
   z-index: 2;
-  min-height: var(--marker);
 }
+.region-markers.top { top: 2px; }
+.region-markers.bottom { bottom: 2px; }
+.region:has(.region-markers .marker) .region-biomes { opacity: 0.55; }
 .marker {
   width: var(--marker);
   height: var(--marker);

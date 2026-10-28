@@ -6,7 +6,7 @@
  *
  *   node scripts/check-decisions.ts [--games N] [--hotseat] [--record out.json] [--server URL]
  */
-import type { CardCatalog, Decision, GameView, PlayerId } from '../../protocol/protocol.ts';
+import type { CardCatalog, Decision, GameCreated, GameView, PlayerId } from '../../protocol/protocol.ts';
 import { affordances, confirmAnswer, emptyUI, isOnBoard, pickerCardIds, toggleKey, togglePick, type UIState, type AnswerBody } from '../src/game/decisions.ts';
 import { KEYWORDS } from '../src/game/keywords.ts';
 import { writeFileSync } from 'node:fs';
@@ -130,15 +130,17 @@ async function playGame(catalog: CardCatalog, decks: { id: string }[]) {
   const players = HOTSEAT
     ? [{ name: 'Alice' }, { name: 'Bob' }]
     : [{ name: 'Check', deck: rnd(decks).id }, { name: 'Bot', bot: true }];
-  const g = await call<{ gameId: string; players: { id: PlayerId; bot: boolean }[] }>('POST', '/api/v1/games', { players });
+  const g = await call<GameCreated>('POST', '/api/v1/games', { players });
   const humans = g.players.filter((p) => !p.bot).map((p) => p.id);
+  const tokens = new Map(g.players.map((p) => [p.id, p.token]));
+  const seat = (p: PlayerId) => `player=${p}${tokens.get(p) ? `&token=${encodeURIComponent(tokens.get(p)!)}` : ''}`;
   const recorded: GameView[] = [];
   let steps = 0;
   for (;;) {
     let acted = false;
     let ended: GameView | null = null;
     for (const me of humans) {
-      const view = await call<GameView>('GET', `/api/v1/games/${g.gameId}?player=${me}`);
+      const view = await call<GameView>('GET', `/api/v1/games/${g.gameId}?${seat(me)}`);
       if (view.error) throw new Error(view.error);
       if (me === humans[0]) recorded.push(view);
       if (view.phase === 'ended') {
@@ -151,12 +153,12 @@ async function playGame(catalog: CardCatalog, decks: { id: string }[]) {
       stats.kinds[d.kind] = (stats.kinds[d.kind] ?? 0) + 1;
       if (!RENDERED.has(d.kind)) throw new Error(`No renderer for decision kind ${d.kind}`);
       const body = uiAnswer(view, d, catalog);
-      let res = await call<GameView>('POST', `/api/v1/games/${g.gameId}/answer?player=${me}`, { ...body, decisionId: d.id });
+      let res = await call<GameView>('POST', `/api/v1/games/${g.gameId}/answer?${seat(me)}`, { ...body, decisionId: d.id });
       if (res.error) {
         stats.refused.push(`${d.kind} "${d.prompt}" ${JSON.stringify(body)} -> ${res.error}`);
-        if (d.canPass) res = await call<GameView>('POST', `/api/v1/games/${g.gameId}/answer?player=${me}`, { decisionId: d.id, type: 'pass' });
+        if (d.canPass) res = await call<GameView>('POST', `/api/v1/games/${g.gameId}/answer?${seat(me)}`, { decisionId: d.id, type: 'pass' });
         if (res.error && d.kind === 'turn' && d.canEndTurn)
-          res = await call<GameView>('POST', `/api/v1/games/${g.gameId}/answer?player=${me}`, { decisionId: d.id, type: 'endTurn' });
+          res = await call<GameView>('POST', `/api/v1/games/${g.gameId}/answer?${seat(me)}`, { decisionId: d.id, type: 'endTurn' });
         if (res.error) throw new Error(`stuck on ${d.kind}: ${res.error}`);
       }
       acted = true;
@@ -168,7 +170,7 @@ async function playGame(catalog: CardCatalog, decks: { id: string }[]) {
     }
     if (steps > 1500) throw new Error('too many steps');
     if (!acted) {
-      const v = await call<GameView>('GET', `/api/v1/games/${g.gameId}?player=${humans[0]}&since=${recorded.at(-1)!.seq}`);
+      const v = await call<GameView>('GET', `/api/v1/games/${g.gameId}?${seat(humans[0])}&since=${recorded.at(-1)!.seq}`);
       if (v.phase === 'ended') {
         recorded.push(v);
         stats.winners.push(v.winner);
