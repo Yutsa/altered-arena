@@ -24,6 +24,9 @@ pub struct Ctx {
     /// Player chosen by TargetPlayer / expedition chosen by TargetExpedition
     pub target_seat: Option<Seat>,
     pub side: Option<Side>,
+    /// Owner of the expedition chosen by TargetExpedition (kept when a TargetPlayer follows)
+    #[serde(default)]
+    pub side_seat: Option<Seat>,
     /// Event that triggered the ability
     pub event: Option<Box<Event>>,
 }
@@ -57,6 +60,16 @@ pub struct Event {
     pub discard: bool,
     /// Discarded for its support ability
     pub support: bool,
+    /// MoveExpedition: the expedition that moved
+    #[serde(default)]
+    pub side: Option<Side>,
+    /// Leave events: the card was Fleeting / its expedition was ascended / its boosts, before it left
+    #[serde(default)]
+    pub fleeting: bool,
+    #[serde(default)]
+    pub ascended: bool,
+    #[serde(default)]
+    pub boosts: Option<i32>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -218,6 +231,9 @@ pub struct Modifiers {
     pub next_token_anchored: [bool; 2],
     /// The active player played a card this turn (ends the turn)
     pub played: bool,
+    /// State of the special effects (global Tough, after-Rest effects, next-card modifiers...)
+    #[serde(default)]
+    pub special: crate::special::SpecialMods,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -298,6 +314,8 @@ impl Game {
             blocked: [false; 2],
             moved: [false; 2],
             token: String::new(),
+            ascended: [false; 2],
+            records: Default::default(),
         };
         let mut game = Game {
             id: id.into(),
@@ -456,6 +474,8 @@ impl Game {
         let seasoned = self.card(id).def().flag("seasoned");
         let leaving_play = from.in_play() || from == Zone::Limbo;
         let is_token = self.card(id).def().is_token;
+        // Fleeting: a card in play that would go to Reserve is discarded instead
+        let to = if to == Zone::Reserve && leaving_play && self.card(id).has(Status::Fleeting) { Zone::Discard } else { to };
         let to = if is_token && !to.in_play() && to != Zone::Limbo { Zone::Gone } else { to };
         {
             let c = self.card_mut(id);
@@ -479,6 +499,10 @@ impl Game {
         }
         if to != Zone::Gone {
             self.players[seat].zone_mut(to).push(id);
+        }
+        if to == Zone::Discard {
+            let p = &mut self.players[seat];
+            p.records.discard_peak = p.records.discard_peak.max(p.discard.len() as i32);
         }
     }
 
@@ -708,6 +732,7 @@ impl Game {
                 }
                 self.day += 1;
                 self.phase = Phase::Morning;
+                crate::special::on_morning(self);
                 self.log_line(None, format!("Day {} — Morning", self.day));
                 for c in self.cards.iter_mut() {
                     c.exhausted = false;
@@ -716,19 +741,34 @@ impl Game {
                     p.passed = false;
                     p.blocked = [false; 2];
                     p.moved = [false; 2];
+                    p.records.storm_moves = Default::default();
+                    p.records.passed_first = false;
                 }
                 self.first = Game::other(self.first);
                 self.active = self.first;
                 let name = self.players[self.first].name.clone();
                 self.log_line(Some(self.first), format!("{} is the first player", name));
+                let mut expands = vec![];
                 for seat in self.turn_order() {
                     let hero = self.players[seat].hero;
-                    self.draw(seat, 2, hero);
+                    // Fen & Crowbar: one card drawn, one card put in Mana from the deck, no Expand
+                    if hero.map(|h| self.card(h).def().prop("uid").and_then(Value::as_str) == Some("ALT_CORE_B_LY_03_C")).unwrap_or(false) {
+                        self.draw(seat, 1, hero);
+                        if self.players[seat].deck.is_empty() {
+                            self.reshuffle_discard(seat);
+                        }
+                        if let Some(&c) = self.players[seat].deck.last() {
+                            self.move_card(c, Zone::Mana, None);
+                        }
+                    } else {
+                        self.draw(seat, 2, hero);
+                        expands.push(seat);
+                    }
                 }
-                let order = self.turn_order();
                 self.stack.push(Task::Step(Step::Noon));
-                self.stack.push(Task::Step(Step::Expand(order[1])));
-                self.stack.push(Task::Step(Step::Expand(order[0])));
+                for &seat in expands.iter().rev() {
+                    self.stack.push(Task::Step(Step::Expand(seat)));
+                }
                 self.stack.push(Task::Step(Step::Triggers(TriggerPhase::Morning)));
             }
             Step::Expand(seat) => {
@@ -765,6 +805,11 @@ impl Game {
             Step::TriggersFor(phase, seat) => {
                 let before = self.reactions.len();
                 self.emit(Event { trigger: phase.name().into(), seat, ..Default::default() });
+                if phase == TriggerPhase::BeforeNight {
+                    // Effects delayed "after Rest" (AfterRestSabotage...)
+                    let delayed = std::mem::take(&mut self.mods.special.after_rest[seat]);
+                    self.reactions.extend(delayed);
+                }
                 // Several abilities on the same phase: the player orders them all (noIndependent)
                 let fired: Vec<(Value, Ctx)> = self.reactions.drain(before..).collect();
                 let auto = fired.len() <= 1;
@@ -800,6 +845,10 @@ impl Game {
             Step::Dusk => {
                 self.phase = Phase::Dusk;
                 self.log_line(None, format!("Day {} — Dusk", self.day));
+                // Only Dusk moves count after Dusk (stPreBeforeDusk resets stormMoves)
+                for p in self.players.iter_mut() {
+                    p.records.storm_moves = Default::default();
+                }
                 self.dusk();
                 self.stack.push(Task::Step(Step::AfterDusk));
             }
@@ -812,6 +861,10 @@ impl Game {
                 self.log_line(None, format!("Day {} — Night", self.day));
                 for seat in self.turn_order() {
                     self.rest(seat);
+                }
+                // Ascension lasts until Rest
+                for p in self.players.iter_mut() {
+                    p.ascended = [false; 2];
                 }
                 let order = self.turn_order();
                 self.stack.push(Task::Step(Step::EndOfNight));
@@ -831,6 +884,9 @@ impl Game {
     fn start_turn(&mut self) {
         self.mods.played = false;
         let seat = self.active;
+        self.players[seat].records.abilities.clear();
+        self.players[seat].records.smoke_armed.clear();
+        crate::special::on_turn_start(self);
         self.stack.push(Task::Step(Step::AfterAction));
         self.ask_turn(seat, None);
         self.set_undo_point(seat);
@@ -901,7 +957,7 @@ impl Game {
             self.dusk_tiebreaker();
             return;
         }
-        let mut moves: Vec<(Seat, Side)> = vec![];
+        let mut moves: Vec<(Seat, Side, Vec<Biome>, bool)> = vec![];
         for side in Side::BOTH {
             let stats = [self.expedition_stats(0, side), self.expedition_stats(1, side)];
             for seat in 0..2 {
@@ -909,17 +965,29 @@ impl Game {
                     continue;
                 }
                 let biomes = self.region_biomes(self.players[seat].position[side.index()]);
-                let wins = biomes.iter().any(|b| {
-                    let i = b.index();
-                    stats[seat][i] > stats[1 - seat][i]
-                });
-                if wins {
-                    moves.push((seat, side));
+                // An ascended expedition also wins ties of 1 or more
+                let ascended = self.players[seat].ascended[side.index()];
+                let won: Vec<Biome> = biomes
+                    .iter()
+                    .copied()
+                    .filter(|b| {
+                        let i = b.index();
+                        stats[seat][i] > stats[1 - seat][i] || (ascended && stats[seat][i] >= 1 && stats[seat][i] == stats[1 - seat][i])
+                    })
+                    .collect();
+                let from_ascension = ascended && biomes.iter().any(|b| stats[seat][b.index()] >= 1 && stats[seat][b.index()] == stats[1 - seat][b.index()]);
+                if !won.is_empty() {
+                    moves.push((seat, side, won, from_ascension));
                 }
             }
         }
-        for (seat, side) in moves {
-            self.move_expedition(seat, side, 1);
+        for (seat, side, biomes, from_ascension) in moves {
+            if self.move_expedition(seat, side, 1) {
+                if let Some(m) = self.players[seat].records.storm_moves[side.index()].as_mut() {
+                    m.biomes = biomes;
+                    m.from_ascension = from_ascension;
+                }
+            }
         }
     }
 
@@ -942,6 +1010,8 @@ impl Game {
         if n > 0 {
             self.players[seat].moved[side.index()] = true;
         }
+        let ascended = self.players[seat].ascended[side.index()];
+        self.players[seat].records.storm_moves[side.index()] = Some(StormMove { moves: n, ascended, ..Default::default() });
         let tile = ((new + 1) / 2) as usize;
         if !self.storm[tile].revealed {
             self.storm[tile].revealed = true;
@@ -950,7 +1020,7 @@ impl Game {
         let name = self.players[seat].name.clone();
         let label = if side == Side::Hero { "hero" } else { "companion" };
         self.log_line(Some(seat), format!("{}'s {} expedition moves {} to region {}", name, label, if n > 0 { "forward" } else { "back" }, new));
-        self.emit(Event { trigger: "MoveExpedition".into(), seat, n, ..Default::default() });
+        self.emit(Event { trigger: "MoveExpedition".into(), seat, n, side: Some(side), ascended, ..Default::default() });
         true
     }
 
@@ -988,6 +1058,20 @@ impl Game {
                     continue;
                 }
             }
+            // Jinns: at Rest, to Mana (exhausted) or to Reserve (and draw, for the rare one)
+            let to_mana = def.flag("leaveExpeditionToMana") || def.flag("leaveExpeditionToManaOrDraw");
+            if to_mana && !anchored {
+                let mut reserve = serde_json::json!({"action": "Discard", "args": {"cardId": id, "destination": "reserve"}});
+                if def.flag("leaveExpeditionToManaOrDraw") {
+                    reserve = serde_json::json!({"type": "seq", "childs": [reserve, {"action": "Draw", "args": {"players": "me"}}]});
+                }
+                let node = serde_json::json!({"type": "xor", "childs": [
+                    {"action": "Discard", "args": {"cardId": id, "destination": "mana", "tapped": true}},
+                    reserve,
+                ]});
+                self.reactions.push((node, Ctx::of(seat, Some(id))));
+                continue;
+            }
             if anchored || eternal {
                 let c = self.card_mut(id);
                 c.remove_status(Status::Anchored);
@@ -995,13 +1079,15 @@ impl Game {
                 continue;
             }
             let from = c.zone;
-            if c.has(Status::Fleeting) {
+            let (fleeting, boosts) = (c.has(Status::Fleeting), c.boosts);
+            let ascended = self.is_card_expedition_ascended(id);
+            if fleeting {
                 self.move_card(id, Zone::Discard, None);
                 self.emit(Event { trigger: "Discard".into(), seat, card: Some(id), from: Some(from), to: Some(Zone::Discard), listeners: vec![id], discard: true, ..Default::default() });
             } else {
                 self.move_card(id, Zone::Reserve, None);
             }
-            self.emit(Event { trigger: "LeaveExpedition".into(), seat, card: Some(id), from: Some(from), to: Some(self.card(id).zone), listeners: vec![id], ..Default::default() });
+            self.emit(Event { trigger: "LeaveExpedition".into(), seat, card: Some(id), from: Some(from), to: Some(self.card(id).zone), listeners: vec![id], fleeting, ascended, boosts: Some(boosts), ..Default::default() });
         }
     }
 

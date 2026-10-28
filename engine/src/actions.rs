@@ -89,7 +89,7 @@ pub fn run(g: &mut Game, action: &str, a: &Map<String, Value>, node: &Value, ctx
         "Resupply" => {
             let seats = match s(a, "player") {
                 Some("opponent") => vec![Game::other(ctx.seat)],
-                _ => vec![ctx.seat],
+                _ => vec![ctx.target_seat.unwrap_or(ctx.seat)],
             };
             for seat in seats {
                 resupply(g, seat, i(a, "n", 1), b(a, "exhausted"), ctx.source);
@@ -101,6 +101,9 @@ pub fn run(g: &mut Game, action: &str, a: &Map<String, Value>, node: &Value, ctx
             let card = if action == "Tap" { if a.contains_key("cardId") { card_arg(g, a, &ctx) } else { ctx.source } } else { card_arg(g, a, &ctx) };
             if let Some(c) = card {
                 g.card_mut(c).exhausted = true;
+                if action == "Tap" {
+                    g.note_ability(ctx.seat, "tap");
+                }
                 g.emit(Event { trigger: "Exhaust".into(), seat: ctx.seat, card: Some(c), source: ctx.source, ..Default::default() });
             }
         }
@@ -128,7 +131,7 @@ pub fn run(g: &mut Game, action: &str, a: &Map<String, Value>, node: &Value, ctx
             }
         }
         "CheckCondition" => {
-            let ok = crate::conditions::check_power(g, &Value::Object(a.clone()), &ctx);
+            let ok = crate::conditions::check_condition_action(g, a, &ctx);
             let next = if ok { a.get("effect") } else { a.get("oppositeEffect") };
             if let Some(n) = next.filter(|n| !n.is_null() && n.as_str() != Some("OPPOSITE")) {
                 g.stack.push(Task::Run { node: n.clone(), ctx });
@@ -305,10 +308,14 @@ pub fn run(g: &mut Game, action: &str, a: &Map<String, Value>, node: &Value, ctx
         }
         "MoveCard" => {
             if let Some(c) = card_arg(g, a, &ctx) {
-                if let Some(z) = s(a, "location").or(s(a, "destination")).and_then(Zone::from_engine) {
+                let to = match s(a, "location").or(s(a, "destination")) {
+                    None | Some("opposite") => g.card(c).zone.side().map(|side| side.other().zone()),
+                    Some(other) => Zone::from_engine(other),
+                };
+                if let Some(z) = to {
                     let from = g.card(c).zone;
                     g.move_card(c, z, None);
-                    g.emit(Event { trigger: "MoveCard".into(), seat: ctx.seat, card: Some(c), from: Some(from), to: Some(z), ..Default::default() });
+                    g.emit(Event { trigger: "MoveCard".into(), seat: ctx.seat, card: Some(c), from: Some(from), to: Some(z), play: true, ..Default::default() });
                 }
             }
         }
@@ -384,6 +391,9 @@ fn gain(g: &mut Game, a: &Map<String, Value>, ctx: &Ctx) {
                 card.boosts += 1;
             } else if card.counter > 0 {
                 card.counter += 1;
+                // The original engine reports a counter augment as a SpecialEffect gainCounter event
+                let seat = g.card(c).controller;
+                g.emit(Event { trigger: "SpecialEffect".into(), seat, card: Some(c), what: Some("gainCounter".into()), source: ctx.source, ..Default::default() });
             }
         }
         other => match Status::from_engine(other) {
@@ -454,6 +464,13 @@ pub fn target_candidates(g: &Game, a: &Map<String, Value>, ctx: &Ctx) -> Vec<(Ca
             }
         }
     }
+    let mine: Vec<CardId> = g.in_play(ctx.seat).into_iter().filter(|&c| g.card(c).is_character_like()).collect();
+    let max_hand_cost: Option<i32> = match a.get("maxHandCost") {
+        Some(Value::Number(n)) => n.as_i64().map(|v| v as i32),
+        Some(Value::String(x)) if x == "maxCharacter" => Some(mine.iter().map(|&c| g.card(c).def().cost_hand).max().unwrap_or(-1)),
+        Some(Value::String(x)) if x == "controlledCharacter" => Some(mine.len() as i32),
+        _ => None,
+    };
     let mut out = vec![];
     for seat in seats {
         let p = &g.players[seat];
@@ -493,8 +510,8 @@ pub fn target_candidates(g: &Game, a: &Map<String, Value>, ctx: &Ctx) -> Vec<(Ca
             if b(a, "isTapped") && !c.exhausted {
                 continue;
             }
-            if let Some(max) = a.get("maxHandCost").and_then(Value::as_i64) {
-                if def.cost_hand > max as i32 {
+            if let Some(max) = max_hand_cost {
+                if def.cost_hand > max {
                     continue;
                 }
             }
@@ -539,7 +556,7 @@ pub fn target_candidates(g: &Game, a: &Map<String, Value>, ctx: &Ctx) -> Vec<(Ca
             if b(a, "noBoostIfBoosted") && c.boosts > 0 {
                 continue;
             }
-            let tough = if c.controller != ctx.seat && !b(a, "ignoreTough") { def.int("tough") } else { 0 };
+            let tough = if c.controller != ctx.seat && !b(a, "ignoreTough") { def.int("tough") + crate::special::global_tough(g, id) } else { 0 };
             if tough > g.mana_available(ctx.seat) {
                 continue;
             }
@@ -604,6 +621,14 @@ pub fn move_with_events(g: &mut Game, c: CardId, to: Zone, sacrifice: bool, exha
     let seat = g.card(c).controller;
     let name = g.card(c).name();
     let pname = g.players[seat].name.clone();
+    // What the card was before leaving (event data of the original engine)
+    let (fleeting, boosts, ascended) = (g.card(c).has(Status::Fleeting), g.card(c).boosts, g.is_card_expedition_ascended(c));
+    if matches!(from, Zone::Hand | Zone::Reserve) {
+        g.note_ability(ctx.seat, "discardFromHandOrReserve");
+        if from == Zone::Hand {
+            g.note_ability(ctx.seat, "discardFromHand");
+        }
+    }
     if to == Zone::Deck {
         g.move_card(c, Zone::Deck, None);
     } else {
@@ -634,10 +659,11 @@ pub fn move_with_events(g: &mut Game, c: CardId, to: Zone, sacrifice: bool, exha
         ..Default::default()
     };
     g.emit(ev.clone());
+    let leave = Event { fleeting, boosts: Some(boosts), ascended, ..ev };
     if from.is_expedition() {
-        g.emit(Event { trigger: "LeaveExpedition".into(), ..ev.clone() });
+        g.emit(Event { trigger: "LeaveExpedition".into(), ..leave });
     } else if from == Zone::Landmark {
-        g.emit(Event { trigger: "LeaveLandmark".into(), ..ev });
+        g.emit(Event { trigger: "LeaveLandmark".into(), ..leave });
     }
 }
 
@@ -786,6 +812,7 @@ pub fn create_token(g: &mut Game, def: u16, seat: Seat, zone: Zone, ctx: &Ctx) -
         g.card_mut(id).add_status(Status::Anchored);
         g.mods.next_token_anchored[seat] = false;
     }
+    crate::special::on_token_created(g, id);
     let name = g.card(id).name();
     let pname = g.players[seat].name.clone();
     g.log_line(Some(seat), format!("A [[{}]] token is created for {}", name, pname));

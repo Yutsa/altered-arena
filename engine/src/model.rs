@@ -237,6 +237,45 @@ pub struct Player {
     /// Secret the server gives this player to act as them (never shown in views)
     #[serde(default)]
     pub token: String,
+    /// Expedition ascended until Rest (ascend effect): it moves forward on ties of 1 or more at Dusk
+    #[serde(default)]
+    pub ascended: [bool; 2],
+    /// What happened this turn / Day that conditions look back at
+    #[serde(default)]
+    pub records: Records,
+}
+
+/// A move of an expedition (Globals stormMoves of the original engine)
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+pub struct StormMove {
+    /// Regions moved (negative: backwards)
+    pub moves: i32,
+    /// Biomes won at Dusk that made it move (empty for moves caused by effects)
+    pub biomes: Vec<Biome>,
+    /// The expedition was ascended when it moved
+    pub ascended: bool,
+    /// At Dusk, a biome was tied and the expedition is ascended (hasMovedFromAscension)
+    pub from_ascension: bool,
+}
+
+/// Trackers of the original engine's Globals that conditions read
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+pub struct Records {
+    /// Last move of each expedition (index = Side::index()); reset at Morning and before Dusk
+    pub storm_moves: [Option<StormMove>; 2],
+    /// Abilities activated during the player's current turn, by kind ("tap", "discard"...);
+    /// reset when their turn starts
+    pub abilities: std::collections::BTreeMap<String, i32>,
+    /// Largest size the discard pile ever reached
+    pub discard_peak: i32,
+    /// Smoke Them Out cards armed (one entry per charge); reset when the player's turn starts
+    pub smoke_armed: Vec<CardId>,
+    /// Terrain markers this player placed on regions (region index, biome)
+    pub region_markers: Vec<(i32, Biome)>,
+    /// Terrain markers already placed from the hero (createMarkers: it starts with 3)
+    pub markers_used: i32,
+    /// The player passed before their opponent this Day (Globals firstPass); reset at Morning
+    pub passed_first: bool,
 }
 
 impl Player {

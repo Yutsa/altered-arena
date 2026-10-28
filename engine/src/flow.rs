@@ -62,7 +62,8 @@ pub fn run_node(g: &mut Game, node: &Value, ctx: Ctx) {
             return;
         }
         if is_optional(node) {
-            if !is_doable(g, node, &ctx) {
+            // Asked as soon as its first step can be done (the original engine checks no further)
+            if !is_doable(g, &childs[0], &ctx) {
                 return;
             }
             ask_yes_no(g, node, ctx);

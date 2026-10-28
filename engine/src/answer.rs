@@ -37,7 +37,11 @@ impl Game {
     }
 
     pub fn can_undo(&self, seat: Seat) -> bool {
-        self.undo_owner == Some(seat) && self.undo_point.is_some() && self.pending.len() == 1 && self.pending[0].seat == seat
+        // Something must have happened since the snapshot
+        self.undo_owner == Some(seat)
+            && self.undo_point.as_ref().map(|u| u.seq < self.seq).unwrap_or(false)
+            && self.pending.len() == 1
+            && self.pending[0].seat == seat
     }
 
     /// Applies a player's answer and runs the game until the next decision
@@ -151,6 +155,7 @@ impl Game {
                         let mut c = ctx.clone();
                         c.target_seat = Some(s);
                         c.side = Some(side);
+                        c.side_seat = Some(s);
                         self.stack.push(Task::Run { node: e.clone(), ctx: c });
                     }
                 }

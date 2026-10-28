@@ -32,6 +32,9 @@ impl Game {
                 cost -= reduction;
             }
         }
+        if crate::special::spell_is_free(self, seat, id) {
+            return 0;
+        }
         cost.max(0)
     }
 
@@ -181,6 +184,10 @@ impl Game {
             self.stack.push(Task::SpellCleanup { card: id });
         }
         let mut effects: Vec<Value> = vec![];
+        // Scout: "{H} Send me to Reserve" comes first, as in the original engine
+        if dest.is_scout() {
+            effects.push(json!({"action": "Discard", "args": {"cardId": "me", "destination": "reserve"}}));
+        }
         let mut add = |e: Option<&Value>| {
             if let Some(e) = e {
                 if e.get("childs").is_some() && e.get("type").is_none() {
@@ -199,12 +206,12 @@ impl Game {
         if from == Zone::Reserve {
             add(def.effect("effectReserve"));
         }
-        if dest.is_scout() {
-            effects.push(json!({"action": "Discard", "args": {"cardId": "me", "destination": "reserve"}}));
-        }
-        // The effects of a played card resolve in the order its player chooses
+        // Effects set up by special effects (next character gains Asleep, activates its {R}...)
+        effects.extend(crate::special::on_play(self, seat, id, from, to));
+        // The effects of a played card, and the abilities its play triggers, resolve in the
+        // order its player chooses
         let ctx = Ctx::of(seat, Some(id));
-        self.stack.push(Task::Reactions(effects.into_iter().map(|e| (e, ctx.clone())).collect(), true));
+        let before = self.reactions.len();
         self.emit(Event {
             trigger: "ChooseAssignment".into(),
             seat,
@@ -215,6 +222,12 @@ impl Game {
             play: true,
             ..Default::default()
         });
+        let mut all: Vec<(Value, Ctx)> = effects.into_iter().map(|e| (e, ctx.clone())).collect();
+        // A spell resolves on its own; the abilities it triggers wait until it is done
+        if def.card_type != CardType::Spell {
+            all.extend(self.reactions.drain(before..));
+        }
+        self.stack.push(Task::Reactions(all, true));
         Ok(())
     }
 
@@ -225,6 +238,8 @@ impl Game {
         let effect = self.card(id).def().effect("effectSupport").cloned();
         let name = self.card(id).name();
         self.move_card(id, Zone::Discard, None);
+        self.note_ability(seat, "discard");
+        self.note_ability(seat, "discardFromHandOrReserve");
         let pname = self.players[seat].name.clone();
         self.log_line(Some(seat), format!("{} discards [[{}]] from Reserve for its support ability", pname, name));
         if let Some(e) = effect {
@@ -249,6 +264,7 @@ impl Game {
             return err("This ability can't be used now");
         }
         self.card_mut(id).exhausted = true;
+        self.note_ability(seat, "tap");
         let effect = self.card(id).def().effect("effectTap").cloned();
         let name = self.card(id).name();
         let pname = self.players[seat].name.clone();
@@ -261,6 +277,9 @@ impl Game {
     }
 
     pub fn end_turn(&mut self, seat: Seat) {
+        if !self.players[Game::other(seat)].passed {
+            self.players[seat].records.passed_first = true;
+        }
         self.players[seat].passed = true;
         let name = self.players[seat].name.clone();
         self.log_line(Some(seat), format!("{} passes", name));
