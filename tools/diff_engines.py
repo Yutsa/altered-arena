@@ -18,6 +18,8 @@ ap.add_argument('--rust', default='http://localhost:8090')
 ap.add_argument('--seed', type=int, default=1)
 ap.add_argument('--max', type=int, default=600, help='decisions per game')
 ap.add_argument('-v', action='store_true')
+ap.add_argument('--strict-order', dest='lenient_order', action='store_false',
+                help='report a difference when PHP asks to order abilities that Rust resolved without asking')
 opt = ap.parse_args()
 rnd = random.Random(opt.seed)
 
@@ -178,6 +180,13 @@ def play_game(n, decks):
             if d.get('kind') == 'confirm':
                 call(opt.php, 'POST', f'/api/v1/games/{pid}/answer?player={w[0]}', {'decisionId': d['id'], 'type': 'confirm'})
                 continue
+            # Ordering simultaneous abilities that Rust resolved on its own (independent ones first):
+            # take them in order; a difference in the end state still shows up
+            if d.get('kind') == 'choice' and len(opts) > 1 and not any(c['id'] == 99 for c in d['choices']) and opt.lenient_order:
+                rdec = call(opt.rust, 'GET', f'/api/v1/games/{rid}?{rq(w[0])}').get('decision')
+                if not rdec or rdec['kind'] != 'choice':
+                    call(opt.php, 'POST', f'/api/v1/games/{pid}/answer?player={w[0]}', {'decisionId': d['id'], 'type': 'choice', 'id': opts[0]['id']})
+                    continue
             # Ordering identical abilities (The Hunger's boosts): any order gives the same result
             labels = {c['label'] for c in opts}
             if d.get('kind') == 'choice' and len(opts) > 1 and len(labels) == 1 and opts[0]['id'] != 99:
@@ -202,8 +211,15 @@ def play_game(n, decks):
         if problems and any('rolls a' in l['text'] for l in call(opt.rust, 'GET', f'/api/v1/games/{rid}').get('log', [])[-6:]):
             return 'INCONCLUSIVE: a die was rolled (random in both engines)', step
         if problems:
-            pend = call(opt.php, 'GET', f'/api/v1/games/{pid}?player={(call(opt.php, "GET", f"/api/v1/games/{pid}?player=2001").get("waitingFor") or [2001])[0]}').get('decision') or {}
-            problems.append(f'php now asks: {pend.get("kind")} "{pend.get("prompt", "")}" {[c["label"] for c in pend.get("choices", [])]}')
+            pview = call(opt.php, 'GET', f'/api/v1/games/{pid}?player={(call(opt.php, "GET", f"/api/v1/games/{pid}?player=2001").get("waitingFor") or [2001])[0]}')
+            pend = pview.get('decision') or {}
+            refs = {c['id']: c['ref'] for c in ps['cards']}
+            src = refs.get(pend.get('sourceCardId'))
+            problems.append(f'php now asks: {pend.get("kind")} "{pend.get("prompt", "")}" {[c["label"] for c in pend.get("choices", [])]}' + (f' (source {src})' if src else ''))
+            if any(p.startswith('expedition positions') for p in problems):
+                rview = call(opt.rust, 'GET', f'/api/v1/games/{rid}')
+                st = lambda v: {p['id']: {k: tuple(e['stats'].values()) for k, e in p['expeditions'].items()} for p in v['players']}
+                problems.insert(0, f'expedition stats: php {st(pview)} / rust {st(rview)}')
             rw = call(opt.rust, 'GET', f'/api/v1/games/{rid}?{rq(2001)}').get('waitingFor') or [2001]
             rpend = call(opt.rust, 'GET', f'/api/v1/games/{rid}?{rq(rw[0])}').get('decision') or {}
             problems.append(f'rust now asks {rw}: {rpend.get("kind")} "{rpend.get("prompt", "")}" {[c["label"] for c in rpend.get("choices", [])]}')
@@ -252,7 +268,8 @@ def play_game(n, decks):
             pp = sorted((p['cardId'], tuple(sorted(p['destinations']))) for p in pd['play'])
             rp = sorted((p['cardId'], tuple(sorted(p['destinations']))) for p in rd['play'])
             if pp != rp:
-                return f'playable cards differ: php {pp} / rust {rp}', step
+                refs = {c['id']: c['ref'] for c in ps['cards']}
+                return f'playable cards differ: php only {[refs.get(x[0]) for x in pp if x not in rp]} / rust only {[refs.get(x[0]) for x in rp if x not in pp]}', step
         if pd['kind'] == 'choice' and rd['kind'] == 'choice':
             pe = sum(1 for c in pd['choices'] if c['enabled'] and c['id'] != 99)
             re_ = sum(1 for c in rd['choices'] if c['enabled'] and c['label'] != 'Skip')

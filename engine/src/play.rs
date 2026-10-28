@@ -148,6 +148,11 @@ impl Game {
         if from == Zone::Reserve && !def.has_subtype("landmark") {
             self.card_mut(id).add_status(Status::Fleeting);
         }
+        // Afanas & Senka: Spells with Hand Cost 1 or less gain Fleeting
+        let hero_flag = self.players[seat].hero.map(|h| self.card(h).def().flag("allSpell1Fleeting")).unwrap_or(false);
+        if hero_flag && def.card_type == CardType::Spell && def.cost_hand <= 1 {
+            self.card_mut(id).add_status(Status::Fleeting);
+        }
         if is_char {
             if self.mods.next_character_fleeting[seat] {
                 self.card_mut(id).add_status(Status::Fleeting);

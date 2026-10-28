@@ -51,7 +51,7 @@ pub fn card_arg(g: &Game, a: &Map<String, Value>, ctx: &Ctx) -> Option<CardId> {
 /// "me" / "opponent" / "all" → seats, relative to the effect's controller
 fn players_arg(ctx: &Ctx, v: Option<&str>) -> Vec<Seat> {
     match v {
-        Some("opponent") => vec![Game::other(ctx.seat)],
+        Some("opponent") | Some("nextPlayer") => vec![Game::other(ctx.seat)],
         Some("all") | Some("ALL") => vec![ctx.seat, Game::other(ctx.seat)],
         _ => vec![ctx.target_seat.unwrap_or(ctx.seat)],
     }
@@ -72,7 +72,17 @@ pub fn is_doable(g: &Game, action: &str, a: &Map<String, Value>, ctx: &Ctx) -> b
         }
         "Spend" => card_arg(g, a, ctx).map(|c| g.card(c).boosts + g.card(c).counter >= i(a, "n", 1)).unwrap_or(false),
         "Exchange" => !g.players[ctx.seat].hand.is_empty() && !g.players[ctx.seat].reserve.is_empty(),
-        "ChooseAssignment" => true,
+        // A Rush can only be chosen when a card can be played
+        "ChooseAssignment" => {
+            let types = list(a, "types").unwrap_or_default().iter().filter_map(|t| match t.as_str() {
+                "character" => Some(CardType::Character),
+                "spell" => Some(CardType::Spell),
+                "permanent" => Some(CardType::Permanent),
+                _ => None,
+            }).collect();
+            let bonus = BonusPlay { types, free: b(a, "free"), max_base_cost: a.get("maxBaseCost").and_then(Value::as_i64).map(|v| v as i32), mandatory: false };
+            !g.playable(ctx.seat, Some(&bonus)).is_empty()
+        }
         // Doable when its condition holds or it has an effect for the opposite case
         "CheckCondition" => {
             crate::conditions::check_condition_action(g, a, ctx)
@@ -88,14 +98,17 @@ pub fn run(g: &mut Game, action: &str, a: &Map<String, Value>, node: &Value, ctx
         "Loose" => loose(g, a, &ctx),
         "Draw" => {
             for seat in players_arg(&ctx, s(a, "players")) {
-                g.draw(seat, i(a, "n", 1), ctx.source);
+                let drawn = g.draw(seat, i(a, "n", 1), ctx.source);
+                if !drawn.is_empty() {
+                    g.emit(Event { trigger: "Draw".into(), seat, n: drawn.len() as i32, source: ctx.source, ..Default::default() });
+                }
             }
         }
         "Target" | "DiscardDo" => target(g, a, ctx, optional),
         "Discard" => discard(g, a, ctx),
         "Resupply" => {
             let seats = match s(a, "player") {
-                Some("opponent") => vec![Game::other(ctx.seat)],
+                Some("opponent") | Some("nextPlayer") => vec![Game::other(ctx.seat)],
                 _ => vec![ctx.target_seat.unwrap_or(ctx.seat)],
             };
             for seat in seats {
@@ -115,7 +128,13 @@ pub fn run(g: &mut Game, action: &str, a: &Map<String, Value>, node: &Value, ctx
             }
         }
         "Ready" => {
-            if let Some(c) = card_arg(g, a, &ctx) {
+            // "Ready a Mana Orb" (Manaseed)
+            if s(a, "cardId") == Some("mana") {
+                let orb = g.players[ctx.seat].mana.iter().copied().find(|&m| g.card(m).exhausted);
+                if let Some(m) = orb {
+                    g.card_mut(m).exhausted = false;
+                }
+            } else if let Some(c) = card_arg(g, a, &ctx) {
                 g.card_mut(c).exhausted = false;
             }
         }
@@ -540,8 +559,10 @@ pub fn target_candidates(g: &Game, a: &Map<String, Value>, ctx: &Ctx) -> Vec<(Ca
                     continue;
                 }
             }
+            // Base cost: Reserve cost if Fleeting, Hand cost otherwise
             if let Some(max) = a.get("maxBaseCost").and_then(Value::as_i64) {
-                if def.cost_hand > max as i32 {
+                let base = if c.has(Status::Fleeting) { def.cost_reserve } else { def.cost_hand };
+                if base > max as i32 {
                     continue;
                 }
             }

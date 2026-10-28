@@ -525,7 +525,7 @@ impl Game {
     }
 
     /// Draws n cards (refilling the deck from the discard pile if needed)
-    pub fn draw(&mut self, seat: Seat, n: i32, source: Option<CardId>) -> Vec<CardId> {
+    pub fn draw(&mut self, seat: Seat, n: i32, _source: Option<CardId>) -> Vec<CardId> {
         let mut drawn = vec![];
         for _ in 0..n {
             if self.players[seat].deck.is_empty() {
@@ -539,7 +539,7 @@ impl Game {
             self.forget_undo();
             let name = self.players[seat].name.clone();
             self.log_line(Some(seat), format!("{} draws {} card(s)", name, drawn.len()));
-            self.emit(Event { trigger: "Draw".into(), seat, n: drawn.len() as i32, source, ..Default::default() });
+            // Plain draws (Morning, setup) trigger nothing; the Draw action emits its event
         }
         drawn
     }
@@ -637,10 +637,32 @@ impl Game {
             };
             for power in powers {
                 let ctx = Ctx { seat: card.controller, source: Some(id), event: Some(Box::new(event.clone())), ..Default::default() };
-                let node = if crate::conditions::check_power(self, power, &ctx) {
-                    power.get("output").cloned()
+                let react = |g: &Game, ctx: &Ctx| {
+                    if crate::conditions::check_power(g, power, ctx) {
+                        power.get("output").cloned()
+                    } else {
+                        power.get("oppositeOutput").filter(|v| v.as_str() != Some("OPPOSITE")).cloned()
+                    }
+                };
+                // "n": "eachExpedition": checked once per expedition, outputs in sequence
+                let node = if power.get("n").and_then(Value::as_str) == Some("eachExpedition") {
+                    let outputs: Vec<Value> = Side::BOTH
+                        .iter()
+                        .filter_map(|&side| {
+                            let mut c = ctx.clone();
+                            if let Some(e) = c.event.as_mut() {
+                                e.side = Some(side);
+                            }
+                            react(self, &c)
+                        })
+                        .collect();
+                    if outputs.is_empty() {
+                        None
+                    } else {
+                        Some(serde_json::json!({"type": "seq", "childs": outputs}))
+                    }
                 } else {
-                    power.get("oppositeOutput").filter(|v| v.as_str() != Some("OPPOSITE")).cloned()
+                    react(self, &ctx)
                 };
                 if let Some(mut node) = node {
                     if let (Some(pid), Value::Object(m)) = (power.get("pId").cloned(), &mut node) {
