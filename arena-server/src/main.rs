@@ -1,7 +1,8 @@
 //! Altered Arena game server.
 //!
-//! Protocol v1 (protocol/protocol.ts) over HTTP, games in memory (persisted to DATA_DIR as JSON,
-//! reloaded at start), bot opponents, matchmaking queue, and the web client (CLIENT_DIR) with the
+//! Protocol v1 (protocol/protocol.ts) over HTTP, games in memory (saved to DATA_DIR as JSON every
+//! PERSIST_SECS, unloaded when idle and reloaded on demand,
+//! ), bot opponents, matchmaking queue, and the web client (CLIENT_DIR) with the
 //! card art (ART_DIR) as static files.
 //!
 //! Environment: PORT (8080), CLIENT_DIR (client/dist), ART_DIR (../AlteredBGA/img/illustrations),
@@ -28,6 +29,14 @@ use tower_http::services::{ServeDir, ServeFile};
 struct GameEntry {
     game: Mutex<Game>,
     changed: Notify,
+    /// Last request on this game (unix seconds), to unload idle games from memory
+    last_access: AtomicU64,
+}
+
+impl GameEntry {
+    fn new(game: Game) -> Arc<GameEntry> {
+        Arc::new(GameEntry { game: Mutex::new(game), changed: Notify::new(), last_access: AtomicU64::new(now()) })
+    }
 }
 
 #[derive(Clone)]
@@ -98,15 +107,16 @@ async fn main() {
         decks_json: std::fs::read(format!("{}/decks.json", protocol_dir)).expect("protocol/data/decks.json"),
         data_dir: data_dir.clone(),
     });
-    load_games(&state).await;
     altered_engine::catalog::catalog();
 
-    // Persist changed games every few seconds
+    // Persist changed games every few seconds (a crash loses at most that much play)
+    let persist_secs: u64 = env("PERSIST_SECS", "10").parse().unwrap_or(10);
     let s2 = state.clone();
     tokio::spawn(async move {
         loop {
-            tokio::time::sleep(Duration::from_secs(3)).await;
+            tokio::time::sleep(Duration::from_secs(persist_secs)).await;
             save_dirty(&s2).await;
+            unload_idle(&s2).await;
         }
     });
 
@@ -202,7 +212,7 @@ async fn insert_game(s: &Shared, mut game: Game) -> Value {
         }
         v
     }).collect();
-    s.games.write().await.insert(id.clone(), Arc::new(GameEntry { game: Mutex::new(game), changed: Notify::new() }));
+    s.games.write().await.insert(id.clone(), GameEntry::new(game));
     s.dirty.lock().await.insert(id.clone());
     json!({"gameId": id, "players": players})
 }
@@ -259,8 +269,31 @@ fn seat_of(g: &Game, q: &ViewQuery, headers: &axum::http::HeaderMap) -> Result<O
     }
 }
 
+/// A game in memory, or loaded from disk (games are unloaded when idle)
 async fn entry(s: &Shared, id: &str) -> Option<Arc<GameEntry>> {
-    s.games.read().await.get(id).cloned()
+    if let Some(e) = s.games.read().await.get(id).cloned() {
+        e.last_access.store(now(), Ordering::Relaxed);
+        return Some(e);
+    }
+    if id.is_empty() || !id.chars().all(|c| c.is_ascii_alphanumeric()) {
+        return None;
+    }
+    let bytes = tokio::fs::read(s.data_dir.join("games").join(format!("{}.json", id))).await.ok()?;
+    let game: Game = serde_json::from_slice(&bytes).ok()?;
+    let mut games = s.games.write().await;
+    Some(games.entry(id.to_string()).or_insert_with(|| GameEntry::new(game)).clone())
+}
+
+/// Unloads saved games nobody looked at for a while: 1 minute once ended, 30 minutes otherwise
+async fn unload_idle(s: &Shared) {
+    let dirty = s.dirty.lock().await.clone();
+    let mut games = s.games.write().await;
+    let t = now();
+    games.retain(|id, e| {
+        let idle = t.saturating_sub(e.last_access.load(Ordering::Relaxed));
+        let ended = e.game.try_lock().map(|g| g.winner.is_some()).unwrap_or(false);
+        dirty.contains(id) || idle < if ended { 60 } else { 1800 }
+    });
 }
 
 async fn view_game(State(s): State<Shared>, Path(id): Path<String>, Query(q): Query<ViewQuery>, headers: axum::http::HeaderMap) -> Response {
@@ -416,22 +449,5 @@ async fn save_dirty(s: &Shared) {
         if tokio::fs::write(&tmp, json).await.is_ok() {
             let _ = tokio::fs::rename(&tmp, &path).await;
         }
-    }
-}
-
-async fn load_games(s: &Shared) {
-    let Ok(mut dir) = tokio::fs::read_dir(s.data_dir.join("games")).await else { return };
-    let mut n = 0;
-    let mut max_id = 0;
-    while let Ok(Some(f)) = dir.next_entry().await {
-        let Ok(bytes) = tokio::fs::read(f.path()).await else { continue };
-        let Ok(game) = serde_json::from_slice::<Game>(&bytes) else { continue };
-        max_id += 1;
-        s.games.write().await.insert(game.id.clone(), Arc::new(GameEntry { game: Mutex::new(game), changed: Notify::new() }));
-        n += 1;
-    }
-    s.next_id.store(max_id.max(1), Ordering::Relaxed);
-    if n > 0 {
-        println!("{} games loaded", n);
     }
 }
