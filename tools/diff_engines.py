@@ -94,7 +94,7 @@ def diff(php, rust):
 
 def label_words(t):
     import re
-    syn = {'give': 'gain', 'put': 'send', 'inc': 'gain'}
+    syn = {'give': 'gain', 'put': 'send', 'inc': 'gain', 't': 'exhaust', 'tap': 'exhaust', 'invoke': 'create'}
     return {syn.get(w, w) for w in re.findall(r'[a-z]+', t.lower())} - {'to', 'a', 'the', 'of', 'card', 's', 'up', 'it', 'in', 'choose', 'then', 'target', 'one', 'skip', 'pass'}
 
 
@@ -301,7 +301,7 @@ def play_game(n, decks):
             rp = sorted((p['cardId'], tuple(sorted(p['destinations']))) for p in rd['play'])
             if pp != rp:
                 refs = {c['id']: c['ref'] for c in ps['cards']}
-                return f'playable cards differ: php only {[refs.get(x[0]) for x in pp if x not in rp]} / rust only {[refs.get(x[0]) for x in rp if x not in pp]}', step
+                return f'playable cards differ: php only {[(refs.get(x[0]), x[1]) for x in pp if x not in rp]} / rust only {[(refs.get(x[0]), x[1]) for x in rp if x not in pp]} after {history[-1] if history else ""}', step
         if pd['kind'] == 'choice' and rd['kind'] == 'choice':
             pe = sum(1 for c in pd['choices'] if c['enabled'] and c['id'] != 99)
             re_ = sum(1 for c in rd['choices'] if c['enabled'] and c['label'] != 'Skip')

@@ -94,9 +94,9 @@ impl Game {
                 }
                 Ok(())
             }
-            (PendingKind::Order { reactions, spell, auto, .. }, Answer::Choice { id }) => {
+            (PendingKind::Order { reactions, spell, auto, options }, Answer::Choice { id }) => {
                 let mut rest = reactions;
-                if id >= rest.len() {
+                if id >= rest.len() || !options[id].enabled {
                     return err("Unknown choice");
                 }
                 let (mut node, c) = rest.remove(id);

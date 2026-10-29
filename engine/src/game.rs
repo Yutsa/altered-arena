@@ -794,12 +794,13 @@ impl Game {
             .map(|(node, ctx)| ChoiceOpt {
                 label: format!("{}{}", crate::flow::source_prefix(self, ctx.source), crate::flow::describe(self, node, ctx)),
                 node: None,
-                enabled: true,
+                // Shown but not selectable when it can't be done (a failed condition...)
+                enabled: crate::flow::is_doable(self, node, ctx),
                 source: ctx.source,
             })
             .collect();
         // When every remaining ability is optional, the player may skip them all
-        let all_optional = list.iter().all(|(n, _)| n.get("optional").and_then(Value::as_bool).unwrap_or(false));
+        let all_optional = list.iter().all(|(n, c)| crate::flow::php_optional(self, n, c));
         self.ask(Pending {
             id: 0,
             seat: chooser,
@@ -1064,7 +1065,17 @@ impl Game {
 
     /// Biome totals of an expedition (asleep characters don't count; gigantic ones count in both)
     pub fn expedition_stats(&self, seat: Seat, side: Side) -> [i32; 3] {
+        // Player::getBiomeStrength: every card of the expedition (and Gigantic ones of the other)
         let p = &self.players[seat];
+        let has_highest = |side: Side| p.expeditions[side.index()].iter().any(|&c| self.card(c).def().flag("increaseBiomesHighest"));
+        let to_highest = has_highest(side);
+        // BLISS Bassist (boosted): the other Characters; two of them: every Character
+        let bassists: Vec<CardId> = self
+            .in_play(seat)
+            .into_iter()
+            .filter(|&c| self.card(c).boosts > 0 && self.card(c).def().flag("increaseAllOtherCharactersBiomesHighest"))
+            .collect();
+        let exclude = if bassists.len() == 1 { Some(bassists[0]) } else { None };
         let mut total = [0; 3];
         let mut ids: Vec<CardId> = p.expeditions[side.index()].clone();
         for &id in &p.expeditions[side.other().index()] {
@@ -1074,15 +1085,34 @@ impl Game {
         }
         for id in ids {
             let c = self.card(id);
-            if c.has(Status::Asleep) || !c.is_character_like() {
+            if c.has(Status::Asleep) {
                 continue;
             }
-            let s = c.stats();
+            let gigantic = c.is_gigantic() && has_highest(side.other());
+            let increase = to_highest || gigantic || (!bassists.is_empty() && exclude != Some(id));
+            let s = self.card_biomes(id, increase);
             for i in 0..3 {
                 total[i] += s[i];
             }
         }
         total
+    }
+
+    /// Card::getBiomes with modifiers: boosted statistics, all equal to the highest when `increase`
+    /// or when the card's own condition says so (dynamicIncreaseBiomeHighestSelf)
+    pub fn card_biomes(&self, id: CardId, increase: bool) -> [i32; 3] {
+        let c = self.card(id);
+        let s = c.stats();
+        let own = c.zone.is_expedition()
+            && c.def().prop("dynamicIncreaseBiomeHighestSelf").and_then(Value::as_str).is_some_and(|d| match d.split_once(':') {
+                None => !d.is_empty() && d != "0",
+                Some((_, cond)) => crate::conditions::check(self, cond, &Ctx { seat: c.controller, source: Some(id), ..Default::default() }),
+            });
+        if increase || own {
+            let max = s.iter().copied().max().unwrap_or(0).max(0);
+            return [max; 3];
+        }
+        s
     }
 
     /// Biomes of the region an expedition stands in

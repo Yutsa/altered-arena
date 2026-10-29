@@ -18,6 +18,32 @@ fn is_optional(node: &Value) -> bool {
     node.get("optional").and_then(Value::as_bool).unwrap_or(false)
 }
 
+/// Whether the original engine lets the player pass this node (AbstractNode / LeafNode::isOptional):
+/// marked optional, an impossible XOR, or an action optional by itself (targets "up to", nothing to
+/// exchange...) or not doable
+pub fn php_optional(g: &Game, node: &Value, ctx: &Ctx) -> bool {
+    if is_optional(node) {
+        return true;
+    }
+    let ctx = adjust_ctx(g, node, ctx.clone());
+    if let Some(childs) = node.get("childs").and_then(Value::as_array) {
+        return node.get("type").and_then(Value::as_str) == Some("xor") && !childs.iter().any(|c| is_doable(g, c, &ctx));
+    }
+    let Some(action) = node.get("action").and_then(Value::as_str) else { return false };
+    let a = args(node);
+    if node.get("mandatory").and_then(Value::as_bool).unwrap_or(false) {
+        return false;
+    }
+    let optional = match action {
+        "Target" => a.get("upTo").is_some_and(|u| u.as_bool().unwrap_or(u.as_i64().unwrap_or(0) != 0)),
+        "Exchange" => g.players[ctx.seat].hand.is_empty() || g.players[ctx.seat].reserve.is_empty(),
+        "Discard" => a.get("canPass").and_then(Value::as_bool).unwrap_or(false),
+        "Shuffle" | "MoveRegionMarker" | "DiscardDo" => true,
+        _ => false,
+    };
+    optional || !crate::actions::is_doable(g, action, &a, &ctx)
+}
+
 fn without_optional(node: &Value) -> Value {
     let mut n = node.clone();
     if let Value::Object(m) = &mut n {
@@ -84,18 +110,20 @@ pub fn run_node(g: &mut Game, node: &Value, ctx: Ctx) {
                     return;
                 }
                 // The original engine only decides alone when there is a single option at all
-                if enabled.len() == 1 && options.len() == 1 {
+                if enabled.len() == 1 && options.len() == 1 && !php_optional(g, enabled[0].node.as_ref().unwrap(), &ctx) {
                     let n = enabled[0].node.clone().unwrap();
                     g.stack.push(Task::Run { node: n, ctx });
                     return;
                 }
+                // Pass when every possible option may be passed (AbstractNode::computeChoices)
+                let can_pass = childs.iter().filter(|c| is_doable(g, c, &ctx)).all(|c| php_optional(g, c, &ctx));
                 let source = ctx.source;
                 g.ask(Pending {
                     id: 0,
                     seat: ctx.seat,
                     prompt: format!("{}Choose one", source_prefix(g, source)),
                     source,
-                    can_pass: false,
+                    can_pass,
                     kind: PendingKind::Choice { options },
                     ctx,
                 });
