@@ -330,7 +330,14 @@ pub fn where_type(g: &mut Game, ids: Vec<CardId>, field: &str, value: &Value, ad
 // PHP: Managers/Cards.php:319
 pub fn get_filtered(g: &mut Game, pid: &Value, location: &Value, ty: &Value, additional: bool) -> R<Vec<CardId>> {
     let ids = where_location(g, get_all(g), location);
-    let ids: Vec<CardId> = if pid.is_null() { ids } else { ids.into_iter().filter(|id| php::loose_eq(&json!(g.cards[id].pid), pid)).collect() };
+    // `where('pId', $pId)`: an array value is `in_array`
+    let ids: Vec<CardId> = if pid.is_null() {
+        ids
+    } else if php::is_arr(pid) {
+        ids.into_iter().filter(|id| php::in_array(&json!(g.cards[id].pid), pid)).collect()
+    } else {
+        ids.into_iter().filter(|id| php::loose_eq(&json!(g.cards[id].pid), pid)).collect()
+    };
     where_type(g, ids, "type", ty, additional)
 }
 
