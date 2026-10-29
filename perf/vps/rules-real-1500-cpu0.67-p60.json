@@ -1,0 +1,46 @@
+{
+  "games": 1500,
+  "pvp": 0.5,
+  "thinkMs": 12500,
+  "durationS": 300,
+  "answers": 26609,
+  "answersPerSec": 83.60283405151071,
+  "polls": 15569,
+  "gamesFinished": 0,
+  "errors": 0,
+  "refused": 10,
+  "answerLatencyMs": {
+    "p50": 2.951,
+    "p95": 23.825,
+    "p99": 61.983,
+    "max": 311.76
+  },
+  "createLatencyMs": {
+    "p50": 26.418,
+    "p95": 40.151,
+    "p99": 49.394
+  },
+  "serverRssMB": {
+    "idle": 28.34375,
+    "max": 526.6796875
+  },
+  "serverCpuPercentAvg": 38.741849673397816,
+  "serverCpuSeconds": 115.35279999999999,
+  "serverCpuMsPerAnswer": 4.335104663835544,
+  "serverRssKBPerGame": 340.19733333333335,
+  "refusedReasons": {
+    "select select: Card is not tapped. Should not happen": 6,
+    "select select: You cannot pay the additional cost (Tough effect)": 3,
+    "turn pass: This action is not optional": 1
+  },
+  "answerLatencySteadyMs": {
+    "p50": 3.552,
+    "p95": 21.975,
+    "p99": 81.127,
+    "max": 311.76
+  },
+  "serverMemCurrentMBMax": 1017.8984375,
+  "serverTxBytes": 92574473,
+  "serverTxBytesPerRequest": 2194.852126701124,
+  "serverTxMbitPerSec": 2.3268783655530263
+}

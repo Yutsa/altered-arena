@@ -13,6 +13,9 @@ use tokio::sync::Mutex;
 
 struct Stats {
     latencies_us: Mutex<Vec<u64>>,
+    /// Answer latencies after the ramp-up (+10 s): the steady state
+    steady_latencies_us: Mutex<Vec<u64>>,
+    steady_from: Instant,
     answers: AtomicU64,
     polls: AtomicU64,
     errors: AtomicU64,
@@ -138,7 +141,11 @@ async fn play_seat(client: reqwest::Client, url: String, game: String, player: u
             Ok(r) => {
                 let status = r.status();
                 let body: Value = r.json().await.unwrap_or(Value::Null);
-                stats.latencies_us.lock().await.push(t.elapsed().as_micros() as u64);
+                let us = t.elapsed().as_micros() as u64;
+                stats.latencies_us.lock().await.push(us);
+                if t >= stats.steady_from {
+                    stats.steady_latencies_us.lock().await.push(us);
+                }
                 stats.answers.fetch_add(1, Ordering::Relaxed);
                 if status.is_success() {
                     view = body;
@@ -223,6 +230,8 @@ async fn main() {
     let client = reqwest::Client::builder().pool_max_idle_per_host(4096).timeout(Duration::from_secs(30)).build().unwrap();
     let stats = Arc::new(Stats {
         latencies_us: Mutex::new(Vec::new()),
+        steady_latencies_us: Mutex::new(Vec::new()),
+        steady_from: Instant::now() + Duration::from_secs(ramp + 10),
         answers: AtomicU64::new(0),
         polls: AtomicU64::new(0),
         errors: AtomicU64::new(0),
@@ -331,6 +340,10 @@ async fn main() {
     let elapsed = start.elapsed().as_secs_f64();
     let cpu_used = if pid > 0 { cpu_seconds(pid) - cpu_start } else if !docker.is_empty() { docker_cpu_seconds(&docker) - cpu_start } else { 0.0 };
     let tx = if docker.is_empty() { 0 } else { docker_tx_bytes(&docker) - tx_start };
+    let mut steady = stats.steady_latencies_us.lock().await.clone();
+    steady.sort_unstable();
+    let spct = |p: f64| if steady.is_empty() { 0.0 } else { steady[((steady.len() as f64 - 1.0) * p) as usize] as f64 / 1000.0 };
+    let steady_lat = json!({"p50": spct(0.5), "p95": spct(0.95), "p99": spct(0.99), "max": spct(1.0)});
     let mut lat = stats.latencies_us.lock().await.clone();
     lat.sort_unstable();
     let pct = |p: f64| if lat.is_empty() { 0.0 } else { lat[((lat.len() as f64 - 1.0) * p) as usize] as f64 / 1000.0 };
@@ -358,6 +371,7 @@ async fn main() {
         "serverCpuMsPerAnswer": if stats.answers.load(Ordering::Relaxed) > 0 { cpu_used * 1000.0 / stats.answers.load(Ordering::Relaxed) as f64 } else { 0.0 },
         "serverRssKBPerGame": (max_rss.saturating_sub(base_rss)) as f64 / games.max(1) as f64,
         "refusedReasons": stats.refused_reasons.lock().await.clone(),
+        "answerLatencySteadyMs": steady_lat,
         "serverMemCurrentMBMax": max_mem_current.load(Ordering::Relaxed) as f64 / 1024.0,
         "serverTxBytes": tx,
         "serverTxBytesPerRequest": tx as f64 / (stats.answers.load(Ordering::Relaxed) + stats.polls.load(Ordering::Relaxed)).max(1) as f64,

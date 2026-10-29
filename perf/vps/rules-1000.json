@@ -1,0 +1,41 @@
+{
+  "games": 1000,
+  "pvp": 0.5,
+  "thinkMs": 1500,
+  "durationS": 90,
+  "answers": 54022,
+  "answersPerSec": 585.7648728852414,
+  "polls": 28342,
+  "gamesFinished": 377,
+  "errors": 0,
+  "refused": 67,
+  "answerLatencyMs": {
+    "p50": 2.595,
+    "p95": 32.39,
+    "p99": 74.104,
+    "max": 134.785
+  },
+  "createLatencyMs": {
+    "p50": 17.167,
+    "p95": 54.325,
+    "p99": 90.911
+  },
+  "serverRssMB": {
+    "idle": 29.66015625,
+    "max": 548.0
+  },
+  "serverCpuPercentAvg": 148.35206263928617,
+  "serverCpuSeconds": 130.43513099999998,
+  "serverCpuMsPerAnswer": 2.4144817111547145,
+  "serverRssKBPerGame": 530.78,
+  "refusedReasons": {
+    "select select: Card is not tapped. Should not happen": 14,
+    "select select: You cannot pay the additional cost (Tough effect)": 34,
+    "turn pass: This action is not optional": 14,
+    "turn play: Error: Call to undefined method ALT\\Actions\\SpecialEffect::actSpecialEffect()": 5
+  },
+  "serverMemCurrentMBMax": 1071.12890625,
+  "serverTxBytes": 232649085,
+  "serverTxBytesPerRequest": 2824.645294060512,
+  "serverTxMbitPerSec": 20.181061301231754
+}

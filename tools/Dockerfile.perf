@@ -10,11 +10,13 @@ COPY rules rules
 COPY goldens goldens
 COPY arena-server arena-server
 COPY loadtest loadtest
-RUN cargo build --release -p arena-server
+COPY protocol/data protocol/data
+RUN cargo build --release -p arena-server -p loadtest
 
 FROM debian:bookworm-slim
 WORKDIR /app
 COPY --from=server /src/target/release/arena-server /app/arena-server
+COPY --from=server /src/target/release/loadtest /app/loadtest
 COPY protocol/data /app/protocol
 ENV PORT=8080 CLIENT_DIR=/app/client ART_DIR=/app/art PROTOCOL_DIR=/app/protocol DATA_DIR=/data MIMALLOC_PURGE_DELAY=0
 EXPOSE 8080
