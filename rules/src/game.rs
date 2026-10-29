@@ -342,7 +342,7 @@ impl Game {
         let ids: Vec<CardId> = self.cards.iter().filter(|(_, c)| c.reload).map(|(id, _)| *id).collect();
         for id in ids {
             let db = self.cards[&id].db_props.clone();
-            let props = crate::managers::cards::instantiate_props(&db)?;
+            let props = crate::managers::cards::instantiate_props(&db, id)?;
             let c = self.cards.get_mut(&id).unwrap();
             c.props = props;
             c.reload = false;
@@ -391,7 +391,7 @@ impl Game {
         let ids: Vec<CardId> = self.cards.keys().copied().collect();
         for id in ids {
             let db = self.cards[&id].db_props.clone();
-            let props = crate::managers::cards::instantiate_props(&db)?;
+            let props = crate::managers::cards::instantiate_props(&db, id)?;
             let c = self.cards.get_mut(&id).unwrap();
             c.props = props;
             c.reload = false;

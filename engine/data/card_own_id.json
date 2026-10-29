@@ -1,0 +1,107 @@
+{
+    "AX_Common_AbySapCourier": [
+        "effectPlayed/args/effect/args/cardId"
+    ],
+    "AX_Common_KelonCylinder": [
+        "effectTap/childs/1/childs/0/sourceId"
+    ],
+    "AX_Common_SapExtractor": [
+        "effectPassive/Noon/output/args/effect/args/cardId"
+    ],
+    "AX_Common_SapSniffer": [
+        "effectReserve/args/effect/args/cardId"
+    ],
+    "AX_Common_TheRefinery": [
+        "effectTap/sourceId"
+    ],
+    "AX_Rare_AbySapCourier": [
+        "effectPlayed/args/effect/args/cardId"
+    ],
+    "AX_Rare_KelonCylinder": [
+        "effectTap/childs/1/childs/0/sourceId"
+    ],
+    "AX_Rare_SapExtractor": [
+        "effectPassive/Noon/output/args/effect/args/cardId"
+    ],
+    "AX_Rare_SapSniffer": [
+        "effectPlayed/args/effect/args/cardId"
+    ],
+    "AX_Rare_TheRefinery": [
+        "effectTap/sourceId"
+    ],
+    "BR_Common_HuaMulan": [
+        "effectReserve/args/cardId"
+    ],
+    "BR_Common_TheMess": [
+        "effectTap/sourceId",
+        "effectTap/args/effect/childs/0/sourceId"
+    ],
+    "BR_Rare_BravosBladedancer": [
+        "effectReserve/args/effect/args/cardId"
+    ],
+    "BR_Rare_HuaMulan": [
+        "effectReserve/args/cardId"
+    ],
+    "BR_Rare_KelonCylinder": [
+        "effectTap/childs/1/childs/0/sourceId"
+    ],
+    "BR_Rare_SapSniffer": [
+        "effectReserve/args/effect/args/cardId"
+    ],
+    "BR_Rare_TheMess": [
+        "effectTap/sourceId",
+        "effectTap/args/effect/childs/0/sourceId"
+    ],
+    "LY_Common_CableCarStation": [
+        "effectTap/args/effect/childs/0/sourceId"
+    ],
+    "LY_Common_TheStage": [
+        "effectTap/sourceId"
+    ],
+    "LY_Rare_CableCarStation": [
+        "effectTap/args/effect/childs/0/sourceId"
+    ],
+    "LY_Rare_TheRefinery": [
+        "effectTap/sourceId"
+    ],
+    "LY_Rare_TheStage": [
+        "effectTap/sourceId"
+    ],
+    "MU_Common_TheFarm": [
+        "effectTap/sourceId"
+    ],
+    "MU_Rare_TheFarm": [
+        "effectTap/sourceId"
+    ],
+    "MU_Rare_TheTownSquare": [
+        "effectTap/sourceId"
+    ],
+    "OD_Common_TheTownSquare": [
+        "effectTap/sourceId"
+    ],
+    "OD_Rare_AbySapCourier": [
+        "effectPlayed/args/effect/args/cardId"
+    ],
+    "OD_Rare_CableCarStation": [
+        "effectTap/args/effect/childs/0/sourceId"
+    ],
+    "OD_Rare_TheFarm": [
+        "effectTap/sourceId"
+    ],
+    "OD_Rare_TheTownSquare": [
+        "effectTap/sourceId"
+    ],
+    "YZ_Rare_HuaMulan": [
+        "effectReserve/args/cardId"
+    ],
+    "YZ_Rare_SapExtractor": [
+        "effectPassive/Noon/output/args/effect/args/cardId"
+    ],
+    "YZ_Rare_TheMess": [
+        "effectTap/sourceId",
+        "effectTap/args/effect/childs/0/sourceId"
+    ],
+    "YZ_Rare_TheStage": [
+        "effectTap/sourceId"
+    ]
+}

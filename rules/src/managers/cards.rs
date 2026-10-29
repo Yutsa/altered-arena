@@ -96,28 +96,63 @@ pub fn class_name(p: &Map<String, Value>) -> String {
     format!("{}_{}_{}", faction, rarity, slugify(&name))
 }
 
-/// `Cards::getCardInstance($id, $data)`: the object's properties (class data + DYNAMIC_PROPERTIES
-/// of the DB JSON, or the DB JSON for Uniques)
+static OWN_ID: OnceLock<HashMap<String, Vec<Vec<String>>>> = OnceLock::new();
+
+/// Class name → paths of the properties built from the card's own id (`FT::GAIN/AUGMENT/LOOSE($this)`
+/// give `$card->getId() ?? ME`, `'sourceId' => $this->getId()`): the class data was exported from an
+/// object without id (`me` or null there), a card loaded from the DB has its id
+fn own_id_paths() -> &'static HashMap<String, Vec<Vec<String>>> {
+    OWN_ID.get_or_init(|| {
+        let data: HashMap<String, Vec<String>> = serde_json::from_str(include_str!("../../../engine/data/card_own_id.json")).expect("card_own_id.json");
+        data.into_iter().map(|(k, v)| (k, v.iter().map(|p| p.split('/').map(String::from).collect()).collect())).collect()
+    })
+}
+
+fn set_path(v: &mut Value, path: &[String], x: Value) {
+    let Some((first, rest)) = path.split_first() else {
+        *v = x;
+        return;
+    };
+    let next = match v {
+        Value::Object(m) => m.get_mut(first),
+        Value::Array(a) => first.parse::<usize>().ok().and_then(|i| a.get_mut(i)),
+        _ => None,
+    };
+    if let Some(n) = next {
+        set_path(n, rest, x);
+    }
+}
+
+/// `Cards::getCardInstance($id, $data)`: the object's properties (class data built with the card's
+/// id + DYNAMIC_PROPERTIES of the DB JSON, or the DB JSON for Uniques)
 // PHP: Managers/Cards.php:51
-pub fn instantiate_props(db: &Props) -> R<Props> {
+pub fn instantiate_props(db: &Props, id: CardId) -> R<Props> {
     if php::loose_eq(db.get("rarity").unwrap_or(&Value::Null), &json!(2)) {
         return Ok(db.clone());
     }
     let name = class_name(db);
-    let class = match classes().get(&name) {
-        Some(c) => c.clone(),
+    let (class_key, class) = match classes().get_key_value(&name) {
+        Some((k, c)) => (k.clone(), c.clone()),
         None => {
             // slugify transliteration differs from iconv for some names: same faction, rarity and name
             let found = classes().iter().find(|(_, c)| {
                 c.get("faction") == db.get("faction") && php::loose_eq(c.get("rarity").unwrap_or(&Value::Null), db.get("rarity").unwrap_or(&Value::Null)) && c.get("name") == db.get("name")
             });
             match found {
-                Some((_, c)) => c.clone(),
+                Some((k, c)) => (k.clone(), c.clone()),
                 None => return Err(PhpError::new(format!("Card class {} does not exist (getCardInstance returns null)", name))),
             }
         }
     };
     let mut props = (*class).clone();
+    // new $className($row): the constructor sees the card's id
+    for path in own_id_paths().get(&class_key).into_iter().flatten() {
+        if let Some((first, rest)) = path.split_first() {
+            if let Some(v) = props.get_mut(first) {
+                set_path(v, rest, json!(id));
+            }
+        }
+    }
     for p in DYNAMIC_PROPERTIES {
         if let Some(v) = db.get(*p) {
             if !v.is_null() {
@@ -131,7 +166,7 @@ pub fn instantiate_props(db: &Props) -> R<Props> {
 /// A card row from the DB columns
 pub fn card_from_row(id: i64, location: &str, state: i64, pid: i64, properties: &str) -> R<CardRow> {
     let db = Arc::new(decode_props(properties)?);
-    let props = instantiate_props(&db)?;
+    let props = instantiate_props(&db, id)?;
     Ok(CardRow { id, location: location.to_string(), state, pid, props, db_props: db, reload: false })
 }
 

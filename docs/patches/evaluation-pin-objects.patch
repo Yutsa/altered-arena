@@ -1,0 +1,65 @@
+Evaluation memo: keep memoized nodes alive for the whole scope (AlteredBGA, apply with `patch -p1`)
+
+AbstractNode::memoized keys its results on spl_object_id($this). ActivateCard::getFlowTree builds a
+new tree every time it is asked something (isOptional, isDoable...), and that tree is freed right
+after. PHP gives a freed object's id to the next object created, so the next flow tree built in the
+same Evaluation scope gets the same key and the previous tree's cached answers. Without the memo
+(the engine before Evaluation.php, and the Rust translation) this does not happen.
+
+Reproduce: whole-game golden seed 21 (`explore.php game 21 --dump=36`), step 36: EndOfNight PARALLEL
+of player 2002 with Armored Jammer (LeaveLandmark: Target upTo, optional) and Aerolith Reef
+(Discard/isSacrificed: Resupply, mandatory). Inside one scope the Aerolith child's isOptional returns
+true (the cached answer of a freed tree), so getChoices adds Pass (99); outside a scope it returns
+false and there is no Pass. With this patch the PHP decision matches the unmemoized engine and the
+Rust translation (checked by loading the step-36 tables into a patched copy of the game,
+GAME_DIR=/tmp/gamefix in the container).
+
+Fix: Evaluation::run takes the object to pin; pinned objects are released when the outermost scope ends.
+
+diff -ru a/modules/php/Core/Engine/AbstractNode.php b/modules/php/Core/Engine/AbstractNode.php
+--- a/modules/php/Core/Engine/AbstractNode.php	2026-10-29 11:20:36
++++ b/modules/php/Core/Engine/AbstractNode.php	2026-10-29 11:20:47
+@@ -417,7 +417,9 @@
+    */
+   protected function memoized(string $what, $player, callable $compute)
+   {
+-    return Evaluation::run('node|' . spl_object_id($this) . '|' . $what . '|' . (is_null($player) ? '' : $player->getId()), $compute);
++    // $this is pinned: a node built for one question (ActivateCard::getFlowTree) is freed right
++    // after, and the next node built would otherwise reuse its id and get its results
++    return Evaluation::run('node|' . spl_object_id($this) . '|' . $what . '|' . (is_null($player) ? '' : $player->getId()), $compute, $this);
+   }
+ 
+   public function isAutomatic($player = null)
+diff -ru a/modules/php/Helpers/Evaluation.php b/modules/php/Helpers/Evaluation.php
+--- a/modules/php/Helpers/Evaluation.php	2026-10-29 11:20:36
++++ b/modules/php/Helpers/Evaluation.php	2026-10-29 11:20:44
+@@ -12,14 +12,20 @@
+ class Evaluation
+ {
+   protected static ?array $results = null;
++  /** Objects whose spl_object_id is part of a key: kept alive until the scope ends, so that no
++   *  other object gets the same id (and the same cached results) within the scope */
++  protected static array $pinned = [];
+ 
+   /** Runs $compute once per key within the scope, opening the scope if none is open */
+-  public static function run(string $key, callable $compute)
++  public static function run(string $key, callable $compute, ?object $pin = null)
+   {
+     $outermost = self::$results === null;
+     if ($outermost) {
+       self::$results = [];
+     }
++    if ($pin !== null) {
++      self::$pinned[spl_object_id($pin)] = $pin;
++    }
+     try {
+       if (!array_key_exists($key, self::$results)) {
+         self::$results[$key] = $compute();
+@@ -28,6 +34,7 @@
+     } finally {
+       if ($outermost) {
+         self::$results = null;
++        self::$pinned = [];
+       }
+     }
+   }
