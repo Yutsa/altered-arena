@@ -33,7 +33,7 @@ echo "$TESTS" | grep -q "FAILED" && { echo "TEST FAILURE"; echo "$TESTS"; exit 1
 PASSED=$(echo "$TESTS" | awk '{s += $4} END {print s}')
 echo "tests: $PASSED passed"
 T3=$(now)
-PERF_PORT=${PERF_PORT:-8095} ARENA_ENGINE=rules tools/perf_run.sh "rules/$NAME" --games 1000 --duration 90 --ramp 20 > /dev/null 2>&1
+PERF_PORT=${PERF_PORT:-8095} tools/perf_run.sh "rules/$NAME" --games 1000 --duration 90 --ramp 20 > /dev/null 2>&1
 T4=$(now)
 cat > "perf/rules/$NAME.timings.json" <<EOF
 {"build": $(d $T1 $T0), "goldens": $(d $T2 $T1), "goldensQuick": $([ "$QUICK" = "--quick" ] && echo true || echo false), "goldenSummary": "$OUT", "tests": $(d $T3 $T2), "testsPassed": $PASSED, "loadtest": $(d $T4 $T3), "total": $(d $T4 $T0)}

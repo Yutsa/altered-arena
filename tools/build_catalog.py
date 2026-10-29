@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Builds the client card catalog and starter deck list from the engine export.
 
-Input:  engine/data/cards.min.json, engine/data/starters.min.json (tools: server/tools/export_cards.php)
+Input:  rules/data/cards.min.json, rules/data/starters.min.json (tools: server/tools/export_cards.php)
 Output: protocol/data/cards.json (CardCatalog), protocol/data/decks.json (DeckSummary[])
 """
 import json, os, sys

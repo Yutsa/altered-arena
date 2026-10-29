@@ -1,11 +1,10 @@
 # Server only (no client, no card art), for load tests in a container limited like a VPS:
 #   docker build -t arena-perf -f tools/Dockerfile.perf .
-#   docker run --rm -d --name arena-perf --cpus=2 --memory=4g -p 8097:8080 -e ARENA_ENGINE=rules arena-perf
+#   docker run --rm -d --name arena-perf --cpus=2 --memory=4g -p 8097:8080 arena-perf
 #   loadtest --url http://localhost:8097 --docker arena-perf ...
 FROM rust:1-slim AS server
 WORKDIR /src
 COPY Cargo.toml Cargo.lock ./
-COPY engine engine
 COPY rules rules
 COPY goldens goldens
 COPY arena-server arena-server

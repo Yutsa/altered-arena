@@ -5,7 +5,7 @@
 # Build the image (server + loadtest) in the VM first, e.g.:
 #   tar cf - Cargo.toml Cargo.lock engine rules goldens arena-server loadtest protocol/data \
 #     tools/Dockerfile.perf | colima ssh -- docker build -t arena-perf -f tools/Dockerfile.perf -
-# Result JSON in perf/<name>.json. VPS_CPUS / VPS_MEMORY / ARENA_ENGINE override.
+# Result JSON in perf/<name>.json. VPS_CPUS / VPS_MEMORY override.
 set -e
 cd "$(dirname "$0")/.."
 NAME=$1; shift
@@ -14,7 +14,7 @@ cd /
 colima ssh -- sh -c "
 docker rm -f arena-perf > /dev/null 2>&1 || true
 [ -x /tmp/loadtest ] || { docker run --rm --entrypoint cat arena-perf /app/loadtest > /tmp/loadtest && chmod +x /tmp/loadtest; }
-docker run -d --name arena-perf --cpus=${VPS_CPUS:-2} --memory=${VPS_MEMORY:-4g} -p 8097:8080 -e ARENA_ENGINE=${ARENA_ENGINE:-rules} -e PERSIST_SECS=${PERSIST_SECS:-10} arena-perf > /dev/null
+docker run -d --name arena-perf --cpus=${VPS_CPUS:-2} --memory=${VPS_MEMORY:-4g} -p 8097:8080 -e PERSIST_SECS=${PERSIST_SECS:-10} arena-perf > /dev/null
 sleep 2
 ulimit -n 65536 2>/dev/null || ulimit -n 4096; /tmp/loadtest --url http://localhost:8097 --docker arena-perf $* > /tmp/vps_result.json 2> /tmp/vps_progress.txt
 docker exec arena-perf sh -c 'du -sh /data/games; ls /data/games | wc -l' >&2

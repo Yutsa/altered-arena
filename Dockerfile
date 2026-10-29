@@ -3,7 +3,8 @@
 FROM rust:1-slim AS server
 WORKDIR /src
 COPY altered-arena/Cargo.toml altered-arena/Cargo.lock ./
-COPY altered-arena/engine engine
+COPY altered-arena/rules rules
+COPY altered-arena/goldens goldens
 COPY altered-arena/arena-server arena-server
 COPY altered-arena/loadtest loadtest
 RUN cargo build --release -p arena-server

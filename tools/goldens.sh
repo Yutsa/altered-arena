@@ -4,7 +4,7 @@
 cd "$(dirname "$0")/.."
 python3 -c "
 import json,re,sys
-d=json.load(open('engine/data/cards.min.json'))
+d=json.load(open('rules/data/cards.min.json'))
 pat=re.compile(sys.argv[1] if len(sys.argv)>1 else '.')
 for k in sorted(d):
     if re.match(r'^[A-Z]{2}_(Common|Rare|Unique|Exalted)_', k) and pat.search(k):

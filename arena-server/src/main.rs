@@ -6,9 +6,8 @@
 //!
 //! Environment: PORT (8080), CLIENT_DIR (client/dist), ART_DIR (../AlteredBGA/img/illustrations),
 //! PROTOCOL_DIR (protocol/data), DATA_DIR (data), PERSIST_SECS (10), ARENA_DEBUG (debug routes),
-//! ARENA_ENGINE (legacy: the first Rust engine, `engine/`; rules: the translation of the PHP
-//! engine, `rules/`), ENGINE_THREADS (number of engine threads, default: CPUs), ENGINE_STACK_MB
-//! (their stack size, 256).
+//! ENGINE_THREADS (number of threads running the rules engine `rules/`, default: CPUs),
+//! ENGINE_STACK_MB (their stack size, 256).
 //! Recommended: MIMALLOC_PURGE_DELAY=0 (returns freed memory to the OS sooner).
 
 /// Faster than the system allocator for many small allocations, and less fragmentation
@@ -22,7 +21,7 @@ use axum::http::{header, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
 use axum::{Json, Router};
-use engines::{AnyGame, EngineKind, EnginePool};
+use engines::{EnginePool, ServerGame};
 use serde::Deserialize;
 use serde_json::{json, Value};
 use std::collections::{HashMap, HashSet};
@@ -35,14 +34,14 @@ use tower_http::cors::CorsLayer;
 use tower_http::services::{ServeDir, ServeFile};
 
 struct GameEntry {
-    game: Arc<Mutex<AnyGame>>,
+    game: Arc<Mutex<ServerGame>>,
     changed: Notify,
     /// Last request on this game (unix seconds), to unload idle games from memory
     last_access: AtomicU64,
 }
 
 impl GameEntry {
-    fn new(game: AnyGame) -> Arc<GameEntry> {
+    fn new(game: ServerGame) -> Arc<GameEntry> {
         Arc::new(GameEntry { game: Arc::new(Mutex::new(game)), changed: Notify::new(), last_access: AtomicU64::new(now()) })
     }
 }
@@ -57,7 +56,6 @@ struct Ticket {
 }
 
 struct AppState {
-    kind: EngineKind,
     pool: EnginePool,
     games: RwLock<HashMap<String, Arc<GameEntry>>>,
     dirty: Mutex<HashSet<String>>,
@@ -106,12 +104,10 @@ async fn main() {
     let protocol_dir = env("PROTOCOL_DIR", "protocol/data");
     let data_dir = std::path::PathBuf::from(env("DATA_DIR", "data"));
     let _ = std::fs::create_dir_all(data_dir.join("games"));
-    let kind = EngineKind::from_env();
     let threads: usize = env("ENGINE_THREADS", "0").parse().ok().filter(|n| *n > 0).unwrap_or_else(|| std::thread::available_parallelism().map(|n| n.get()).unwrap_or(4));
     let stack_mb: usize = env("ENGINE_STACK_MB", "256").parse().unwrap_or(256);
 
     let state = Arc::new(AppState {
-        kind,
         pool: EnginePool::new(threads, stack_mb),
         games: RwLock::new(HashMap::new()),
         dirty: Mutex::new(HashSet::new()),
@@ -122,14 +118,7 @@ async fn main() {
         decks_json: std::fs::read(format!("{}/decks.json", protocol_dir)).expect("protocol/data/decks.json"),
         data_dir: data_dir.clone(),
     });
-    match kind {
-        EngineKind::Legacy => {
-            altered_engine::catalog::catalog();
-        }
-        EngineKind::Rules => {
-            altered_rules::managers::cards::classes();
-        }
-    }
+    altered_rules::managers::cards::classes();
 
     // Persist changed games every few seconds (a crash loses at most that much play)
     let persist_secs: u64 = env("PERSIST_SECS", "10").parse().unwrap_or(10);
@@ -159,12 +148,11 @@ async fn main() {
         .layer(CorsLayer::permissive())
         .with_state(state.clone());
 
-    // Differential tests only: full hidden state and arbitrary positions
+    // Debugging only: full hidden state
     let app = if std::env::var("ARENA_DEBUG").is_ok() {
         println!("Debug routes enabled (ARENA_DEBUG)");
         app.merge(
             Router::new()
-                .route("/api/debug/games", post(create_from_snapshot))
                 .route("/api/debug/games/{id}/state", get(debug_state))
                 .with_state(state.clone()),
         )
@@ -172,7 +160,7 @@ async fn main() {
         app
     };
     let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{}", port)).await.expect("bind");
-    println!("Altered Arena server on http://localhost:{} (engine: {})", port, kind.name());
+    println!("Altered Arena server on http://localhost:{}", port);
     let s3 = state.clone();
     axum::serve(listener, app)
         .with_graceful_shutdown(async move {
@@ -183,8 +171,8 @@ async fn main() {
         .unwrap();
 }
 
-async fn health(State(s): State<Shared>) -> Response {
-    Json(json!({"ok": true, "engine": s.kind.name()})).into_response()
+async fn health() -> Response {
+    Json(json!({"ok": true, "engine": "rules"})).into_response()
 }
 
 async fn cards(State(s): State<Shared>) -> Response {
@@ -202,11 +190,11 @@ async fn decks(State(s): State<Shared>) -> Response {
 /// Runs `op` on the game, on an engine thread (large stack), holding the game's lock. With
 /// `backup`, a panic of the `rules` engine leaves the game as it was before the call (views don't
 /// need it: the engine builds them on a copy of the game).
-async fn with_game<T: Send + 'static>(s: &Shared, e: &Arc<GameEntry>, backup: bool, op: impl FnOnce(&mut AnyGame) -> T + Send + 'static) -> Result<T, String> {
+async fn with_game<T: Send + 'static>(s: &Shared, e: &Arc<GameEntry>, backup: bool, op: impl FnOnce(&mut ServerGame) -> T + Send + 'static) -> Result<T, String> {
     let mut guard = e.game.clone().lock_owned().await;
     s.pool
         .run(move || {
-            let backup = (backup && matches!(*guard, AnyGame::Rules(_))).then(|| guard.clone());
+            let backup = backup.then(|| guard.clone());
             match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| op(&mut guard))) {
                 Ok(v) => Ok(v),
                 Err(p) => {
@@ -250,11 +238,10 @@ fn clean_name(n: Option<&str>, i: usize) -> String {
 /// Creates a game on an engine thread, lets the bots play, gives each human seat a secret
 /// token (returned only to whoever created the game, or to the matched player) and registers it
 async fn insert_game(s: &Shared, id: String, players: [(String, bool, Option<String>); 2], seed: u64) -> Result<Value, String> {
-    let kind = s.kind;
     let game = s
         .pool
-        .run(move || -> Result<AnyGame, String> {
-            let mut game = AnyGame::new(kind, id, players, seed)?;
+        .run(move || -> Result<ServerGame, String> {
+            let mut game = ServerGame::new(id, players, seed)?;
             game.run_bots();
             game.set_tokens(new_token);
             Ok(game)
@@ -289,11 +276,8 @@ fn new_game_id(s: &Shared) -> String {
     out
 }
 
-fn known_deck(kind: EngineKind, deck: &str) -> bool {
-    match kind {
-        EngineKind::Legacy => altered_engine::catalog::catalog().starter(deck).is_some(),
-        EngineKind::Rules => altered_rules::v1::deck_summaries().iter().any(|d| d["id"] == json!(deck)),
-    }
+fn known_deck(deck: &str) -> bool {
+    altered_rules::v1::deck_summaries().iter().any(|d| d["id"] == json!(deck))
 }
 
 async fn create_game(State(s): State<Shared>, Json(req): Json<NewGame>) -> Response {
@@ -302,7 +286,7 @@ async fn create_game(State(s): State<Shared>, Json(req): Json<NewGame>) -> Respo
     }
     for p in &req.players {
         if let Some(d) = &p.deck {
-            if !known_deck(s.kind, d) {
+            if !known_deck(d) {
                 return error(StatusCode::BAD_REQUEST, format!("Unknown deck {}", d), true);
             }
         }
@@ -326,7 +310,7 @@ struct ViewQuery {
 }
 
 /// Seat of the requester: the token decides (a wrong player/token pair is refused)
-fn seat_of(g: &AnyGame, q: &ViewQuery, headers: &axum::http::HeaderMap) -> Result<Option<usize>, Response> {
+fn seat_of(g: &ServerGame, q: &ViewQuery, headers: &axum::http::HeaderMap) -> Result<Option<usize>, Response> {
     let token = q.token.clone().or_else(|| {
         headers.get(header::AUTHORIZATION).and_then(|h| h.to_str().ok()).and_then(|h| h.strip_prefix("Bearer ")).map(String::from)
     });
@@ -348,7 +332,7 @@ async fn entry(s: &Shared, id: &str) -> Option<Arc<GameEntry>> {
         return None;
     }
     let bytes = tokio::fs::read(s.data_dir.join("games").join(format!("{}.json", id))).await.ok()?;
-    let game = AnyGame::load(s.kind, &bytes)?;
+    let game = ServerGame::load(&bytes)?;
     let mut games = s.games.write().await;
     Some(games.entry(id.to_string()).or_insert_with(|| GameEntry::new(game)).clone())
 }
@@ -440,7 +424,7 @@ async fn join_queue(State(s): State<Shared>, Json(req): Json<JoinQueue>) -> Resp
     let ticket_id = format!("t{}", seed());
     let name = clean_name(req.name.as_deref(), 0);
     if let Some(d) = &req.deck {
-        if !known_deck(s.kind, d) {
+        if !known_deck(d) {
             return error(StatusCode::BAD_REQUEST, format!("Unknown deck {}", d), true);
         }
     }
@@ -492,27 +476,8 @@ async fn leave_queue(State(s): State<Shared>, Path(ticket): Path<String>) -> Res
 }
 
 // ---------------------------------------------------------------------------
-// Debug (differential tests against the original engine)
+// Debug: full hidden state (ARENA_DEBUG)
 // ---------------------------------------------------------------------------
-
-async fn create_from_snapshot(State(s): State<Shared>, Json(snapshot): Json<Value>) -> Response {
-    if s.kind != EngineKind::Legacy {
-        return error(StatusCode::BAD_REQUEST, "Snapshots are a format of the legacy engine", true);
-    }
-    match altered_engine::Game::from_snapshot(new_game_id(&s), &snapshot) {
-        Ok(mut game) => {
-            game.run_bots();
-            let mut game = AnyGame::Legacy(game);
-            game.set_tokens(new_token);
-            let id = game.id().to_string();
-            let players: Vec<Value> = game.seats().into_iter().map(|(pid, name, bot, token)| json!({"id": pid, "name": name, "bot": bot, "token": token})).collect();
-            s.games.write().await.insert(id.clone(), GameEntry::new(game));
-            s.dirty.lock().await.insert(id.clone());
-            Json(json!({"gameId": id, "players": players})).into_response()
-        }
-        Err(e) => error(StatusCode::BAD_REQUEST, e.0, true),
-    }
-}
 
 async fn debug_state(State(s): State<Shared>, Path(id): Path<String>) -> Response {
     let Some(e) = entry(&s, &id).await else { return error(StatusCode::NOT_FOUND, "Unknown game", false) };

@@ -1,74 +1,49 @@
-# Status (first version)
+# Status
 
 ## What works
 
 - **Full games**, desktop and mobile web, installable as a PWA: lobby, play against the bot,
   matchmaking between two players, two-player table with one link per seat, spectators.
-- **Rules engine in Rust** covering the whole day structure (setup and mana, Morning draw and
-  Expand, Noon, alternating Afternoon turns with quick actions, Dusk movement per region and
-  biome, Night rest and Reserve/Landmark cleanup, victory, tiebreaker in the Arena), costs and
-  reductions, Fleeting / Anchored / Asleep / boosts / counters, Scout, Tough, Gigantic, Seasoned,
-  Eternal, Defender, Cooldown, support abilities (discard from Reserve), exhaust abilities,
-  triggered abilities with the original ordering rules, undo within a turn.
-- **Cards**: the 30 starter decks are playable; the data of all 1976 cards is loaded. Every trigger
-  condition used by a card and every named special effect of the original engine are implemented,
-  except `BoostExchange` and `Gain` with a computed amount (met in ~5 % of
-  self-play games; logged as "not implemented" when met).
-- Bot vs bot: 1000 games on every pair of starter decks all end (avg 6.2 days), 0.3 ms per game.
-- Server: see `PERFORMANCE.md` (1000 simultaneous games ≈ 0.3 core, 140 MB).
+- **Rules engine** (`rules/`): a faithful translation of the AlteredBGA PHP engine (reference:
+  AlteredBGA `origin/master`). It asks the same questions, with the same options, and reaches the
+  same states as the BGA engine. Checked by golden tests recorded with the PHP engine:
 
-## Not there yet
-
-- **Custom decks and Uniques** (the original builds Unique effects from "trinity" codes at runtime,
-  `FlowConvertor`): only starter decks can be chosen.
-- **Exact parity with the BGA engine** is not reached yet, but it is now measured and improving.
-  `tools/diff_engines.py` starts both engines from the same position, plays the same random
-  decisions in both, and compares the full state after each one. Results on 30 games of 50–140
-  decisions:
-
-  | | First version | Now |
+  | Golden set | Files | Steps compared |
   | --- | --- | --- |
-  | Games identical from start to end | 1 / 20 | 4 to 8 / 30 (varies between samples) |
-  | First difference (diverging games), median | 12 decisions | 44 decisions |
-  | First difference (diverging games), mean | 21 decisions | 44 decisions |
+  | Every card (1976) played on three boards, every branch of its decisions | 5928 | 81,065 |
+  | Whole games played at random, setup to victory | 400 | 43,344 |
+  | Real games recorded on Board Game Arena (anonymised) | 8 | 1,156 |
+  | **Total** | **6336/6336** | **125,565/125,565** |
 
-  Games where a die is rolled stop counting at the roll: the dice are random in both engines.
+  Game creation is checked too: for the 400 games, the tables Rust creates are identical to PHP's.
+  PHP's randomness (mt_rand, shuffle, array_rand) is reproduced bit for bit, seeded per action.
+- **Server** (`arena-server/`) on the translated engine: game creation, the GameView the client
+  shows, the bot (translated from the oracle's PHP bot), persistence, long polling, tokens.
+- **Performance**: see `docs/PERFORMANCE.md`. 1.86 ms of CPU per answer under the harsh load test;
+  an OVH VPS-1 (2 vCores, 4 GB) holds about 1500 to 6000 simultaneous games at a realistic pace,
+  depending on the vCore speed (with `PERSIST_SECS=60`).
 
-  First differences in the last run (21 diverging games):
+## Known differences and limits
 
-  | Category | Games |
-  | --- | --- |
-  | a card's effect gives a different result (zones, boosts, statuses) | 10 |
-  | an answer the BGA engine accepts is refused | 3 |
-  | one engine asks something the other doesn't | 2 |
-  | different playable cards | 2 |
-  | different Dusk movement | 2 |
-  | different targets offered | 1 |
-  | choice options enabled differently | 1 |
-
-  The tool reports the first difference of each game with the BGA engine's log at that point. It
-  also saves a trace (`traces/game-N.json`) that
-  `cargo run --release --example replay_trace traces/game-N.json` replays step by step in the Rust
-  engine with its full log.
-
-  The tool tolerates differences that are only about how the BGA client asks:
-  - confirmations ("switch of player", "card is seen");
-  - single-option prompts, and choices of an effect that would do nothing;
-  - the order of several simultaneous abilities that Rust resolves on its own.
-
-  Use `--strict-order` to report ordering differences too.
-- Not implemented: `BoostExchange` and `Gain` with a computed amount (met in ~5 % of self-play
-  games), card biome modifiers (`updateExpeditions`), "behind" Defender exceptions, and Fen &
-  Crowbar's choices when the deck is almost empty.
-- The bot is simple (greedy on statistics, random elsewhere).
+- The PHP engine's quirks are reproduced on purpose (e.g. the `array_push` bug in the phase
+  listeners, MoveCard's undefined action): the reference is what BGA does.
+- The GameView follows the PHP adapter (`server/src/V1.php`): play options have no cost of their
+  own (the client shows the card's cost), card stats are printed stats plus boosts, and the log is
+  built from the PHP notification templates, shorter than BGA's.
+- Decks: starter decks only. Custom decks (deck codes), random and API decks, and the DEMO format
+  raise "not translated".
+- The bot is the oracle's simple bot (first legal choices). When both of its answers are refused,
+  it tries the other legal answers instead of stopping the game (PHP would wait forever).
+- Speed: the translated engine is about 4 times slower in CPU and 5 times larger in memory than the
+  first, from-scratch Rust engine (removed since: it was fast but did not match the BGA rules).
+  Closing that gap needs the whole engine on typed data (see the plateau analysis in
+  `docs/PERFORMANCE.md`). The cheapest next win is persistence: a saved game is ~350 KB because
+  every card's class data is written in full.
 - No accounts: seats are protected by per-seat tokens only.
 
 ## Next steps (suggested)
 
-1. Keep running `tools/diff_engines.py` and fixing the first divergence until most games are
-   identical. Then add the 8 recorded BGA replays (`AlteredBGA/misc/harness/replays`) as a
-   regression suite: replay their decisions in the Rust engine.
-2. Custom decks (deck codes from altered.gg / the Altered API) and Uniques.
-3. WebSocket push (fewer requests, smoother animations), the engine in WebAssembly for offline play
-   against the bot, native shells (Capacitor for iOS/Android, Tauri for desktop) around the PWA.
+1. Compact persistence (save only each card's own values), then measure the VPS-1 capacity again.
+2. Custom decks (deck codes) and Unique cards (`Helpers/FlowConvertor.php` builds their effects).
+3. WebSocket push, the engine in WebAssembly for offline play, native shells (Capacitor, Tauri).
 4. Accounts, ranked matchmaking, tournaments.

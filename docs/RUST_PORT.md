@@ -54,7 +54,7 @@ rules/src/
 ## Key representations
 
 - **Cards**: ordered map id → `CardRow { id, location: String, state: i64, pid: u32, props: Map }`.
-  Properties = the class data (`engine/data/cards.min.json`, keyed by class name
+  Properties = the class data (`rules/data/cards.min.json`, keyed by class name
   `<faction>_<Rarity>_<slug(name)>`) overlaid with the DB JSON's `DYNAMIC_PROPERTIES`; Unique cards
   (rarity 2) take everything from the DB JSON (Managers/Cards.php:51-87). Iteration order = PHP cache
   order (id order at load, then creation order).

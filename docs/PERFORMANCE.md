@@ -1,5 +1,9 @@
 # Server performance
 
+> The first sections below measured the first, from-scratch Rust engine (`engine/`, removed: it
+> did not match the BGA rules). The server now runs the translated engine: see
+> "Translated engine (`rules`)" at the end.
+
 Goal: hold 1000 simultaneous games with as little RAM and CPU as possible and low latency.
 
 ## Method
@@ -66,7 +70,7 @@ players), and answers stay in the low milliseconds. Disk: about 25 KB of JSON pe
 - Brotli/zstd for clients that support it, or no compression under ~1 KB.
 - `SO_REUSEPORT` / several processes behind a balancer if one machine's single process is not enough.
 
-# Translated engine (`rules`, `ARENA_ENGINE=rules`)
+# Translated engine (`rules`)
 
 The server can run the faithful translation of the PHP engine (`rules/`, see `docs/RUST_PORT.md`).
 Same method and load as above (1000 games, 1500 simulated players thinking 0.75–2.25 s, half against

@@ -12,11 +12,10 @@ truth for the types. It works with both servers: the PHP oracle (port 8080) and 
 cd client
 npm install
 npm run dev                                  # http://localhost:5173, proxies /api and /assets to :8080
-ARENA_API=http://localhost:8090 npm run dev  # same, against the Rust server
 ```
 
-The game server must be running (`docker compose up -d` in `altered-arena/` for the PHP one,
-`tools/restart_rust.sh` for the Rust one).
+The game server must be running (`cargo run --release -p arena-server` in `altered-arena/`, or
+`docker compose up -d` for the PHP oracle, which speaks the same protocol).
 
 URLs:
 

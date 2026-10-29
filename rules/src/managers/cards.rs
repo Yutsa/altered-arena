@@ -10,7 +10,7 @@ use std::collections::HashMap;
 use std::sync::{Arc, OnceLock};
 
 // ---------------------------------------------------------------------------
-// Card classes (modules/php/Cards/*, exported to engine/data/cards.min.json)
+// Card classes (modules/php/Cards/*, exported to rules/data/cards.min.json)
 // ---------------------------------------------------------------------------
 
 static CLASSES: OnceLock<HashMap<String, ClassData>> = OnceLock::new();
@@ -18,7 +18,7 @@ static CLASSES: OnceLock<HashMap<String, ClassData>> = OnceLock::new();
 /// Class name → properties of the class
 pub fn classes() -> &'static HashMap<String, ClassData> {
     CLASSES.get_or_init(|| {
-        let data: Map<String, Value> = serde_json::from_str(include_str!("../../../engine/data/cards.min.json")).expect("cards.min.json");
+        let data: Map<String, Value> = serde_json::from_str(include_str!("../../data/cards.min.json")).expect("cards.min.json");
         data.into_iter()
             .map(|(k, v)| {
                 let mut v = v;
@@ -103,7 +103,7 @@ static OWN_ID: OnceLock<HashMap<String, Vec<Vec<String>>>> = OnceLock::new();
 /// object without id (`me` or null there), a card loaded from the DB has its id
 fn own_id_paths() -> &'static HashMap<String, Vec<Vec<String>>> {
     OWN_ID.get_or_init(|| {
-        let data: HashMap<String, Vec<String>> = serde_json::from_str(include_str!("../../../engine/data/card_own_id.json")).expect("card_own_id.json");
+        let data: HashMap<String, Vec<String>> = serde_json::from_str(include_str!("../../data/card_own_id.json")).expect("card_own_id.json");
         data.into_iter().map(|(k, v)| (k, v.iter().map(|p| p.split('/').map(String::from).collect()).collect())).collect()
     })
 }
@@ -789,10 +789,10 @@ type StarterList = Vec<(String, i64)>;
 static STARTERS: OnceLock<HashMap<String, StarterList>> = OnceLock::new();
 
 /// The contents of a starter deck (`STARTER_<HERO>` of Cards/StarterDecks/<deck id>.inc.php,
-/// exported to engine/data/starters.min.json): class name and number of copies, in order
+/// exported to rules/data/starters.min.json): class name and number of copies, in order
 pub fn starter_contents(deck_id: &str) -> &'static [(String, i64)] {
     let all = STARTERS.get_or_init(|| {
-        let data: Map<String, Value> = serde_json::from_str(include_str!("../../../engine/data/starters.min.json")).expect("starters.min.json");
+        let data: Map<String, Value> = serde_json::from_str(include_str!("../../data/starters.min.json")).expect("starters.min.json");
         data.into_iter()
             .map(|(k, v)| {
                 let list = match v {
