@@ -162,3 +162,54 @@ pub fn topological_sort(nodes: &[Value], edges: &[(Value, Value)]) -> Option<Vec
     }
     Some(l)
 }
+
+/// `Utils::costReductionBucketsOverlap($typeA, $typeB)`: whether two cost reduction buckets can
+/// apply to a same card
+// PHP: Helpers/Utils.php:355
+pub fn cost_reduction_buckets_overlap(type_a: &Value, type_b: &Value) -> bool {
+    let all = json!("all");
+    if php::loose_eq(type_a, &all) || php::loose_eq(type_b, &all) {
+        return true;
+    }
+    if php::loose_eq(type_a, type_b) {
+        return true;
+    }
+    for card_types in cost_reduction_overlap_probe_cards() {
+        if cost_reduction_bucket_applies_to_card(type_a, &card_types) && cost_reduction_bucket_applies_to_card(type_b, &card_types) {
+            return true;
+        }
+    }
+    false
+}
+
+// PHP: Helpers/Utils.php:376
+fn cost_reduction_bucket_applies_to_card(bucket: &Value, card: &Value) -> bool {
+    if php::loose_eq(bucket, &json!("all")) {
+        return true;
+    }
+    if php::loose_eq(bucket, php::get(card, "type")) {
+        return true;
+    }
+    if php::in_array_strict(bucket, php::get(card, "additionalTypes")) {
+        return true;
+    }
+    if php::in_array_strict(bucket, php::get(card, "subtypes")) {
+        return true;
+    }
+    false
+}
+
+// PHP: Helpers/Utils.php:395
+fn cost_reduction_overlap_probe_cards() -> Vec<Value> {
+    vec![
+        json!({"type": "character", "additionalTypes": [], "subtypes": ["artist"]}),
+        json!({"type": "character", "additionalTypes": [], "subtypes": ["animal", "spirit"]}),
+        json!({"type": "character", "additionalTypes": [], "subtypes": ["bureaucrat"]}),
+        json!({"type": "character", "additionalTypes": [], "subtypes": ["apprentice", "mage"]}),
+        json!({"type": "spell", "additionalTypes": [], "subtypes": ["song"]}),
+        json!({"type": "permanent", "additionalTypes": [], "subtypes": ["plant"]}),
+        json!({"type": "permanent", "additionalTypes": [], "subtypes": ["robot"]}),
+        json!({"type": "token", "additionalTypes": [], "subtypes": []}),
+        json!({"type": "character", "additionalTypes": ["feat"], "subtypes": []}),
+    ]
+}
