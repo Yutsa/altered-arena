@@ -140,6 +140,10 @@ pub struct Game {
     pub seat_order: Vec<PId>,
     /// `GameState::$lastArgs`
     pub last_args: Option<Value>,
+    /// Variables of `globals` whose value is known to be its JSON round trip (bit i:
+    /// `globals::VARIABLES[i]`), set by `globals::fetch`, cleared by every write
+    #[serde(skip)]
+    pub globals_clean: u128,
     /// `Helpers/Evaluation.php` scope
     #[serde(skip)]
     pub memo: Option<HashMap<String, Value>>,
@@ -173,6 +177,7 @@ impl Game {
             players: IndexMap::new(),
             prefs: vec![],
             globals: Map::new(),
+            globals_clean: 0,
             fw: BTreeMap::new(),
             next_card_id: 1,
             next_meeple_id: 1,
@@ -414,6 +419,7 @@ impl Game {
             }
         }
         self.globals = t.globals.clone();
+        self.globals_clean = 0;
         let ids: Vec<CardId> = self.cards.keys().copied().collect();
         for id in ids {
             let db = self.cards[&id].db_props.clone();

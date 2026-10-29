@@ -1,0 +1,39 @@
+{
+  "games": 1000,
+  "pvp": 0.5,
+  "thinkMs": 1500,
+  "durationS": 90,
+  "answers": 54069,
+  "answersPerSec": 586.5270941179791,
+  "polls": 28409,
+  "gamesFinished": 361,
+  "errors": 0,
+  "refused": 53,
+  "answerLatencyMs": {
+    "p50": 3.469,
+    "p95": 14.433,
+    "p99": 28.592,
+    "max": 524.412
+  },
+  "createLatencyMs": {
+    "p50": 78.088,
+    "p95": 131.515,
+    "p99": 189.308
+  },
+  "serverRssMB": {
+    "idle": 24.03125,
+    "max": 2979.328125
+  },
+  "serverCpuPercentAvg": 393.59117647058827,
+  "serverCpuSeconds": 389.81,
+  "serverCpuMsPerAnswer": 7.209491575579352,
+  "serverRssKBPerGame": 3026.224,
+  "refusedReasons": {
+    "select select: Card is not tapped. Should not happen": 13,
+    "select select: Total mountain attribute exceeds the limit of the effect": 5,
+    "select select: You cannot pay the additional cost (Tough effect)": 20,
+    "turn pass: This action is not optional": 11,
+    "turn play: Error: Call to undefined method ALT\\Actions\\SpecialEffect::actSpecialEffect()": 2,
+    "turn play: You don't have enough mana to pay": 2
+  }
+}

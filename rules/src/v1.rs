@@ -898,6 +898,7 @@ pub fn build(g: &mut Game, you: Option<PId>, game_id: &str) -> R<Value> {
     for (k, v) in &copy.globals {
         if !g.globals.contains_key(k) && Some(v) == globals::var_type(k).map(globals::default_of).as_ref() {
             g.globals.insert(k.clone(), v.clone());
+            globals::touched(g, k);
         }
     }
     Ok(view)

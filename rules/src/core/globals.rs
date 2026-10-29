@@ -79,8 +79,19 @@ pub const VARIABLES: &[(&str, &str)] = &[
     ("firstPass", "int"),
 ];
 
+/// Index in VARIABLES and type of each variable
+fn index() -> &'static std::collections::HashMap<&'static str, (usize, &'static str)> {
+    static INDEX: std::sync::OnceLock<std::collections::HashMap<&'static str, (usize, &'static str)>> = std::sync::OnceLock::new();
+    INDEX.get_or_init(|| VARIABLES.iter().enumerate().map(|(i, (n, t))| (*n, (i, *t))).collect())
+}
+
 pub fn var_type(name: &str) -> Option<&'static str> {
-    VARIABLES.iter().find(|(n, _)| *n == name).map(|(_, t)| *t)
+    index().get(name).map(|(_, t)| *t)
+}
+
+/// Bit of a variable in `Game::globals_clean`
+fn clean_bit(name: &str) -> u128 {
+    index().get(name).map(|(i, _)| 1u128 << i).unwrap_or(0)
 }
 
 pub fn default_of(t: &str) -> Value {
@@ -92,25 +103,25 @@ pub fn default_of(t: &str) -> Value {
     }
 }
 
-/// `Globals::cast` (Core/Globals.php:102-108): JSON decoded, int variables cast
-fn cast(name: &str, v: &Value) -> Value {
-    let mut v = php::round_trip(v);
-    if var_type(name) == Some("int") {
-        v = json!(php::intval(&v));
-    }
-    v
-}
 
-/// `Globals::fetch()` (Core/Globals.php:110-126): every row read back from its JSON
+/// `Globals::fetch()` (Core/Globals.php:110-126): every row read back from its JSON.
+/// The round trip is idempotent: values read back since their last change (bits of
+/// `Game::globals_clean`) are already what it gives.
 // PHP: Core/Globals.php:110
 pub fn fetch(g: &mut Game) {
-    let names: Vec<String> = g.globals.keys().cloned().collect();
-    for n in names {
-        if var_type(&n).is_some() {
-            let v = cast(&n, &g.globals[&n]);
-            g.globals.insert(n, v);
+    let mut clean = g.globals_clean;
+    for (n, v) in g.globals.iter_mut() {
+        let Some((i, t)) = index().get(n.as_str()) else { continue };
+        if clean & (1u128 << i) != 0 {
+            continue;
         }
+        php::normalize(v);
+        if *t == "int" {
+            *v = json!(php::intval(v));
+        }
+        clean |= 1u128 << i;
     }
+    g.globals_clean = clean;
 }
 
 /// `Globals::create($name)` (Core/Globals.php:132-150)
@@ -153,7 +164,13 @@ pub fn set(g: &mut Game, name: &str, v: Value) -> R<Value> {
         _ => v,
     };
     g.globals.insert(name.to_string(), v.clone());
+    g.globals_clean &= !clean_bit(name);
     Ok(v)
+}
+
+/// A variable written outside `set` (its value must be read back at the next fetch)
+pub fn touched(g: &mut Game, name: &str) {
+    g.globals_clean &= !clean_bit(name);
 }
 
 /// `Globals::inc<Name>($n = 1)` (int variables only)

@@ -18,6 +18,8 @@ struct Stats {
     errors: AtomicU64,
     games_done: AtomicU64,
     decisions_refused: AtomicU64,
+    /// Refused answers by decision kind and error message
+    refused_reasons: Mutex<std::collections::BTreeMap<String, u64>>,
 }
 
 fn arg<T: std::str::FromStr>(name: &str, default: T) -> T {
@@ -71,10 +73,10 @@ fn pick_answer(d: &Value, rng: &mut Lcg) -> Value {
             let n = d["min"].as_u64().unwrap_or(1).max(1) as usize;
             json!({"type": "expedition", "keys": e.iter().take(n).map(|x| x["key"].clone()).collect::<Vec<_>>()})
         }
-        "player" => json!({"type": "player", "player": arr("players")[0]}),
+        "player" if !arr("players").is_empty() => json!({"type": "player", "player": arr("players")[0]}),
         "number" => json!({"type": "number", "value": arr("values").last().cloned().unwrap_or(json!(0))}),
-        "location" => json!({"type": "location", "key": arr("locations")[0]["key"]}),
-        "exchange" => json!({"type": "exchange", "hand": arr("hand")[0], "reserve": arr("reserve")[0]}),
+        "location" if !arr("locations").is_empty() => json!({"type": "location", "key": arr("locations")[0]["key"]}),
+        "exchange" if !arr("hand").is_empty() && !arr("reserve").is_empty() => json!({"type": "exchange", "hand": arr("hand")[0], "reserve": arr("reserve")[0]}),
         "cleanup" => {
             let r = d["reserve"]["cardIds"].as_array().cloned().unwrap_or_default();
             let l = d["landmarks"]["cardIds"].as_array().cloned().unwrap_or_default();
@@ -82,6 +84,10 @@ fn pick_answer(d: &Value, rng: &mut Lcg) -> Value {
             let nl = d["landmarks"]["n"].as_u64().unwrap_or(0) as usize;
             json!({"type": "cleanup", "reserve": r[..nr.min(r.len())], "landmarks": l[..nl.min(l.len())]})
         }
+        // Decisions of the translated engine (rules)
+        "confirm" => json!({"type": "confirm"}),
+        "deck" if !arr("decks").is_empty() => json!({"type": "deck", "deck": arr("decks")[rng.below(arr("decks").len())]["id"]}),
+        "buttons" if !arr("buttons").is_empty() => json!({"type": "button", "key": arr("buttons")[rng.below(arr("buttons").len())]["key"]}),
         _ => json!({"type": "pass"}),
     };
     let mut a = a;
@@ -138,6 +144,8 @@ async fn play_seat(client: reqwest::Client, url: String, game: String, player: u
                     view = body;
                 } else {
                     stats.decisions_refused.fetch_add(1, Ordering::Relaxed);
+                    let reason = format!("{} {}: {}", view["decision"]["kind"].as_str().unwrap_or("?"), answer["type"].as_str().unwrap_or("?"), body["error"].as_str().unwrap_or("?"));
+                    *stats.refused_reasons.lock().await.entry(reason).or_insert(0) += 1;
                     // Retry with a fresh view (and a pass if possible)
                     if let Ok(r) = client.get(format!("{}?{}", base, auth)).send().await {
                         view = r.json().await.unwrap_or(view);
@@ -193,6 +201,7 @@ async fn main() {
         errors: AtomicU64::new(0),
         games_done: AtomicU64::new(0),
         decisions_refused: AtomicU64::new(0),
+        refused_reasons: Mutex::new(Default::default()),
     });
     let decks: Vec<Value> = client.get(format!("{}/api/v1/decks", url)).send().await.unwrap().json().await.unwrap();
     let start = Instant::now();
@@ -303,6 +312,7 @@ async fn main() {
         "serverCpuSeconds": cpu_used,
         "serverCpuMsPerAnswer": if stats.answers.load(Ordering::Relaxed) > 0 { cpu_used * 1000.0 / stats.answers.load(Ordering::Relaxed) as f64 } else { 0.0 },
         "serverRssKBPerGame": (max_rss.saturating_sub(base_rss)) as f64 / games.max(1) as f64,
+        "refusedReasons": stats.refused_reasons.lock().await.clone(),
     });
     println!("{}", serde_json::to_string_pretty(&result).unwrap());
 }

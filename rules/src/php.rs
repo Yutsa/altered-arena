@@ -676,7 +676,7 @@ pub fn normalize(v: &mut Value) {
         Value::Array(a) => a.iter_mut().for_each(normalize),
         Value::Object(o) => {
             o.values_mut().for_each(normalize);
-            let sequential = o.keys().enumerate().all(|(i, k)| *k == i.to_string());
+            let sequential = o.keys().enumerate().all(|(i, k)| is_index_key(k, i));
             if sequential {
                 let m = std::mem::take(o);
                 *v = Value::Array(m.into_iter().map(|(_, x)| x).collect());
@@ -684,6 +684,22 @@ pub fn normalize(v: &mut Value) {
         }
         _ => {}
     }
+}
+
+/// `k == (string)$i`, without allocating
+pub fn is_index_key(k: &str, i: usize) -> bool {
+    let mut buf = [0u8; 20];
+    let mut n = i;
+    let mut p = buf.len();
+    loop {
+        p -= 1;
+        buf[p] = b'0' + (n % 10) as u8;
+        n /= 10;
+        if n == 0 {
+            break;
+        }
+    }
+    k.as_bytes() == &buf[p..]
 }
 
 /// `json_decode(json_encode($v), true)` of a value
