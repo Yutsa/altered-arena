@@ -90,6 +90,8 @@ pub fn build_tree(g: &mut Game, t: &Value) -> R<NodeId> {
     let mut infos: Map<String, Value> = match t {
         Value::Object(m) => m.clone(),
         Value::Array(a) => a.iter().enumerate().map(|(i, v)| (i.to_string(), v.clone())).collect(),
+        // `$t['childs'] = ...` on null makes an array
+        Value::Null => Map::new(),
         _ => return Err(PhpError::new("Error: Cannot use a scalar value as an array (buildTree)")),
     };
     let childs_v = infos.get("childs").cloned().unwrap_or(Value::Null);
