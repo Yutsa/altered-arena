@@ -1,6 +1,6 @@
 //! Players' answers to decisions (protocol v1 `Answer`, without decisionId which the view layer checks).
 
-use crate::actions::{apply_targets, create_token, move_with_events};
+use crate::actions::{apply_targets, create_token, discard_add, move_with_events, resolve_die};
 use crate::game::*;
 use crate::model::*;
 use serde::Deserialize;
@@ -192,8 +192,17 @@ impl Game {
                         self.pay(seat, value);
                         self.mods.last_paid = value;
                     }
-                    NumberThen::Die { .. } => {}
+                    NumberThen::Die { args, .. } => resolve_die(self, args.as_object().unwrap_or(&Default::default()), ctx, value, values.len() > 1),
                 }
+                Ok(())
+            }
+            // All In!: a Reserve card discarded instead of choosing a result
+            (PendingKind::Number { then: NumberThen::Die { args, discard }, .. }, Answer::Select { card_ids }) => {
+                let [c] = card_ids[..] else { return err("Select one card of your Reserve") };
+                if !discard.contains(&c) {
+                    return err("Unknown card");
+                }
+                discard_add(self, args.as_object().unwrap_or(&Default::default()), ctx, c);
                 Ok(())
             }
             (PendingKind::Location { options, token, n }, Answer::Location { key }) => {

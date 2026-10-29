@@ -668,9 +668,13 @@ pub fn check(g: &Game, cond: &str, ctx: &Ctx) -> bool {
                 _ => false,
             }
         }
-        "hasRolled" => ev.trigger == "RollDie" && cmp(ev.n, num(1, 1), op(2)),
-        // Rolled value equals the Hand cost of a card revealed by the roll (in Limbo here)
-        "isRollEqualCostHand" => ev.trigger == "RollDie" && g.players[owner].limbo.iter().any(|&c| g.card(c).def().cost_hand == ev.n),
+        // One of the die results (before the choice) reaches the value
+        "hasRolled" => ev.rolls.iter().any(|&r| cmp(r, num(1, 1), op(2))),
+        // Chosen die result equals the Hand cost of the card revealed by revealTop (the Wayfarer)
+        "isRollEqualCostHand" => {
+            let roll = if ev.trigger == "RollDie" { ev.n } else { 0 };
+            g.mods.special.revealed[owner].map(|c| g.card(c).zone == Zone::Deck && g.card(c).def().cost_hand == roll).unwrap_or(false)
+        }
 
         // ---------------- The card itself ----------------
         "notTapped" => !me.exhausted,

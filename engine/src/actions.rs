@@ -268,18 +268,7 @@ pub fn run(g: &mut Game, action: &str, a: &Map<String, Value>, node: &Value, ctx
                 g.card_mut(c).completed = true;
             }
         }
-        "RollDie" => {
-            let roll = g.roll_die();
-            g.forget_undo();
-            let name = g.players[ctx.seat].name.clone();
-            g.log_line(Some(ctx.seat), format!("{} rolls a {}", name, roll));
-            g.emit(Event { trigger: "RollDie".into(), seat: ctx.seat, n: roll, source: ctx.source, ..Default::default() });
-            if let Some(Value::Object(effects)) = a.get("effect") {
-                if let Some(e) = die_effect(effects, roll) {
-                    g.stack.push(Task::Run { node: e, ctx });
-                }
-            }
-        }
+        "RollDie" => roll_die(g, a, ctx),
         "ChooseAssignment" => {
             let types = list(a, "types")
                 .unwrap_or_default()
@@ -412,6 +401,126 @@ pub fn run(g: &mut Game, action: &str, a: &Map<String, Value>, node: &Value, ctx
     }
 }
 
+/// Sum of a property ("addDice", "addRoll") over a player's cards in play and Reserve cards with
+/// an ∞ ability (Player::getAddDice / getAddRoll)
+fn add_prop(g: &Game, seat: Seat, key: &str) -> i32 {
+    let infinity = g.players[seat].reserve.iter().copied().filter(|&c| g.card(c).def().prop("effectInfinity").is_some());
+    g.in_play(seat).into_iter().chain(infinity).map(|c| g.card(c).def().prop(key).and_then(Value::as_i64).unwrap_or(0) as i32).sum()
+}
+
+/// RollDie (Actions/RollDie.php): rolls n dice (one more per Lyra Bastion), each result also
+/// offered +1 per Martengale / Fragrant Meerkat; the "ImmediateRollDie" abilities resolve, then
+/// the player chooses the result (automatic when there is only one)
+fn roll_die(g: &mut Game, a: &Map<String, Value>, ctx: Ctx) {
+    let seat = ctx.seat;
+    if !b(a, "hasRolled") {
+        let extra = add_prop(g, seat, "addDice");
+        if extra > 0 {
+            g.log_line(Some(seat), format!("{} dice are added to the roll (Ouroboros Lyra Bastion's effect)", extra));
+        }
+        let raw: Vec<i32> = (0..i(a, "n", 1) + extra).map(|_| g.roll_die()).collect();
+        let add = add_prop(g, seat, "addRoll");
+        g.dice_rolls = raw.iter().flat_map(|&r| (0..=add).map(move |k| r + k)).collect();
+        g.forget_undo();
+        let name = g.players[seat].name.clone();
+        let shown: Vec<String> = raw.iter().map(|r| r.to_string()).collect();
+        g.log_line(Some(seat), format!("{} rolls {}", name, shown.join(", ")));
+        // The choice of the result comes once the immediate abilities are resolved
+        let mut rest = a.clone();
+        rest.insert("hasRolled".into(), Value::Bool(true));
+        g.stack.push(Task::Run { node: serde_json::json!({"action": "RollDie", "args": rest}), ctx: ctx.clone() });
+        let before = g.reactions.len();
+        g.emit(Event { trigger: "ImmediateRollDie".into(), seat, rolls: g.dice_rolls.clone(), source: ctx.source, ..Default::default() });
+        // Resolved right away; several are ordered by the player (parallel node, noIndependent)
+        let immediate: Vec<(Value, Ctx)> = g.reactions.drain(before..).collect();
+        if !immediate.is_empty() {
+            g.stack.push(Task::SpellEffects(immediate));
+        }
+        return;
+    }
+    let values = selectable_rolls(&g.dice_rolls, die_counter(g, a, &ctx));
+    let discard = if b(a, "canDiscard") { g.players[seat].reserve.clone() } else { vec![] };
+    if values.is_empty() {
+        return;
+    }
+    if discard.is_empty() && values.len() == 1 {
+        resolve_die(g, a, ctx, values[0], false);
+        return;
+    }
+    let prompt = if discard.is_empty() { "Choose 1 die result" } else { "Choose 1 die result or select a card to add 2" };
+    g.ask(Pending {
+        id: 0,
+        seat,
+        prompt: format!("{}{}", source_prefix(g, ctx.source), prompt),
+        source: ctx.source,
+        can_pass: false,
+        kind: PendingKind::Number { values, then: NumberThen::Die { args: Value::Object(a.clone()), discard } },
+        ctx,
+    });
+}
+
+/// Luck counters of the source that may increase the result (allowCounterIncrease: Yeong-Gi & Ember)
+fn die_counter(g: &Game, a: &Map<String, Value>, ctx: &Ctx) -> i32 {
+    if !b(a, "allowCounterIncrease") {
+        return 0;
+    }
+    ctx.source.map(|c| g.card(c).counter).unwrap_or(0)
+}
+
+/// Each result plus 0..=counter, sorted, without duplicates
+fn selectable_rolls(rolls: &[i32], counter: i32) -> Vec<i32> {
+    let mut out: Vec<i32> = rolls.iter().flat_map(|&r| (0..=counter.max(0)).map(move |k| r + k)).collect();
+    out.sort();
+    out.dedup();
+    out
+}
+
+/// The chosen result (actRollDie): Luck counters spent to reach it, its effect, the RollDie event
+pub fn resolve_die(g: &mut Game, a: &Map<String, Value>, ctx: Ctx, value: i32, chosen: bool) {
+    let counter = die_counter(g, a, &ctx);
+    let rolls = std::mem::take(&mut g.dice_rolls);
+    let spend = rolls.iter().filter(|&&r| r <= value && value - r <= counter).map(|&r| value - r).min().unwrap_or(0);
+    if let (true, Some(c)) = (spend > 0, ctx.source) {
+        let card = g.card_mut(c);
+        card.counter = (card.counter - spend).max(0);
+        let (pname, cname) = (g.players[ctx.seat].name.clone(), g.card(c).name());
+        g.log_line(Some(ctx.seat), format!("{} spends {} counter(s) of [[{}]]", pname, spend, cname));
+    }
+    if chosen {
+        g.log_line(Some(ctx.seat), format!("Die {} is selected", value));
+    }
+    if let Some(Value::Object(effects)) = a.get("effect") {
+        if let Some(e) = die_effect(effects, value) {
+            g.stack.push(Task::Run { node: with_die(e, value), ctx: ctx.clone() });
+        }
+    }
+    g.emit(Event { trigger: "RollDie".into(), seat: ctx.seat, n: value, rolls, source: ctx.source, ..Default::default() });
+}
+
+/// Discards a Reserve card to add 2 to every result, then the choice again (actDiscardAdd: All In!)
+pub fn discard_add(g: &mut Game, a: &Map<String, Value>, ctx: Ctx, card: CardId) {
+    let mut rest = a.clone();
+    rest.insert("canDiscard".into(), Value::Bool(false));
+    rest.insert("hasRolled".into(), Value::Bool(true));
+    g.stack.push(Task::Run { node: serde_json::json!({"action": "RollDie", "args": rest}), ctx: ctx.clone() });
+    for r in g.dice_rolls.iter_mut() {
+        *r += 2;
+    }
+    let (pname, cname) = (g.players[ctx.seat].name.clone(), g.card(card).name());
+    g.log_line(Some(ctx.seat), format!("{} discards [[{}]] to add 2 to its rolls", pname, cname));
+    move_with_events(g, card, Zone::Discard, false, false, &ctx);
+}
+
+/// "die" in a result's effect stands for the chosen result (Utils::updateTree)
+fn with_die(v: Value, roll: i32) -> Value {
+    match v {
+        Value::String(s) if s == "die" => Value::from(roll),
+        Value::Array(l) => Value::Array(l.into_iter().map(|x| with_die(x, roll)).collect()),
+        Value::Object(m) => Value::Object(m.into_iter().map(|(k, x)| (k, with_die(x, roll))).collect()),
+        other => other,
+    }
+}
+
 fn die_effect(effects: &Map<String, Value>, roll: i32) -> Option<Value> {
     for (k, v) in effects {
         let ok = if let Some(min) = k.strip_suffix('+') {
@@ -425,7 +534,7 @@ fn die_effect(effects: &Map<String, Value>, roll: i32) -> Option<Value> {
             k.parse::<i32>().map(|x| x == roll).unwrap_or(false)
         };
         if ok {
-            return Some(v.clone());
+            return Some(v.clone()).filter(|v| v.as_str() != Some("OPPOSITE"));
         }
     }
     None
@@ -798,6 +907,20 @@ fn discard(g: &mut Game, a: &Map<String, Value>, ctx: Ctx) {
         return;
     }
     move_with_events(g, c, to, sacrifice, exhausted, &ctx);
+    // X Marks the Spot: to the Xth position from the top of the deck (Cards::moveAtPosition);
+    // its rare versions ready a Mana Orb when X is more than the card's Hand cost
+    if let (Zone::Deck, Some(pos)) = (to, a.get("position").and_then(Value::as_i64)) {
+        let owner = g.card(c).owner;
+        if g.card(c).zone == Zone::Deck {
+            let deck = &mut g.players[owner].deck;
+            deck.retain(|&x| x != c);
+            let p = (pos as usize).clamp(1, deck.len() + 1);
+            deck.insert(deck.len() + 1 - p, c);
+        }
+        if b(a, "readyIfCostLower") && pos as i32 > g.card(c).def().cost_hand {
+            g.stack.push(Task::Run { node: serde_json::json!({"action": "Ready", "args": {"cardId": "mana"}}), ctx });
+        }
+    }
 }
 
 pub fn resupply(g: &mut Game, seat: Seat, n: i32, exhausted: bool, source: Option<CardId>) {
