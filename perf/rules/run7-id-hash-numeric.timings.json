@@ -1,0 +1,1 @@
+{"build": 18.3, "goldens": 76.8, "goldensQuick": false, "goldenSummary": "6336/6336 files pass, 125565/125565 nodes checked pass (63.4s)", "tests": 46.6, "testsPassed": 52, "loadtest": 108.6, "total": 250.3}

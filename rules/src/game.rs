@@ -13,6 +13,31 @@ use std::collections::{BTreeMap, HashMap, VecDeque};
 use std::sync::Arc;
 
 pub type CardId = i64;
+
+/// Hasher of the row tables (integer ids): a multiplicative hash instead of SipHash (the
+/// tables keep their insertion order either way)
+#[derive(Default, Clone, Copy)]
+pub struct IdHasher(u64);
+
+impl std::hash::Hasher for IdHasher {
+    fn finish(&self) -> u64 {
+        self.0
+    }
+    fn write(&mut self, bytes: &[u8]) {
+        for b in bytes {
+            self.0 = (self.0.rotate_left(5) ^ *b as u64).wrapping_mul(0x51_7c_c1_b7_27_22_0a_95);
+        }
+    }
+    fn write_i64(&mut self, i: i64) {
+        self.0 = (self.0.rotate_left(5) ^ i as u64).wrapping_mul(0x51_7c_c1_b7_27_22_0a_95);
+    }
+    fn write_u64(&mut self, i: u64) {
+        self.write_i64(i as i64)
+    }
+}
+
+/// A table of rows by id, in insertion order
+pub type Rows<V> = IndexMap<i64, V, std::hash::BuildHasherDefault<IdHasher>>;
 pub type PId = i64;
 pub type Props = Arc<PropMap>;
 /// The properties of a card class (`new $className(null)`)
@@ -152,9 +177,9 @@ pub type Globals = IndexMap<String, Arc<Value>>;
 /// and player; not user_preferences nor the framework tables)
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Tables {
-    pub cards: IndexMap<CardId, CardRow>,
-    pub meeples: IndexMap<i64, Meeple>,
-    pub players: IndexMap<PId, PlayerRow>,
+    pub cards: Rows<CardRow>,
+    pub meeples: Rows<Meeple>,
+    pub players: Rows<PlayerRow>,
     pub globals: Arc<Globals>,
 }
 
@@ -188,12 +213,12 @@ pub enum ShuffleHook {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Game {
-    pub cards: IndexMap<CardId, CardRow>,
+    pub cards: Rows<CardRow>,
     /// Cards deleted during the current request: PHP objects outlive their rows
-    pub deleted_cards: IndexMap<CardId, CardRow>,
-    pub meeples: IndexMap<i64, Meeple>,
-    pub deleted_meeples: IndexMap<i64, Meeple>,
-    pub players: IndexMap<PId, PlayerRow>,
+    pub deleted_cards: Rows<CardRow>,
+    pub meeples: Rows<Meeple>,
+    pub deleted_meeples: Rows<Meeple>,
+    pub players: Rows<PlayerRow>,
     pub prefs: Vec<PrefRow>,
     /// `Globals::$data`
     pub globals: Arc<Globals>,
@@ -260,11 +285,11 @@ pub struct LogLine {
 impl Game {
     pub fn empty() -> Game {
         Game {
-            cards: IndexMap::new(),
-            deleted_cards: IndexMap::new(),
-            meeples: IndexMap::new(),
-            deleted_meeples: IndexMap::new(),
-            players: IndexMap::new(),
+            cards: Rows::default(),
+            deleted_cards: Rows::default(),
+            meeples: Rows::default(),
+            deleted_meeples: Rows::default(),
+            players: Rows::default(),
             prefs: vec![],
             globals: Arc::default(),
             globals_clean: 0,
@@ -482,8 +507,8 @@ impl Game {
     /// waits for its next request: the next request starts with `fresh_state`, which drops them
     /// anyway
     pub fn compact(&mut self) {
-        self.deleted_cards = IndexMap::new();
-        self.deleted_meeples = IndexMap::new();
+        self.deleted_cards = Rows::default();
+        self.deleted_meeples = Rows::default();
         self.notifications = vec![];
         self.last_args = None;
         // A game holds 2400 cards during deck selection: the tables keep that capacity

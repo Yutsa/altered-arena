@@ -1,0 +1,38 @@
+{
+  "games": 1000,
+  "pvp": 0.5,
+  "thinkMs": 1500,
+  "durationS": 90,
+  "answers": 54155,
+  "answersPerSec": 587.5220909979657,
+  "polls": 28431,
+  "gamesFinished": 380,
+  "errors": 0,
+  "refused": 71,
+  "answerLatencyMs": {
+    "p50": 1.345,
+    "p95": 5.293,
+    "p99": 9.842,
+    "max": 68.154
+  },
+  "createLatencyMs": {
+    "p50": 28.336,
+    "p95": 31.454,
+    "p99": 35.622
+  },
+  "serverRssMB": {
+    "idle": 24.046875,
+    "max": 961.53125
+  },
+  "serverCpuPercentAvg": 151.9514705882353,
+  "serverCpuSeconds": 146.98,
+  "serverCpuMsPerAnswer": 2.7140614901671127,
+  "serverRssKBPerGame": 959.984,
+  "refusedReasons": {
+    "select select: Card is not tapped. Should not happen": 22,
+    "select select: Total mountain attribute exceeds the limit of the effect": 2,
+    "select select: You cannot pay the additional cost (Tough effect)": 32,
+    "turn pass: This action is not optional": 12,
+    "turn play: Error: Call to undefined method ALT\\Actions\\SpecialEffect::actSpecialEffect()": 3
+  }
+}

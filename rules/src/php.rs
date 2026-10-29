@@ -34,6 +34,11 @@ pub fn empty(v: &Value) -> bool {
 
 /// PHP 8 `is_numeric` on a string
 pub fn is_numeric_str(s: &str) -> bool {
+    // A numeric string starts with whitespace, a sign, a digit or a dot (most strings fail here)
+    match s.as_bytes().first() {
+        Some(c) if c.is_ascii_digit() || matches!(c, b' ' | b'\t' | b'\n' | b'\r' | 0x0b | 0x0c | b'+' | b'-' | b'.') => {}
+        _ => return false,
+    }
     let t = s.trim_start_matches([' ', '\t', '\n', '\r', '\x0b', '\x0c']);
     let t = t.trim_end_matches([' ', '\t', '\n', '\r', '\x0b', '\x0c']);
     if t.is_empty() {
