@@ -189,6 +189,31 @@ pub fn strval(v: &Value) -> String {
     }
 }
 
+/// `strval`, borrowing strings
+pub fn strval_cow(v: &Value) -> std::borrow::Cow<'_, str> {
+    match v {
+        Value::String(s) => std::borrow::Cow::Borrowed(s.as_str()),
+        _ => std::borrow::Cow::Owned(strval(v)),
+    }
+}
+
+/// `count(array_intersect($a, $b)) > 0` for the values of `a` and the values `b` (string
+/// comparison), without building the intersection
+pub fn intersects(a: &Value, b: &[&Value]) -> bool {
+    let a: Box<dyn Iterator<Item = &Value>> = match a {
+        Value::Array(x) => Box::new(x.iter()),
+        Value::Object(o) => Box::new(o.values()),
+        _ => return false,
+    };
+    for x in a {
+        let xs = strval_cow(x);
+        if b.iter().any(|y| strval_cow(y) == xs) {
+            return true;
+        }
+    }
+    false
+}
+
 fn is_array(v: &Value) -> bool {
     matches!(v, Value::Array(_) | Value::Object(_))
 }

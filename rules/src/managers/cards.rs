@@ -338,11 +338,18 @@ pub fn where_type(g: &mut Game, ids: Vec<CardId>, field: &str, value: &Value, ad
         let mut ov = card::get_field(g, id, field)?;
         if additional {
             let at = card::get(g, id, "additionalType")?;
+            if php::is_arr(value) && php::is_arr(&at) {
+                // count(array_intersect($value, array_merge([$ov], $at))) > 0, without the merge
+                if php::intersects(value, &std::iter::once(&ov).chain(php::vals(&at)).collect::<Vec<_>>()) {
+                    out.push(id);
+                }
+                continue;
+            }
             ov = php::array_merge(&[&json!([ov]), &at]);
         }
         let keep = if php::is_arr(value) {
             if php::is_arr(&ov) {
-                php::count(&php::array_intersect(value, &ov)) > 0
+                php::intersects(value, &php::vals(&ov))
             } else {
                 php::in_array(&ov, value)
             }
