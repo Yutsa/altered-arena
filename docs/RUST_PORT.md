@@ -102,3 +102,38 @@ with a single `next` in `server/goldens/games/SEED.json`; the runner replays the
 trees (`--only games/`). `cargo run --release -p goldens --example game_step -- FILE` prints a game's
 first divergence in detail (last answers, decisions, zones with card refs); with
 `explore.php game SEED --dump=STEP` the PHP tables at that step can be compared (`--tables`).
+
+Replays of real games: `explore.php replay FILE` (run by `tools/goldens_replays.sh [TABLE]`) plays
+again a game recorded on Board Game Arena (the replays of the AlteredBGA test harness,
+`misc/harness/replays/*.json`, which hold real player names and ids: they stay out of git, and so do
+the golden files). A replay holds the notifications of each request, not the request:
+
+1. The players become A and B with the arena ids 2001/2002 in seat order (names, ids, and the API
+   decks' name and id, which embed them, are rewritten everywhere in the replay).
+2. The harness's `ReplayRunner` (mounted read-only at `/harness`) rebuilds the requests on the
+   oracle's engine, in a scratch database: each request is searched among the actions the state
+   allows until its notifications are the recorded ones. If it fails, the oracle itself diverges
+   from BGA (PHP version drift) and nothing is written.
+3. The game is set up again in the arena: dice list = every `roll` of the replay in order; deck
+   shuffles forced so that cards leave the deck in the order the replay shows them (as the runner
+   does); Tumult cards and rotations as revealed; the undo preferences and token art the runner
+   infers; the API decks confirmed (`actConfirmAPIDeck`, no v1 answer: done before the dump).
+   Then each request is sent as a protocol v1 answer (checked to send the same PHP action), and its
+   notifications are compared with BGA's again (`mismatches` in the file; undos and the requests
+   they erased have nothing left to compare).
+4. Cards that leave a deck in one request but show up on different channels (a draw to hand and a
+   card put in Reserve) have no known order: packets of different channels are not chronological.
+   When such a request does not match BGA, each order is tried (database snapshot), and the one that
+   matches goes into the forced initial shuffle and the game is played again from the start
+   (`drawOrders` in the file).
+5. After an undo, BGA's ids have moved on (rows created then reverted still consumed them): as the
+   runner does, the next new card or meeple id the replay shows sets the AUTO_INCREMENT.
+
+Format additions over whole games: each node has `move` (BGA move id) and `waiting` (every player
+waited for: on a multiactive state such as the first Mana selection, the player who answers may be
+any of them, and the runner then checks the whole list), `nextIds` when step 5 set a counter
+(`{"cards": N, "meeples": M}`: the runner sets `next_card_id` / `next_meeple_id` before answering),
+and the file has `injectShuffles`, the deck
+orders forced after the dump, in call order, which the runner gives the Rust engine
+(`ShuffleHook::Injected`: a shuffle of the same ids takes the next order, any other draws from the
+seeded generator).

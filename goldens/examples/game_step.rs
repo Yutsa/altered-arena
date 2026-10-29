@@ -4,7 +4,10 @@
 //! the last answers.
 //!
 //!   cargo run --release -p goldens --example game_step -- server/goldens/games/12.json [--notifs N]
+//!
+//! Also replays of real games (server/goldens/replays/TABLE.json).
 
+use altered_rules::game::ShuffleHook;
 use altered_rules::Game;
 use serde_json::{json, Map, Value};
 
@@ -155,6 +158,10 @@ fn main() {
     let rf = |id: &Value| refs.get(&id.to_string()).and_then(|r| r.as_str()).unwrap_or("?").to_string();
     let dice: Vec<i64> = data["dice"].as_array().map(|a| a.iter().filter_map(Value::as_i64).collect()).unwrap_or_default();
     let mut g = Game::from_bga_tables(&data["db"], &dice).expect("load");
+    // Replays: the deck shuffles BGA made, in order
+    if let Some(orders) = data["injectShuffles"].as_array() {
+        g.shuffle_hook = ShuffleHook::Injected(orders.iter().map(|o| o.as_array().into_iter().flatten().filter_map(Value::as_i64).collect()).collect());
+    }
     println!("php game {}, decks {}, random events {}", data["phpGame"], data["decks"], data["random"]);
     let mut node = &data["tree"];
     let mut history: Vec<(String, Vec<Value>)> = vec![];
@@ -192,7 +199,12 @@ fn main() {
         }
         let player = node["player"].as_u64().map(|p| p as u32);
         if let Some(p) = player {
-            if g.waiting_for().first() != Some(&p) {
+            if let Some(w) = node.get("waiting") {
+                let php_w: Vec<u32> = w.as_array().into_iter().flatten().filter_map(Value::as_u64).map(|x| x as u32).collect();
+                if g.waiting_for() != php_w {
+                    problems.push(format!("  waiting for: php {:?} (answered by {}) rust {:?}", php_w, p, g.waiting_for()));
+                }
+            } else if g.waiting_for().first() != Some(&p) {
                 problems.push(format!("  waiting for: php {} rust {:?}", p, g.waiting_for()));
             }
             let rd = g.try_decision(p);
@@ -224,6 +236,13 @@ fn main() {
             println!("all {} steps match ({})", step, node["end"]);
             return;
         };
+        // Replays: ids that BGA consumed in requests an undo erased from its log
+        if let Some(id) = node["nextIds"]["cards"].as_i64() {
+            g.next_card_id = id;
+        }
+        if let Some(id) = node["nextIds"]["meeples"].as_i64() {
+            g.next_meeple_id = id;
+        }
         for n in next {
             let mut answer = n["answer"].clone();
             if let Some(id) = g.decision(p).and_then(|d| d.get("id").cloned()) {
@@ -237,7 +256,7 @@ fn main() {
                 }
                 continue;
             }
-            let label = format!("{}: player {} {}", step, p, n["answer"]);
+            let label = format!("{}: player {} {}{}", step, p, n["answer"], node.get("move").map(|m| format!(" (BGA move {})", m)).unwrap_or_default());
             if let Err(e) = g.answer(p, &answer) {
                 println!("step {}: rust refused {}: {}", step, n["answer"], e);
                 return;

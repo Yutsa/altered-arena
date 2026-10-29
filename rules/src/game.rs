@@ -91,8 +91,8 @@ pub struct LogEntry {
 pub enum ShuffleHook {
     /// PHP's shuffle on the seeded Mersenne Twister (`Game::mt`)
     Seeded,
-    /// The orders PHP produced, in call order (replays); each is the list of ids after shuffle
-    /// (when the ids differ, the shuffle draws from the seeded generator)
+    /// The orders PHP was given, in call order (replays); each is the list of ids after shuffle.
+    /// A shuffle of other ids draws from the seeded generator and leaves the list as it is.
     Injected(VecDeque<Vec<i64>>),
 }
 
@@ -285,13 +285,13 @@ impl Game {
     /// PHP `shuffle($ids)` through Harness\Rng::shuffle
     pub fn php_shuffle(&mut self, ids: &mut Vec<i64>) {
         if let ShuffleHook::Injected(q) = &mut self.shuffle_hook {
-            if let Some(order) = q.pop_front() {
+            if let Some(order) = q.front() {
                 let mut a = order.clone();
                 let mut b = ids.clone();
                 a.sort();
                 b.sort();
                 if a == b {
-                    *ids = order;
+                    *ids = q.pop_front().unwrap();
                     return;
                 }
             }

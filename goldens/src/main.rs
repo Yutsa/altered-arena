@@ -6,6 +6,7 @@
 //!
 //! DIR defaults to server/goldens. Prints the first difference of each failing file and a summary.
 
+use altered_rules::game::ShuffleHook;
 use altered_rules::Game;
 use rayon::prelude::*;
 use serde_json::{json, Map, Value};
@@ -115,7 +116,14 @@ fn check_node(game: &Game, node: &Value, path: &str, r: &mut Report) {
     }
     let player = node["player"].as_u64().map(|p| p as u32);
     if let Some(p) = player {
-        if game.waiting_for().first() != Some(&p) {
+        // Replays name every player waited for (in a multiactive state, the one who answers may be
+        // any of them); the other trees, the first one
+        if let Some(w) = node.get("waiting") {
+            let php_w: Vec<u32> = w.as_array().into_iter().flatten().filter_map(Value::as_u64).map(|x| x as u32).collect();
+            if game.waiting_for() != php_w || !php_w.contains(&p) {
+                problems.push(format!("waiting for: php {:?} (answered by {}) rust {:?}", php_w, p, game.waiting_for()));
+            }
+        } else if game.waiting_for().first() != Some(&p) {
             problems.push(format!("waiting for: php {} rust {:?}", p, game.waiting_for()));
         }
         let php_d = strip_texts(&node["decision"]);
@@ -134,6 +142,7 @@ fn check_node(game: &Game, node: &Value, path: &str, r: &mut Report) {
     let Some(p) = player else { return };
     for (i, next) in node["next"].as_array().into_iter().flatten().enumerate() {
         let mut g = game.clone();
+        set_next_ids(&mut g, node);
         let mut answer = next["answer"].clone();
         if let Some(id) = game.decision(p).and_then(|d| d.get("id").cloned()) {
             answer["decisionId"] = id;
@@ -153,6 +162,17 @@ fn check_node(game: &Game, node: &Value, path: &str, r: &mut Report) {
                 }
             }
         }
+    }
+}
+
+/// Replays: ids that BGA consumed in requests an undo erased from its log, set before answering
+/// (the AUTO_INCREMENT of `cards` / `meeples`)
+fn set_next_ids(g: &mut Game, node: &Value) {
+    if let Some(id) = node["nextIds"]["cards"].as_i64() {
+        g.next_card_id = id;
+    }
+    if let Some(id) = node["nextIds"]["meeples"].as_i64() {
+        g.next_meeple_id = id;
     }
 }
 
@@ -201,7 +221,15 @@ fn main() {
             };
             let dice: Vec<i64> = data["dice"].as_array().map(|a| a.iter().filter_map(Value::as_i64).collect()).unwrap_or_default();
             match Game::from_bga_tables(&data["db"], &dice) {
-                Ok(g) => check_node(&g, &data["tree"], "", &mut r),
+                Ok(mut g) => {
+                    // Replays: the deck shuffles BGA made, in order
+                    if let Some(orders) = data["injectShuffles"].as_array() {
+                        g.shuffle_hook = ShuffleHook::Injected(
+                            orders.iter().map(|o| o.as_array().into_iter().flatten().filter_map(Value::as_i64).collect()).collect(),
+                        );
+                    }
+                    check_node(&g, &data["tree"], "", &mut r)
+                }
                 Err(e) => r.first_failure = Some(format!("cannot load: {}", e)),
             }
             (name, r)
