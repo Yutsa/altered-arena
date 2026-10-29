@@ -9,6 +9,7 @@ import os
 import re
 import sys
 from http.server import BaseHTTPRequestHandler, HTTPServer
+from urllib.parse import urlparse
 
 OUT = os.environ.get('REPLAY_OUT') or os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'private', 'tournament-617607', 'replays')
 ORIGIN = 'https://boardgamearena.com'
@@ -34,10 +35,15 @@ addEventListener('message', async (e) => {
 </script>"""
 
 
+def bga_origin(origin):
+    host = urlparse(origin).hostname or ''
+    return origin.startswith('https://') and (host == 'boardgamearena.com' or host.endswith('.boardgamearena.com'))
+
+
 class Handler(BaseHTTPRequestHandler):
     def cors(self):
         origin = self.headers.get('Origin', '')
-        if origin.endswith('boardgamearena.com'):
+        if bga_origin(origin):
             self.send_header('Access-Control-Allow-Origin', origin)
         self.send_header('Access-Control-Allow-Methods', 'POST, GET, OPTIONS')
         self.send_header('Access-Control-Allow-Headers', 'Content-Type')
@@ -65,6 +71,12 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def do_POST(self):
+        # Only the bridge page (served here) posts: same origin, JSON body
+        own = f'http://127.0.0.1:{self.server.server_address[1]}'
+        if self.headers.get('Origin') != own or not self.headers.get('Content-Type', '').startswith('application/json'):
+            self.send_response(403)
+            self.end_headers()
+            return
         length = int(self.headers.get('Content-Length', 0))
         payload = json.loads(self.rfile.read(length))
         m = re.fullmatch(r'/file/([a-z0-9_-]+\.json)', self.path)
