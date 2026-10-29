@@ -74,15 +74,12 @@ pub fn is_doable(g: &Game, action: &str, a: &Map<String, Value>, ctx: &Ctx) -> b
         "Exchange" => !g.players[ctx.seat].hand.is_empty() && !g.players[ctx.seat].reserve.is_empty(),
         // A Rush can only be chosen when a card can be played
         "ChooseAssignment" => {
-            let types = list(a, "types").unwrap_or_default().iter().filter_map(|t| match t.as_str() {
-                "character" => Some(CardType::Character),
-                "spell" => Some(CardType::Spell),
-                "permanent" => Some(CardType::Permanent),
-                _ => None,
-            }).collect();
-            let bonus = BonusPlay { types, free: b(a, "free"), max_base_cost: a.get("maxBaseCost").and_then(Value::as_i64).map(|v| v as i32), mandatory: false, card: None };
+            let bonus = BonusPlay { mandatory: false, ..crate::play::bonus_play(a) };
             !g.playable(ctx.seat, Some(&bonus)).is_empty()
         }
+        // A play at a set price (cost reduction offers) needs the mana: the original engine
+        // refuses the payment otherwise
+        "PlayCard" => a.get("cost").and_then(Value::as_i64).map_or(true, |c| g.mana_available(ctx.seat) >= c as i32),
         // Doable when its condition holds or it has an effect for the opposite case
         "CheckCondition" => {
             crate::conditions::check_condition_action(g, a, ctx)
@@ -228,6 +225,7 @@ pub fn run(g: &mut Game, action: &str, a: &Map<String, Value>, node: &Value, ctx
         "MoveExpedition" => move_expedition_action(g, a, ctx),
         "AfterYou" => {
             g.pay(ctx.seat, i(a, "pay", 0));
+            g.mods.played_count += 1;
             g.stack.push(Task::PlayDone { turn_play: true });
         }
         "EndAfternoon" => g.players[ctx.seat].passed = true,
@@ -238,30 +236,23 @@ pub fn run(g: &mut Game, action: &str, a: &Map<String, Value>, node: &Value, ctx
         }
         "RollDie" => roll_die(g, a, ctx),
         "ChooseAssignment" => {
-            let types = list(a, "types")
-                .unwrap_or_default()
-                .iter()
-                .filter_map(|t| match t.as_str() {
-                    "character" => Some(CardType::Character),
-                    "spell" => Some(CardType::Spell),
-                    "permanent" => Some(CardType::Permanent),
-                    _ => None,
-                })
-                .collect();
-            let bonus = BonusPlay {
-                types,
-                free: b(a, "free"),
-                max_base_cost: a.get("maxBaseCost").and_then(Value::as_i64).map(|v| v as i32),
-                mandatory: b(a, "mandatory"),
-                card: None,
-            };
+            let bonus = crate::play::bonus_play(a);
             g.mods.bonus_played = false;
             g.ask_turn(ctx.seat, Some(bonus));
         }
         "PlayCard" => {
             // The player chooses where, unless the effect says (PlayCard::stPlayCard)
             if let Some(c) = card_arg(g, a, &ctx) {
-                let bonus = BonusPlay { types: vec![], free: b(a, "free"), max_base_cost: None, mandatory: true, card: Some(c) };
+                // cost / countsAsTurnPlay / limited: the play chosen after a cost reduction offer
+                let bonus = BonusPlay {
+                    free: b(a, "free"),
+                    mandatory: true,
+                    card: Some(c),
+                    cost: a.get("cost").and_then(Value::as_i64).map(|v| v as i32),
+                    turn_play: b(a, "countsAsTurnPlay"),
+                    limited: b(a, "limited"),
+                    ..Default::default()
+                };
                 let options = g.playable(ctx.seat, Some(&bonus));
                 if let Some((_, dests)) = options.into_iter().find(|(id, _)| *id == c) {
                     match s(a, "location").and_then(Zone::from_engine).and_then(|z| dests.iter().copied().find(|d| d.zone() == z)) {
