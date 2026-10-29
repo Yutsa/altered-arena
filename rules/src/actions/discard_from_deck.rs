@@ -19,8 +19,9 @@ impl ActionClass for DiscardFromDeck {
         "DiscardFromDeck"
     }
 
+    // PHP: Actions/DiscardFromDeck.php:18
     fn get_state(&self, _g: &mut Game, _ctx: Ctx) -> R<Value> {
-        Err(PhpError::nt("Actions/DiscardFromDeck.php:18 getState"))
+        Ok(json!(ST_DISCARD_FROM_DECK))
     }
 
     fn get_description(&self, _g: &mut Game, _ctx: Ctx) -> R<Value> {
