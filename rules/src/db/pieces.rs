@@ -24,6 +24,12 @@ pub trait Pieces {
     fn pid_value(g: &Game, id: i64) -> Value;
     /// Removes the rows (`unset(static::$datas[$id])`)
     fn remove(g: &mut Game, id: i64);
+    /// `remove` of each id in order (one pass over the table for many ids)
+    fn remove_many(g: &mut Game, ids: &[i64]) {
+        for id in ids {
+            Self::remove(g, *id);
+        }
+    }
     /// `$autoreshuffleCustom`
     fn reshuffle_custom() -> &'static [(&'static str, &'static str)] {
         &[]
@@ -109,17 +115,20 @@ pub fn get_top_of<T: Pieces>(g: &Game, location: &str, n: usize) -> R<Vec<i64>> 
 /// `getMany($ids, $raise)`: de-duplicated, in the requested order
 // PHP: Helpers/CachedPieces.php:207
 pub fn get_many<T: Pieces>(g: &Game, ids: &[Value], raise: bool) -> R<Vec<i64>> {
+    // Distinct ids in order (sets: deck setup asks for 2300 cards at once)
     let mut seen: Vec<String> = vec![];
+    let mut seen_set: std::collections::HashSet<String> = Default::default();
     for id in ids {
         let s = php::strval(id);
-        if !seen.contains(&s) {
+        if seen_set.insert(s.clone()) {
             seen.push(s);
         }
     }
     let mut out = vec![];
+    let mut out_set: std::collections::HashSet<i64> = Default::default();
     for s in &seen {
         if let Some(i) = php::int_key(s) {
-            if T::has(g, i) && !out.contains(&i) {
+            if T::has(g, i) && out_set.insert(i) {
                 out.push(i);
             }
         }
@@ -266,10 +275,7 @@ pub fn delete<T: Pieces>(g: &mut Game, ids: &[Value]) -> R<Vec<i64>> {
         return Ok(vec![]);
     }
     let pieces = get_many::<T>(g, ids, true)?;
-    for id in ids {
-        if let Some(i) = php::int_key(&php::strval(id)) {
-            T::remove(g, i);
-        }
-    }
+    let ints: Vec<i64> = ids.iter().filter_map(|id| php::int_key(&php::strval(id))).collect();
+    T::remove_many(g, &ints);
     Ok(pieces)
 }

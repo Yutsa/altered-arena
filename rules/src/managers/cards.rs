@@ -203,6 +203,30 @@ impl Pieces for CardsT {
             g.deleted_cards.insert(id, c);
         }
     }
+    fn remove_many(g: &mut Game, ids: &[i64]) {
+        if ids.len() < 16 {
+            for id in ids {
+                Self::remove(g, *id);
+            }
+            return;
+        }
+        // One pass keeping the order of the others, then the removed rows in the order asked
+        let set: std::collections::HashSet<i64> = ids.iter().copied().collect();
+        let mut removed: std::collections::HashMap<i64, CardRow> = Default::default();
+        let old = std::mem::take(&mut g.cards);
+        for (k, c) in old {
+            if set.contains(&k) {
+                removed.insert(k, c);
+            } else {
+                g.cards.insert(k, c);
+            }
+        }
+        for id in ids {
+            if let Some(c) = removed.remove(id) {
+                g.deleted_cards.insert(*id, c);
+            }
+        }
+    }
     fn reshuffle_custom() -> &'static [(&'static str, &'static str)] {
         &[("deck", "discard")]
     }
