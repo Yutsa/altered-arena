@@ -895,9 +895,9 @@ pub fn build(g: &mut Game, you: Option<PId>, game_id: &str) -> R<Value> {
     crate::core::preferences::check_existence(&mut copy);
     let view = build_view(&mut copy, you, game_id)?;
     g.prefs = copy.prefs.clone();
-    for (k, v) in &copy.globals {
-        if !g.globals.contains_key(k) && Some(v) == globals::var_type(k).map(globals::default_of).as_ref() {
-            g.globals.insert(k.clone(), v.clone());
+    for (k, v) in copy.globals.iter() {
+        if !g.globals.contains_key(k) && Some(&**v) == globals::var_type(k).map(globals::default_of).as_ref() {
+            std::sync::Arc::make_mut(&mut g.globals).insert(k.clone(), v.clone());
             globals::touched(g, k);
         }
     }
@@ -1221,7 +1221,7 @@ pub fn log_line(g: &Game, n: &Value) -> Option<LogLine> {
         a.insert("displayLocation".into(), json!(d));
     }
     if name == "newPhase" {
-        let day = php::intval(g.globals.get("day").unwrap_or(&Value::Null));
+        let day = php::intval(g.globals.get("day").map(|v| &**v).unwrap_or(&Value::Null));
         a.insert("day".into(), json!(day));
     }
     let player = a.get("player_id").map(php::intval);

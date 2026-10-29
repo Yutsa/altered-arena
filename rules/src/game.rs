@@ -66,6 +66,9 @@ pub struct PrefRow {
     pub value: Option<String>,
 }
 
+/// `global_variables`: each value shared between copies of the game until written
+pub type Globals = IndexMap<String, Arc<Value>>;
+
 /// The tables reverted by the undo log (Helpers/Log.php logs cards, meeples, global_variables
 /// and player; not user_preferences nor the framework tables)
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -73,7 +76,7 @@ pub struct Tables {
     pub cards: IndexMap<CardId, CardRow>,
     pub meeples: IndexMap<i64, Meeple>,
     pub players: IndexMap<PId, PlayerRow>,
-    pub globals: Map<String, Value>,
+    pub globals: Arc<Globals>,
 }
 
 /// An entry of the `log` table: `checkpoint`, `step` or `engine`, with the state of the logged
@@ -81,9 +84,17 @@ pub struct Tables {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct LogEntry {
     pub id: i64,
-    pub kind: String,
+    pub kind: LogKind,
     pub move_id: i64,
     pub snapshot: Option<Arc<Tables>>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum LogKind {
+    Checkpoint,
+    Step,
+    Engine,
 }
 
 /// Where shuffles take their order from
@@ -106,7 +117,7 @@ pub struct Game {
     pub players: IndexMap<PId, PlayerRow>,
     pub prefs: Vec<PrefRow>,
     /// `Globals::$data`
-    pub globals: Map<String, Value>,
+    pub globals: Arc<Globals>,
     /// The framework `global` table (1 = state, 2 = active player, 3 = move id, 10 = logging)
     pub fw: BTreeMap<i64, i64>,
     /// AUTO_INCREMENT of `cards` / `meeples`
@@ -121,7 +132,7 @@ pub struct Game {
     /// Number of notifications sent since the game was loaded (decision ids)
     pub notif_seq: u64,
     /// Die results to use in order (the arena's per-game list) and how many were used
-    pub dice: Vec<i64>,
+    pub dice: Arc<Vec<i64>>,
     pub dice_used: usize,
     /// PHP's Mersenne Twister (mt_rand, shuffle, array_rand), seeded at every act from the game id
     /// and the number of acts before it (Arena::seedRng, both kept in the `arena_rng` table)
@@ -153,7 +164,7 @@ pub struct Game {
     /// The log of the game (the arena's `arena_notif` table, as V1::log reads it): the latest
     /// lines with a text, kept after each request
     #[serde(default)]
-    pub history: Vec<LogLine>,
+    pub history: Vec<Arc<LogLine>>,
 }
 
 /// A line of the game log (protocol v1 LogEntry, with its target when private)
@@ -176,7 +187,7 @@ impl Game {
             deleted_meeples: IndexMap::new(),
             players: IndexMap::new(),
             prefs: vec![],
-            globals: Map::new(),
+            globals: Arc::default(),
             globals_clean: 0,
             fw: BTreeMap::new(),
             next_card_id: 1,
@@ -186,7 +197,7 @@ impl Game {
             next_log_id: 1,
             notifications: vec![],
             notif_seq: 0,
-            dice: vec![],
+            dice: Arc::default(),
             dice_used: 0,
             rng_game: 0,
             rng_acts: 0,

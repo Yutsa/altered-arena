@@ -64,7 +64,7 @@ pub fn create_game(game_id: i64, players: &[NewPlayer], dice: &[i64]) -> R<Game>
     let mut g = Game::empty();
     let seats: Vec<(PId, String)> = players.iter().enumerate().map(|(i, p)| (PLAYER_IDS[i], clean_name(&p.name, i))).collect();
     g.bots = players.iter().enumerate().filter(|(_, p)| p.bot).map(|(i, _)| PLAYER_IDS[i]).collect();
-    g.dice = dice.iter().map(|d| (*d).clamp(1, 6)).collect();
+    g.dice = std::sync::Arc::new(dice.iter().map(|d| (*d).clamp(1, 6)).collect());
     g.environment = if g.dice.is_empty() { "studio".into() } else { "prod".into() };
     // arena_rng: dice cursor, game id and number of acts (seedRng)
     g.dice_used = 0;
@@ -116,7 +116,7 @@ pub fn store_notifications(g: &mut Game) {
     let notifs = std::mem::take(&mut g.notifications);
     for n in &notifs {
         if let Some(line) = v1::log_line(g, n) {
-            g.history.push(line);
+            g.history.push(std::sync::Arc::new(line));
         }
     }
     g.notifications = notifs;
@@ -209,7 +209,7 @@ fn last_resort(g: &mut Game, bot_id: PId) -> R<bool> {
 
 /// The log as `V1::log` reads it: the latest 100 lines that `you` may see
 pub fn log_for(g: &Game, you: Option<PId>) -> Vec<&LogLine> {
-    let visible: Vec<&LogLine> = g.history.iter().filter(|l| l.target.is_none() || l.target == you).collect();
+    let visible: Vec<&LogLine> = g.history.iter().map(|l| &**l).filter(|l| l.target.is_none() || l.target == you).collect();
     let from = visible.len().saturating_sub(100);
     visible[from..].to_vec()
 }

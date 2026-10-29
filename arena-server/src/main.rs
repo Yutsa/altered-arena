@@ -199,13 +199,14 @@ async fn decks(State(s): State<Shared>) -> Response {
 // Engine calls
 // ---------------------------------------------------------------------------
 
-/// Runs `op` on the game, on an engine thread (large stack), holding the game's lock. A panic of
-/// the `rules` engine leaves the game as it was before the call.
-async fn with_game<T: Send + 'static>(s: &Shared, e: &Arc<GameEntry>, op: impl FnOnce(&mut AnyGame) -> T + Send + 'static) -> Result<T, String> {
+/// Runs `op` on the game, on an engine thread (large stack), holding the game's lock. With
+/// `backup`, a panic of the `rules` engine leaves the game as it was before the call (views don't
+/// need it: the engine builds them on a copy of the game).
+async fn with_game<T: Send + 'static>(s: &Shared, e: &Arc<GameEntry>, backup: bool, op: impl FnOnce(&mut AnyGame) -> T + Send + 'static) -> Result<T, String> {
     let mut guard = e.game.clone().lock_owned().await;
     s.pool
         .run(move || {
-            let backup = matches!(*guard, AnyGame::Rules(_)).then(|| guard.clone());
+            let backup = (backup && matches!(*guard, AnyGame::Rules(_))).then(|| guard.clone());
             match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| op(&mut guard))) {
                 Ok(v) => Ok(v),
                 Err(p) => {
@@ -384,7 +385,7 @@ async fn view_game(State(s): State<Shared>, Path(id): Path<String>, Query(q): Qu
         Ok(seat) => seat,
         Err(r) => return r,
     };
-    match with_game(&s, &e, move |g| g.view_json(seat)).await {
+    match with_game(&s, &e, false, move |g| g.view_json(seat)).await {
         Ok(Ok(view)) => json_bytes(view),
         Ok(Err(err)) | Err(err) => error(StatusCode::INTERNAL_SERVER_ERROR, err, false),
     }
@@ -403,7 +404,7 @@ async fn answer(
         Ok(None) => return error(StatusCode::UNAUTHORIZED, "A player token is required", false),
         Err(r) => return r,
     };
-    let res = with_game(&s, &e, move |g| {
+    let res = with_game(&s, &e, true, move |g| {
         g.answer(seat, &body)?;
         g.run_bots();
         Ok::<_, engines::Refused>(g.view_json(Some(seat)))
@@ -515,7 +516,7 @@ async fn create_from_snapshot(State(s): State<Shared>, Json(snapshot): Json<Valu
 
 async fn debug_state(State(s): State<Shared>, Path(id): Path<String>) -> Response {
     let Some(e) = entry(&s, &id).await else { return error(StatusCode::NOT_FOUND, "Unknown game", false) };
-    match with_game(&s, &e, |g| g.debug_state()).await {
+    match with_game(&s, &e, false, |g| g.debug_state()).await {
         Ok(v) => Json(v).into_response(),
         Err(err) => error(StatusCode::INTERNAL_SERVER_ERROR, err, false),
     }

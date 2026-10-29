@@ -6,3 +6,4 @@ client/dist/
 traces/
 server/goldens/
 .env
+perf/**/*.sample.txt

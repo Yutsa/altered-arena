@@ -3,7 +3,7 @@
 //! entry is written, which is the state a revert to that entry gives back. Only the entries an
 //! undo can reach keep their snapshot (those after the last checkpoint).
 
-use crate::game::{Game, LogEntry};
+use crate::game::{Game, LogEntry, LogKind};
 use crate::{PhpError, R};
 use std::sync::Arc;
 
@@ -19,18 +19,18 @@ pub fn disable(g: &mut Game) {
 
 /// `Log::addEntry($entry)`
 // PHP: Helpers/Log.php:44
-fn add_entry(g: &mut Game, kind: &str) -> i64 {
+fn add_entry(g: &mut Game, kind: LogKind) -> i64 {
     let id = g.next_log_id;
     g.next_log_id += 1;
     let move_id = g.fw_get(3).unwrap_or(0);
-    if kind == "checkpoint" || kind == "engine" {
+    if kind == LogKind::Checkpoint || kind == LogKind::Engine {
         // Older entries can't be reverted to by an undo of the turn any more
         for e in g.log.iter_mut() {
             e.snapshot = None;
         }
     }
     let snapshot = Some(Arc::new(g.snapshot_tables()));
-    g.log.push(LogEntry { id, kind: kind.to_string(), move_id, snapshot });
+    g.log.push(LogEntry { id, kind, move_id, snapshot });
     id
 }
 
@@ -38,20 +38,20 @@ fn add_entry(g: &mut Game, kind: &str) -> i64 {
 // PHP: Helpers/Log.php:57
 pub fn checkpoint(g: &mut Game) -> R<i64> {
     // clearUndoableStepNotifications: UI only
-    Ok(add_entry(g, "checkpoint"))
+    Ok(add_entry(g, LogKind::Checkpoint))
 }
 
 /// `Log::step()`
 // PHP: Helpers/Log.php:64
 pub fn step(g: &mut Game) -> R<i64> {
-    Ok(add_entry(g, "step"))
+    Ok(add_entry(g, LogKind::Step))
 }
 
 /// `Log::startEngine()`
 // PHP: Helpers/Log.php:70
 pub fn start_engine(g: &mut Game) -> R<i64> {
     checkpoint(g)?;
-    Ok(add_entry(g, "engine"))
+    Ok(add_entry(g, LogKind::Engine))
 }
 
 /// `Log::getLastCheckpoint($includeEngineStarts)`: 1 when there is none
@@ -60,7 +60,7 @@ pub fn get_last_checkpoint(g: &Game, include_engine: bool) -> i64 {
     g.log
         .iter()
         .rev()
-        .find(|e| e.kind == "checkpoint" || (include_engine && e.kind == "engine"))
+        .find(|e| e.kind == LogKind::Checkpoint || (include_engine && e.kind == LogKind::Engine))
         .map(|e| e.id)
         .unwrap_or(1)
 }
@@ -69,7 +69,7 @@ pub fn get_last_checkpoint(g: &Game, include_engine: bool) -> i64 {
 // PHP: Helpers/Log.php:95
 pub fn get_undoable_steps(g: &Game) -> Vec<i64> {
     let cp = get_last_checkpoint(g, false);
-    g.log.iter().rev().filter(|e| e.kind == "step" && e.id > cp).map(|e| e.id).collect()
+    g.log.iter().rev().filter(|e| e.kind == LogKind::Step && e.id > cp).map(|e| e.id).collect()
 }
 
 /// `Log::undoTurn()`

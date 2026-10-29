@@ -4,6 +4,7 @@ use crate::game::Game;
 use crate::php;
 use crate::{PhpError, R};
 use serde_json::{json, Value};
+use std::sync::Arc;
 
 /// Core/Globals.php:13-98 `$variables`
 pub const VARIABLES: &[(&str, &str)] = &[
@@ -110,24 +111,37 @@ pub fn default_of(t: &str) -> Value {
 // PHP: Core/Globals.php:110
 pub fn fetch(g: &mut Game) {
     let mut clean = g.globals_clean;
-    for (n, v) in g.globals.iter_mut() {
+    let mut changes = vec![];
+    for (pos, (n, v)) in g.globals.iter().enumerate() {
         let Some((i, t)) = index().get(n.as_str()) else { continue };
         if clean & (1u128 << i) != 0 {
             continue;
         }
-        php::normalize(v);
-        if *t == "int" {
-            *v = json!(php::intval(v));
-        }
         clean |= 1u128 << i;
+        if *t == "int" {
+            let n = json!(php::intval(&php::round_trip(v)));
+            if n != **v {
+                changes.push((pos, n));
+            }
+        } else if !php::is_normalized(v) {
+            changes.push((pos, php::round_trip(v)));
+        }
     }
     g.globals_clean = clean;
+    if !changes.is_empty() {
+        let m = Arc::make_mut(&mut g.globals);
+        for (pos, v) in changes {
+            if let Some((_, slot)) = m.get_index_mut(pos) {
+                *slot = Arc::new(v);
+            }
+        }
+    }
 }
 
 /// `Globals::create($name)` (Core/Globals.php:132-150)
 fn create(g: &mut Game, name: &str) {
     if let Some(t) = var_type(name) {
-        g.globals.insert(name.to_string(), default_of(t));
+        Arc::make_mut(&mut g.globals).insert(name.to_string(), Arc::new(default_of(t)));
     }
 }
 
@@ -143,7 +157,7 @@ fn check(g: &mut Game, name: &str) -> R<&'static str> {
 // PHP: Core/Globals.php:169
 pub fn get(g: &mut Game, name: &str) -> R<Value> {
     check(g, name)?;
-    Ok(g.globals[name].clone())
+    Ok((*g.globals[name]).clone())
 }
 
 /// `Globals::is<Name>()` (bool variables only)
@@ -163,7 +177,7 @@ pub fn set(g: &mut Game, name: &str, v: Value) -> R<Value> {
         "bool" => json!(php::truthy(&v)),
         _ => v,
     };
-    g.globals.insert(name.to_string(), v.clone());
+    Arc::make_mut(&mut g.globals).insert(name.to_string(), Arc::new(v.clone()));
     g.globals_clean &= !clean_bit(name);
     Ok(v)
 }
@@ -191,7 +205,7 @@ pub fn get_int(g: &mut Game, name: &str) -> R<i64> {
 
 /// `Globals::getStorm($ui)` (Core/Globals.php:274-290): reads `$data` directly
 pub fn get_storm(g: &mut Game, ui: bool) -> Value {
-    let mut storm = g.globals.get("storm").cloned().unwrap_or(Value::Null);
+    let mut storm = g.globals.get("storm").map(|v| (**v).clone()).unwrap_or(Value::Null);
     if ui {
         if let Value::Array(a) = &mut storm {
             for c in a.iter_mut() {

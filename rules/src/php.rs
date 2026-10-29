@@ -686,6 +686,15 @@ pub fn normalize(v: &mut Value) {
     }
 }
 
+/// `normalize` would leave the value as it is
+pub fn is_normalized(v: &Value) -> bool {
+    match v {
+        Value::Array(a) => a.iter().all(is_normalized),
+        Value::Object(o) => !o.keys().enumerate().all(|(i, k)| is_index_key(k, i)) && o.values().all(is_normalized),
+        _ => true,
+    }
+}
+
 /// `k == (string)$i`, without allocating
 pub fn is_index_key(k: &str, i: usize) -> bool {
     let mut buf = [0u8; 20];

@@ -43,7 +43,7 @@ pub fn from_bga_tables(tables: &Value, dice: &[i64]) -> R<Game> {
         let name = s(r, "name");
         let raw = s(r, "value");
         let v: Value = serde_json::from_str(&raw).map_err(|e| PhpError::new(format!("global {}: bad JSON: {}", name, e)))?;
-        g.globals.insert(name, v);
+        std::sync::Arc::make_mut(&mut g.globals).insert(name, std::sync::Arc::new(v));
     }
     globals::fetch(&mut g);
     for r in rows(tables, "player") {
@@ -75,7 +75,7 @@ pub fn from_bga_tables(tables: &Value, dice: &[i64]) -> R<Game> {
     g.next_card_id = if php::isset(ai, "cards") { i(ai, "cards") } else { g.cards.keys().max().copied().unwrap_or(0) + 1 };
     g.next_meeple_id = if php::isset(ai, "meeples") { i(ai, "meeples") } else { g.meeples.keys().max().copied().unwrap_or(0) + 1 };
 
-    g.dice = dice.to_vec();
+    g.dice = std::sync::Arc::new(dice.to_vec());
     g.environment = if dice.is_empty() { "studio".into() } else { "prod".into() };
     // arena_rng: dice cursor, and the seed of the next act (game id, acts so far; dumps older than
     // seeded randomness have neither)
