@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["rules", "goldens", "arena-server", "loadtest"]
+members = ["rules", "goldens", "arena-server", "loadtest", "ai"]
 
 [workspace.package]
 edition = "2021"

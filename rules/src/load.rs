@@ -119,7 +119,7 @@ pub fn to_bga_tables(g: &Game) -> Value {
         .collect();
     let mut names: Vec<&String> = g.globals.keys().collect();
     names.sort();
-    let globals: Vec<Value> = names.into_iter().map(|n| json!({"name": n, "value": serde_json::to_string(&g.globals[n]).unwrap()})).collect();
+    let globals: Vec<Value> = names.into_iter().map(|n| json!({"name": n, "value": serde_json::to_string(g.globals[n].db_value()).unwrap()})).collect();
     let players: Vec<Value> = g
         .players
         .values()

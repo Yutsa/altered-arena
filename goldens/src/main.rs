@@ -229,7 +229,16 @@ fn main() {
                 // The game created by the translation (same game id, decks and dice) must have
                 // the tables PHP had after V1::createGame, then play the same game
                 let decks: Vec<String> = data["decks"].as_array().into_iter().flatten().filter_map(|d| d.as_str().map(String::from)).collect();
-                let players: Vec<NewPlayer> = ["A", "B"].iter().enumerate().map(|(i, n)| NewPlayer { name: n.to_string(), bot: false, deck: decks.get(i).cloned() }).collect();
+                // Custom decks (explore.php deckgame): the API deck contents
+                let api: Vec<Value> = data["apiDecks"].as_array().cloned().unwrap_or_default();
+                let players: Vec<NewPlayer> = ["A", "B"]
+                    .iter()
+                    .enumerate()
+                    .map(|(i, n)| match api.get(i) {
+                        Some(a) => NewPlayer { name: n.to_string(), bot: false, deck: None, api_deck: Some(a.clone()) },
+                        None => NewPlayer { name: n.to_string(), bot: false, deck: decks.get(i).cloned(), api_deck: None },
+                    })
+                    .collect();
                 match Game::create(data["phpGame"].as_i64().unwrap_or(0), &players, &dice) {
                     Ok(g) => {
                         let diffs = altered_rules::load::diff_tables(&data["db"], &g.bga_tables());

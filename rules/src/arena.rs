@@ -19,6 +19,9 @@ pub struct NewPlayer {
     pub bot: bool,
     /// Starter deck id (protocol/data/decks.json), selected right away for a human player
     pub deck: Option<String>,
+    /// Custom deck content (`apiDeck`: what `actConfirmAPIDeck` receives), confirmed right away
+    /// for a human player
+    pub api_deck: Option<Value>,
 }
 
 /// `substr(preg_replace('/[^\p{L}\p{N} _-]/u', '', $name) ?: 'Player n', 0, 32)`
@@ -84,16 +87,23 @@ pub fn create_game(game_id: i64, players: &[NewPlayer], dice: &[i64]) -> R<Game>
 }
 
 /// `V1::createGame($body)`: the game, then the decks chosen in the lobby are selected right away
-/// (each selection is an act of the player, after a view of the game)
+/// (each selection is an act of the player, after a view of the game); a custom deck (`apiDeck`)
+/// is confirmed with `actConfirmAPIDeck`
 // PHP: server/src/V1.php:40
 pub fn create_v1_game(game_id: i64, players: &[NewPlayer], dice: &[i64]) -> R<Game> {
     let mut g = create_game(game_id, players, dice)?;
     for (i, p) in players.iter().enumerate() {
-        let Some(deck) = p.deck.as_deref().filter(|d| !d.is_empty()) else { continue };
         if p.bot {
             continue;
         }
         let pid = PLAYER_IDS[i];
+        if let Some(api) = p.api_deck.as_ref().filter(|d| !php::empty(d)) {
+            v1::build(&mut g, Some(pid), "")?;
+            v1::act(&mut g, pid, "actConfirmAPIDeck", &json!([api]))?;
+            run_bots(&mut g)?;
+            continue;
+        }
+        let Some(deck) = p.deck.as_deref().filter(|d| !d.is_empty()) else { continue };
         // Arena::view (getAllDatas creates the missing preferences and globals)
         v1::build(&mut g, Some(pid), "")?;
         let mut view = g.clone();

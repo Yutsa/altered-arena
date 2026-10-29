@@ -1,5 +1,5 @@
-//! States/SetupTrait.php: game setup and deck selection (starter decks; the deck APIs, random
-//! decks and the DEMO format are not ported)
+//! States/SetupTrait.php: game setup and deck selection (starter decks and confirmed API decks;
+//! the deck APIs, random decks and the DEMO format are not ported)
 
 use crate::core::globals;
 use crate::framework;
@@ -126,6 +126,23 @@ pub fn act_select_preco_deck(g: &mut Game, choice: &Value) -> R<()> {
     update_active_players_preco_deck_selection(g)
 }
 
+/// `actConfirmAPIDeck($deckContent)`: the deck content the client got from `actGetDeckInfos`
+// PHP: States/SetupTrait.php:455
+pub fn act_confirm_api_deck(g: &mut Game, deck_content: &Value) -> R<()> {
+    framework::check_possible_action(g, "actConfirmAPIDeck")?;
+    let current = players::get_current_id(g);
+    let mut content = globals::get(g, "deckContent")?;
+    php::set(&mut content, &current.to_string(), deck_content.clone());
+    globals::set(g, "deckContent", content)?;
+    let p = players::get_current(g).ok_or_else(|| PhpError::new("Error: Call to a member function getId() on null"))?;
+    let mut selection = globals::get(g, "deckSelection")?;
+    php::set(&mut selection, &p.to_string(), json!("API"));
+    globals::set(g, "deckSelection", selection)?;
+    let args = args_preco_deck_selection(g)?;
+    g.notify_to(Some(p), "updateInitialPrecoDeckSelection", "", json!({"args": {"_private": php::get(php::get(&args, "_private"), &p.to_string())}}));
+    update_active_players_preco_deck_selection(g)
+}
+
 /// `actCancelPrecoDeckSelection()`
 // PHP: States/SetupTrait.php:236
 pub fn act_cancel_preco_deck_selection(g: &mut Game) -> R<()> {
@@ -162,28 +179,36 @@ pub fn update_active_players_preco_deck_selection(g: &mut Game) -> R<()> {
 
 const FACTION_NAMES: &[(&str, &str)] = &[("BR", "Bravos"), ("MU", "Muna"), ("OD", "Ordis"), ("AX", "Axiom"), ("LY", "Lyra"), ("YZ", "Yzmir")];
 
-/// `stDeckSetup()`: the chosen decks (starter decks only), heroes, storm tokens, shuffles
+/// `stDeckSetup()`: the chosen decks (starter or API decks), heroes, storm tokens, shuffles
 // PHP: States/SetupTrait.php:482
 pub fn st_deck_setup(g: &mut Game) -> R<()> {
     let selection = globals::get(g, "deckSelection")?;
     let mut factions = Map::new();
     for pid in players::get_all(g) {
         let sel = php::get(&selection, &pid.to_string()).clone();
-        if php::loose_eq(&sel, &json!("API")) || php::loose_eq(&sel, &json!("random")) {
-            return Err(PhpError::nt("States/SetupTrait.php:487 stDeckSetup (API / random decks)"));
-        }
-        let decks = globals::get(g, "playerDecks")?;
-        let faction = php::strval(php::get(php::get(php::get(&decks, &pid.to_string()), &php::key_of(&sel)), "faction"));
-        // Demo / starter decks: their list is kept for the end-of-game report
-        if globals::get(g, "deckFormat")? == json!("DEMO") {
-            return Err(PhpError::nt("States/SetupTrait.php:51 getDemoDeckPreview"));
-        }
-        let preview = get_starter_deck_preview(g, pid, &sel)?;
-        if !preview.is_null() {
-            let mut content = globals::get(g, "deckContent")?;
-            php::set(&mut content, &pid.to_string(), preview);
-            globals::set(g, "deckContent", content)?;
-        }
+        let faction = if php::loose_eq(&sel, &json!("API")) {
+            let content = php::get(php::get(&globals::get(g, "deckContent")?, &pid.to_string()), "cards").clone();
+            if content.is_null() {
+                return Err(PhpError::new("Your deck is not valid. It should not happen"));
+            }
+            cards::create_deck(g, pid, &content)?
+        } else if php::loose_eq(&sel, &json!("random")) {
+            return Err(PhpError::nt("States/SetupTrait.php:492 stDeckSetup (random decks)"));
+        } else {
+            let decks = globals::get(g, "playerDecks")?;
+            let faction = php::strval(php::get(php::get(php::get(&decks, &pid.to_string()), &php::key_of(&sel)), "faction"));
+            // Demo / starter decks: their list is kept for the end-of-game report
+            if globals::get(g, "deckFormat")? == json!("DEMO") {
+                return Err(PhpError::nt("States/SetupTrait.php:51 getDemoDeckPreview"));
+            }
+            let preview = get_starter_deck_preview(g, pid, &sel)?;
+            if !preview.is_null() {
+                let mut content = globals::get(g, "deckContent")?;
+                php::set(&mut content, &pid.to_string(), preview);
+                globals::set(g, "deckContent", content)?;
+            }
+            faction
+        };
         let faction: String = faction.chars().take(2).collect();
         if let Some(p) = g.players.get_mut(&pid) {
             p.faction = faction.clone();

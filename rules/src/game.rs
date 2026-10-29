@@ -236,17 +236,44 @@ pub type Globals = IndexMap<String, GlobalSlot>;
 /// A value of `global_variables`, shared between copies of the game. Large values are kept as
 /// their JSON text while the game waits (`Game::compact`) and decoded again when read: the
 /// decoded value is the same (JSON round trip of a normalized value).
+///
+/// `db`: the value in the database when the cached value differs from it. `Globals::cast` doubles
+/// every backslash of the JSON text it reads (Core/Globals.php:104), so a value whose strings hold
+/// backslashes is cached with twice as many as the row stores.
 #[derive(Clone, Debug)]
 pub struct GlobalSlot {
     json: Option<Arc<str>>,
     tree: std::sync::OnceLock<Arc<Value>>,
+    db: Option<Arc<Value>>,
 }
 
 impl GlobalSlot {
     pub fn new(v: Value) -> GlobalSlot {
         let tree = std::sync::OnceLock::new();
         let _ = tree.set(Arc::new(v));
-        GlobalSlot { json: None, tree }
+        GlobalSlot { json: None, tree, db: None }
+    }
+
+    /// A value read back from the database row `db` (cached as `cache`)
+    pub fn read_back(cache: Value, db: Value) -> GlobalSlot {
+        let mut s = GlobalSlot::new(cache);
+        if *s.value() != db {
+            s.db = Some(Arc::new(db));
+        }
+        s
+    }
+
+    /// The cached value differs from the row
+    pub fn has_db(&self) -> bool {
+        self.db.is_some()
+    }
+
+    /// The value of the database row: the cached one unless `Globals::cast` changed it
+    pub fn db_value(&self) -> &Value {
+        match &self.db {
+            Some(d) => d,
+            None => self.value(),
+        }
     }
 
     pub fn value(&self) -> &Value {

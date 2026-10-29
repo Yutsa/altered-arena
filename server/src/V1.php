@@ -43,8 +43,15 @@ class V1
   {
     $players = array_map(fn($p) => ['name' => $p['name'] ?? '', 'bot' => (bool) ($p['bot'] ?? false)], $body['players'] ?? []);
     $game = Arena::createGame(['players' => $players, 'dice' => $body['dice'] ?? null]);
-    // Decks chosen in the lobby are selected right away
+    // Decks chosen in the lobby are selected right away; a custom deck (apiDeck: the content
+    // actConfirmAPIDeck receives) is confirmed
     foreach (array_values($body['players'] ?? []) as $i => $p) {
+      if (!empty($p['apiDeck']) && empty($p['bot'])) {
+        $pId = $game['players'][$i]['id'];
+        Arena::view($game['id'], $pId);
+        Arena::act($game['id'], $pId, 'actConfirmAPIDeck', [$p['apiDeck']]);
+        continue;
+      }
       if (!empty($p['deck']) && empty($p['bot'])) {
         $pId = $game['players'][$i]['id'];
         $view = Arena::view($game['id'], $pId);

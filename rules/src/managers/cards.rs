@@ -557,6 +557,25 @@ pub fn delete(g: &mut Game, ids: &Value) -> R<Vec<CardId>> {
     pieces::delete::<CardsT>(g, &ids)
 }
 
+/// `createDeck($player, $deckContent)`: the hero on the board, every card of the content (the
+/// hero again included) in `deck-API`; tokens are not created. Returns the hero's faction.
+// PHP: Managers/Cards.php:763
+pub fn create_deck(g: &mut Game, pid: PId, deck_content: &Value) -> R<String> {
+    let hero_props = php::get(php::get(php::get(deck_content, "hero"), "card"), "properties").clone();
+    let mut to_create = vec![json!({"player_id": pid, "location": format!("board-hero-{}", pid), "nbr": 1, "properties": hero_props})];
+    let faction = php::strval(php::get(&hero_props, "faction"));
+    for info in php::vals(deck_content) {
+        // new Card($cardInfo['card']): properties as given, isToken() reads `token`
+        let props = php::get(php::get(info, "card"), "properties").clone();
+        if php::truthy(php::get(&props, "token")) {
+            continue;
+        }
+        to_create.push(json!({"player_id": pid, "location": "deck-API", "nbr": php::get(info, "n"), "properties": props}));
+    }
+    create(g, &Value::Array(to_create), None)?;
+    Ok(faction)
+}
+
 /// `Cards::create($pieces, $globalLocation, ...)`: new rows (properties stored as JSON), read
 /// back from the DB as new objects
 // PHP: Helpers/CachedPieces.php:519

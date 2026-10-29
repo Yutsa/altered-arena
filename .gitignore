@@ -7,3 +7,4 @@ traces/
 server/goldens/
 .env
 perf/**/*.sample.txt
+private/

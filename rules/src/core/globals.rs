@@ -122,20 +122,63 @@ pub fn fetch(g: &mut Game) {
         if *t == "int" {
             let n = json!(php::intval(&php::round_trip(v)));
             if n != **v {
-                changes.push((pos, n));
+                changes.push((pos, GlobalSlot::new(n)));
             }
-        } else if !php::is_normalized(v) {
-            changes.push((pos, php::round_trip(v)));
+        } else if v.has_db() || !php::is_normalized(v) || has_backslash(v) {
+            // The row (what the last set stored, as JSON), read by cast(): backslashes doubled
+            let db = if v.has_db() { v.db_value().clone() } else { php::round_trip(v) };
+            let mut cache = db.clone();
+            double_backslashes(&mut cache);
+            changes.push((pos, GlobalSlot::read_back(cache, db)));
         }
     }
     g.globals_clean = clean;
     if !changes.is_empty() {
         let m = Arc::make_mut(&mut g.globals);
-        for (pos, v) in changes {
-            if let Some((_, slot)) = m.get_index_mut(pos) {
-                *slot = GlobalSlot::new(v);
+        for (pos, slot) in changes {
+            if let Some((_, s)) = m.get_index_mut(pos) {
+                *s = slot;
             }
         }
+    }
+}
+
+/// `str_replace('\\\\', '\\\\\\\\', $json)` before `json_decode` (Core/Globals.php:104): every
+/// backslash of a string or key (`\\` in the JSON text) becomes two. True when one did.
+fn has_backslash(v: &Value) -> bool {
+    match v {
+        Value::String(s) => s.contains('\\'),
+        Value::Array(a) => a.iter().any(has_backslash),
+        Value::Object(o) => o.iter().any(|(k, x)| k.contains('\\') || has_backslash(x)),
+        _ => false,
+    }
+}
+
+fn double_backslashes(v: &mut Value) -> bool {
+    fn dbl(s: &str) -> Option<String> {
+        s.contains('\\').then(|| s.replace('\\', "\\\\"))
+    }
+    match v {
+        Value::String(s) => match dbl(s) {
+            Some(d) => {
+                *s = d;
+                true
+            }
+            None => false,
+        },
+        Value::Array(a) => a.iter_mut().fold(false, |acc, x| double_backslashes(x) | acc),
+        Value::Object(o) => {
+            let mut changed = false;
+            if o.keys().any(|k| k.contains('\\')) {
+                let old = std::mem::take(o);
+                for (k, x) in old {
+                    o.insert(dbl(&k).unwrap_or(k), x);
+                }
+                changed = true;
+            }
+            o.values_mut().fold(changed, |acc, x| double_backslashes(x) | acc)
+        }
+        _ => false,
     }
 }
 

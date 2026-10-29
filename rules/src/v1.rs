@@ -625,6 +625,7 @@ pub fn call_action(g: &mut Game, action: &str, args: &[Value]) -> R<()> {
     let arg = |i: usize| args.get(i).cloned().unwrap_or(Value::Null);
     match action {
         "actSelectPrecoDeck" => states::setup::act_select_preco_deck(g, &arg(0)),
+        "actConfirmAPIDeck" => states::setup::act_confirm_api_deck(g, &arg(0)),
         "actCancelPrecoDeckSelection" => states::setup::act_cancel_preco_deck_selection(g),
         "actFirstDayManaSelection" => states::new_day::act_first_day_mana_selection(g, &arg(0)),
         "actCancelFirstDayManaSelection" => states::new_day::act_cancel_first_day_mana_selection(g),

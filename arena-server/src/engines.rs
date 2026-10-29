@@ -53,7 +53,7 @@ fn dice_from_seed(seed: u64) -> Vec<i64> {
 impl ServerGame {
     /// A new game: players 2001 and 2002, decks chosen in the lobby (else in game)
     pub fn new(id: String, players: [(String, bool, Option<String>); 2], seed: u64) -> Result<ServerGame, String> {
-        let new: Vec<NewPlayer> = players.iter().map(|(name, bot, deck)| NewPlayer { name: name.clone(), bot: *bot, deck: deck.clone() }).collect();
+        let new: Vec<NewPlayer> = players.iter().map(|(name, bot, deck)| NewPlayer { name: name.clone(), bot: *bot, deck: deck.clone(), api_deck: None }).collect();
         // The game id of the arena seeds the randomness of each act (Arena::seedRng)
         let game_id = (seed & 0x7FFF_FFFF) as i64;
         let game = altered_rules::Game::create(game_id, &new, &dice_from_seed(seed)).map_err(|e| e.0)?;

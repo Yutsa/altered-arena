@@ -403,14 +403,21 @@ function randomAnswer(\Random\Randomizer $r, array $d): array
 }
 
 /** Plays a whole game with random answers; writes OUT/games/SEED.json */
-function playGame(int $seed, string $out, bool $keep, array $dumpSteps = []): void
+function playGame(int $seed, string $out, bool $keep, array $dumpSteps = [], ?array $apiDecks = null): void
 {
   $t = microtime(true);
   $r = new \Random\Randomizer(new \Random\Engine\Mt19937($seed));
-  $decks = array_column(V1::decks(), 'id');
-  $pair = [$decks[$r->getInt(0, count($decks) - 1)], $decks[$r->getInt(0, count($decks) - 1)]];
+  if ($apiDecks === null) {
+    $decks = array_column(V1::decks(), 'id');
+    $pair = [$decks[$r->getInt(0, count($decks) - 1)], $decks[$r->getInt(0, count($decks) - 1)]];
+    $players = [['name' => 'A', 'deck' => $pair[0]], ['name' => 'B', 'deck' => $pair[1]]];
+  } else {
+    // Custom decks (deckgame mode): [[label, API deck content], [label, content]]
+    $pair = [$apiDecks[0][0], $apiDecks[1][0]];
+    $players = [['name' => 'A', 'apiDeck' => $apiDecks[0][1]], ['name' => 'B', 'apiDeck' => $apiDecks[1][1]]];
+  }
   $dice = array_map(fn() => $r->getInt(1, 6), range(1, GAME_DICE));
-  $g = (int) V1::createGame(['players' => [['name' => 'A', 'deck' => $pair[0]], ['name' => 'B', 'deck' => $pair[1]]], 'dice' => $dice])['gameId'];
+  $g = (int) V1::createGame(['players' => $players, 'dice' => $dice])['gameId'];
 
   // The position right after deck selection
   Arena::openGame($g);
@@ -493,11 +500,13 @@ function playGame(int $seed, string $out, bool $keep, array $dumpSteps = []): vo
   \Harness\Rng::$shuffle = $prev;
 
   $final = Arena::oracleState($g);
-  @mkdir("$out/games", 0777, true);
-  file_put_contents("$out/games/$seed.json", json_encode([
+  $file = $apiDecks === null ? "$out/games/$seed.json" : "$out/decks/{$pair[0]}-{$pair[1]}-$seed.json";
+  @mkdir(dirname($file), 0777, true);
+  file_put_contents($file, json_encode([
     'mode' => 'game',
     'seed' => $seed,
     'decks' => $pair,
+    'apiDecks' => $apiDecks === null ? null : array_column($apiDecks, 1),
     'phpGame' => $g,
     'steps' => $steps,
     'end' => $end,
@@ -1014,6 +1023,18 @@ if (($argv[1] ?? '') === 'replay') {
   $file = $argv[2] ?? exit("usage: explore.php replay BGA_REPLAY.json [OUT_DIR] [--keep]\n");
   $rest = array_values(array_filter(array_slice($argv, 3), fn($a) => !str_starts_with($a, '--')));
   playReplay($file, $rest[0] ?? dirname(__DIR__) . '/goldens', in_array('--keep', $argv, true));
+  exit;
+}
+
+if (($argv[1] ?? '') === 'deckgame') {
+  // A whole random game between two custom decks of DECKS_FILE ({"D01": API deck content, ...})
+  $usage = "usage: explore.php deckgame SEED DECKS_FILE DECK_A DECK_B [OUT_DIR] [--keep]\n";
+  $seed = (int) ($argv[2] ?? exit($usage));
+  $all = json_decode(file_get_contents($argv[3] ?? exit($usage)), true) ?? exit("cannot read {$argv[3]}\n");
+  $a = $argv[4] ?? exit($usage);
+  $b = $argv[5] ?? exit($usage);
+  $rest = array_values(array_filter(array_slice($argv, 6), fn($x) => !str_starts_with($x, '--')));
+  playGame($seed, $rest[0] ?? dirname(__DIR__) . '/goldens', in_array('--keep', $argv, true), [], [[$a, $all[$a]], [$b, $all[$b]]]);
   exit;
 }
 

@@ -125,8 +125,8 @@ fn run(games: usize, answers: usize) {
     let mut check = 0u64;
     for i in 0..games {
         let players = vec![
-            NewPlayer { name: "Human".into(), bot: false, deck: Some(STARTER_DECKS[(i * 7) % n].0.to_string()) },
-            NewPlayer { name: "Bot".into(), bot: true, deck: None },
+            NewPlayer { name: "Human".into(), bot: false, deck: Some(STARTER_DECKS[(i * 7) % n].0.to_string()), api_deck: None },
+            NewPlayer { name: "Bot".into(), bot: true, deck: None, api_deck: None },
         ];
         let dice: Vec<i64> = (0..100).map(|k| (k * 7 + i as i64) % 6 + 1).collect();
         let t = Instant::now();
