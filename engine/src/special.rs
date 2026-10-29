@@ -70,6 +70,14 @@ pub fn special(g: &mut Game, a: &Map<String, Value>, _node: &Value, ctx: Ctx) {
         "costReduction" => {
             let kind = s(&inner, "type").unwrap_or("all").to_string();
             let r = i(&inner, "reduction", 1);
+            // A reduction without minimum lifts the minimums of the reductions it overlaps
+            match inner.get("minimum").and_then(Value::as_i64) {
+                Some(min) => {
+                    g.mods.cost_minimums.retain(|(s, k, _)| !(*s == me && *k == kind));
+                    g.mods.cost_minimums.push((me, kind.clone(), min as i32));
+                }
+                None => g.mods.cost_minimums.retain(|(s, k, _)| !(*s == me && crate::play::cost_buckets_overlap(&kind, k))),
+            }
             g.mods.cost_reductions.push((me, kind.clone(), r));
             if b(&inner, "permanent") {
                 g.mods.special.permanent_reductions.push((me, kind));
@@ -1186,7 +1194,7 @@ fn play_free(g: &mut Game, ctx: Ctx, c: CardId, effect_hand: bool) -> bool {
     if zone == Zone::Limbo || zone == Zone::Deck || (zone == Zone::Hand && g.card(c).controller != seat) {
         g.move_card(c, Zone::Hand, Some(seat));
     }
-    let bonus = BonusPlay { types: vec![], free: true, max_base_cost: None, mandatory: false, card: None };
+    let bonus = BonusPlay { free: true, card: Some(c), ..Default::default() };
     let dests = g.playable(seat, Some(&bonus)).into_iter().find(|(x, _)| *x == c).map(|(_, d)| d).unwrap_or_default();
     if dests.is_empty() {
         if zone == Zone::Limbo || zone == Zone::Deck {
@@ -1290,9 +1298,9 @@ pub fn global_tough(g: &Game, c: CardId) -> i32 {
         .sum()
 }
 
-/// nextSpellIsFree
+/// nextSpellIsFree (Spells, and cards that are also Spells)
 pub fn spell_is_free(g: &Game, seat: Seat, c: CardId) -> bool {
-    g.mods.special.next_spell_free[seat] && g.card(c).def().card_type == CardType::Spell
+    g.mods.special.next_spell_free[seat] && crate::play::is_type(g.card(c), "spell")
 }
 
 /// A token was just created (nextTokenAsleep)
@@ -1307,6 +1315,7 @@ pub fn on_token_created(g: &mut Game, c: CardId) {
 pub fn on_morning(g: &mut Game) {
     on_turn_start(g);
     g.mods.cost_reductions.clear();
+    g.mods.cost_minimums.clear();
     let m = &mut g.mods.special;
     m.permanent_reductions.clear();
     m.global_tough.clear();
@@ -1320,6 +1329,7 @@ pub fn on_turn_start(g: &mut Game) {
     let m = &mut g.mods;
     let kept = m.special.permanent_reductions.clone();
     m.cost_reductions.retain(|(seat, kind, _)| kept.iter().any(|(s, k)| s == seat && k == kind));
+    m.cost_minimums.retain(|(seat, kind, _)| kept.iter().any(|(s, k)| s == seat && k == kind));
     let left = m.cost_reductions.clone();
     m.special.permanent_reductions.retain(|(s, k)| left.iter().any(|(seat, kind, _)| s == seat && k == kind));
     m.next_character_boost = [0; 2];

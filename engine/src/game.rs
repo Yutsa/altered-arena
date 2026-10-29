@@ -125,6 +125,31 @@ pub struct BonusPlay {
     /// Only this card (PlayCard)
     #[serde(default)]
     pub card: Option<CardId>,
+    /// Free-play limits set by the effect (ChooseAssignment minBaseCost, maxHandCost, minHandCost)
+    #[serde(default)]
+    pub min_base_cost: Option<i32>,
+    #[serde(default)]
+    pub max_hand_cost: Option<i32>,
+    #[serde(default)]
+    pub min_hand_cost: Option<i32>,
+    /// Only cards with one of these subtypes (ChooseAssignment subType)
+    #[serde(default)]
+    pub sub_types: Vec<String>,
+    /// Only this expedition (ChooseAssignment forcedLocation)
+    #[serde(default)]
+    pub forced: Option<Side>,
+    /// Reserve cards cost the lower of their Hand and Reserve costs (reserveFlipCost)
+    #[serde(default)]
+    pub reserve_flip: bool,
+    /// Mana paid by a free play (PlayCard "cost", set by the cost-reduction choice)
+    #[serde(default)]
+    pub cost: Option<i32>,
+    /// The play counts as the turn's play although it is an effect's (PlayCard countsAsTurnPlay)
+    #[serde(default)]
+    pub turn_play: bool,
+    /// Played with its limited effect (effectPlayedLimited, costReductionLimitation)
+    #[serde(default)]
+    pub limited: bool,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -266,6 +291,12 @@ pub struct Modifiers {
     /// Mana paid by the last "pay X" (for "n": "paidMana")
     #[serde(default)]
     pub last_paid: i32,
+    /// Minimum costs set with cost reductions (costReduction "minimum"): (seat, card type or subtype, minimum)
+    #[serde(default)]
+    pub cost_minimums: Vec<(Seat, String, i32)>,
+    /// Cards played this turn that count as a turn play (Globals playedCards)
+    #[serde(default)]
+    pub played_count: i32,
     /// State of the special effects (global Tough, after-Rest effects, next-card modifiers...)
     #[serde(default)]
     pub special: crate::special::SpecialMods,
@@ -1025,6 +1056,7 @@ impl Game {
 
     fn start_turn(&mut self) {
         self.mods.played = false;
+        self.mods.played_count = 0;
         let seat = self.active;
         self.players[seat].records.abilities.clear();
         self.players[seat].records.smoke_armed.clear();
