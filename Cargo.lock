@@ -315,6 +315,7 @@ version = "0.1.0"
 dependencies = [
  "altered-rules",
  "rayon",
+ "serde",
  "serde_json",
 ]
 

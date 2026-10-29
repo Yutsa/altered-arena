@@ -9,6 +9,14 @@
  *
  * BOARD: rich (default: characters, Reserve, Landmarks on both sides), empty (only the card),
  * reserve (rich board, the card starts in Reserve).
+ *
+ * Whole games: two starter decks (chosen from SEED), the position right after deck selection,
+ * then random answers for both players until the game ends; each step is a node with one `next`.
+ *
+ *   php tools/explore.php game SEED [OUT_DIR] [--keep]
+ *
+ * Output in OUT_DIR/games/SEED.json (OUT_DIR defaults to server/goldens). --keep keeps the
+ * game's database (to read its log with tools/php_log.py).
  */
 
 require dirname(__DIR__) . '/src/bootstrap.php';
@@ -22,10 +30,6 @@ const MAX_NODES = 400;
 const MAX_ANSWERS = 8;
 const DICE = [3, 1, 6, 4, 2, 5];
 const DECKS = ['ax_1_sierra', 'br_1_kojo'];
-
-$ref = $argv[1] ?? exit("usage: explore.php CARD_REF [BOARD] [OUT_DIR]\n");
-$board = $argv[2] ?? 'rich';
-$out = $argv[3] ?? dirname(__DIR__) . '/goldens';
 
 $nodes = 0;
 
@@ -279,6 +283,237 @@ function explore(int $g, int $depth, ?int $onlyCard): array
   return $node;
 }
 
+/**
+ * The original engine's own tables, for an engine that loads them as they are, and what the
+ * framework keeps besides: the `global` table (1 = state, 2 = active player, 10 = logging), the
+ * next ids of cards and meeples, the position in the dice list
+ */
+function dumpTables(): array
+{
+  $db = [];
+  foreach (['cards', 'meeples', 'global_variables', 'player', 'user_preferences'] as $table) {
+    $db[$table] = \BgaDb::conn()->query("SELECT * FROM `$table` ORDER BY 1")->fetch_all(MYSQLI_ASSOC);
+  }
+  $db['global'] = \BgaDb::conn()->query("SELECT * FROM `global` ORDER BY 1")->fetch_all(MYSQLI_ASSOC);
+  $db['arena_rng'] = \BgaDb::conn()->query("SELECT * FROM `arena_rng`")->fetch_all(MYSQLI_ASSOC);
+  $db['auto_increment'] = [];
+  foreach (['cards', 'meeples'] as $table) {
+    $db['auto_increment'][$table] = (string) \BgaDb::conn()->query("SELECT AUTO_INCREMENT FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = '$table'")->fetch_row()[0];
+  }
+  return $db;
+}
+
+/** Drops the game's database and its snapshots */
+function dropGame(int $g): void
+{
+  $db = \BgaDb::conn();
+  foreach ($db->query("SHOW DATABASES LIKE 'arena_g{$g}%'")->fetch_all() as [$name]) {
+    if ($name === "arena_g$g" || str_starts_with($name, "arena_g{$g}_")) {
+      $db->query("DROP DATABASE `$name`");
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Whole games
+// ---------------------------------------------------------------------------
+
+const GAME_MAX_STEPS = 3000;
+const GAME_DICE = 400;
+
+/** $n items of $items picked at random, in their original order */
+function pickSome(\Random\Randomizer $r, array $items, int $n): array
+{
+  $items = array_values($items);
+  $n = max(0, min($n, count($items)));
+  if ($n == 0) {
+    return [];
+  }
+  $keys = $r->pickArrayKeys($items, $n);
+  return array_map(fn($k) => $items[$k], $keys);
+}
+
+/** A random answer to a decision (turn: play something ~80% of the time, else end the turn) */
+function randomAnswer(\Random\Randomizer $r, array $d): array
+{
+  $pass = ['type' => 'pass'];
+  if (!empty($d['canPass']) && $d['kind'] != 'turn' && $r->getInt(1, 4) == 1) {
+    return $pass;
+  }
+  switch ($d['kind']) {
+    case 'turn':
+      $actions = [];
+      foreach ($d['play'] as $p) {
+        if (!empty($p['destinations'])) {
+          $actions[] = ['type' => 'play', 'cardId' => $p['cardId'], 'destination' => $p['destinations'][$r->getInt(0, count($p['destinations']) - 1)]];
+        }
+      }
+      foreach ($d['support'] ?? [] as $id) {
+        $actions[] = ['type' => 'support', 'cardId' => $id];
+      }
+      foreach ($d['tap'] ?? [] as $id) {
+        $actions[] = ['type' => 'tap', 'cardId' => $id];
+      }
+      if ($actions && (empty($d['canEndTurn']) || $r->getInt(1, 100) <= 80)) {
+        return $actions[$r->getInt(0, count($actions) - 1)];
+      }
+      return ['type' => 'endTurn'];
+    case 'select':
+      $max = min($d['max'], count($d['cardIds']));
+      $min = min($d['min'], $max);
+      return ['type' => 'select', 'cardIds' => pickSome($r, $d['cardIds'], $r->getInt($min, $max))];
+    case 'choice':
+      $enabled = array_values(array_filter($d['choices'], fn($c) => $c['enabled']));
+      return $enabled ? ['type' => 'choice', 'id' => $enabled[$r->getInt(0, count($enabled) - 1)]['id']] : $pass;
+    case 'expedition':
+      $keys = array_column($d['expeditions'], 'key');
+      $max = min($d['max'], count($keys));
+      $min = min(max(1, $d['min']), $max);
+      return ['type' => 'expedition', 'keys' => pickSome($r, $keys, $r->getInt($min, $max))];
+    case 'player':
+      return ['type' => 'player', 'player' => $d['players'][$r->getInt(0, count($d['players']) - 1)]];
+    case 'number':
+      return ['type' => 'number', 'value' => $d['values'][$r->getInt(0, count($d['values']) - 1)]];
+    case 'location':
+      return ['type' => 'location', 'key' => $d['locations'][$r->getInt(0, count($d['locations']) - 1)]['key']];
+    case 'buttons':
+      return $d['buttons'] ? ['type' => 'button', 'key' => $d['buttons'][$r->getInt(0, count($d['buttons']) - 1)]['key']] : $pass;
+    case 'exchange':
+      if (!$d['hand'] || !$d['reserve']) {
+        return $pass;
+      }
+      return ['type' => 'exchange', 'hand' => $d['hand'][$r->getInt(0, count($d['hand']) - 1)], 'reserve' => $d['reserve'][$r->getInt(0, count($d['reserve']) - 1)]];
+    case 'cleanup':
+      return ['type' => 'cleanup', 'reserve' => pickSome($r, $d['reserve']['cardIds'], $d['reserve']['n']), 'landmarks' => pickSome($r, $d['landmarks']['cardIds'], $d['landmarks']['n'])];
+    case 'confirm':
+      return ['type' => 'confirm'];
+  }
+  return $pass;
+}
+
+/** Plays a whole game with random answers; writes OUT/games/SEED.json */
+function playGame(int $seed, string $out, bool $keep): void
+{
+  $t = microtime(true);
+  $r = new \Random\Randomizer(new \Random\Engine\Mt19937($seed));
+  // The engine's own randomness (deck shuffles at setup) follows the seed too
+  mt_srand($seed);
+  $decks = array_column(V1::decks(), 'id');
+  $pair = [$decks[$r->getInt(0, count($decks) - 1)], $decks[$r->getInt(0, count($decks) - 1)]];
+  $dice = array_map(fn() => $r->getInt(1, 6), range(1, GAME_DICE));
+  $g = (int) V1::createGame(['players' => [['name' => 'A', 'deck' => $pair[0]], ['name' => 'B', 'deck' => $pair[1]]], 'dice' => $dice])['gameId'];
+
+  // The position right after deck selection
+  Arena::openGame($g);
+  $initial = Arena::oracleState($g);
+  $db = dumpTables();
+
+  // Random events other than dice (deck reshuffles, a random card of a hand) are not
+  // reproduced by the other engine yet: record where they happen
+  $shuffles = [];
+  $prev = \Harness\Rng::$shuffle;
+  \Harness\Rng::$shuffle = function (array $a) use (&$shuffles, $prev): ?array {
+    $forced = $prev !== null ? $prev($a) : null;
+    if ($forced === null) {
+      $forced = $a;
+      \shuffle($forced);
+    }
+    $shuffles[] = $forced;
+    return $forced;
+  };
+  $random = [];
+  $notif = fn() => (int) \BgaDb::conn()->query('SELECT COALESCE(MAX(id), 0) FROM arena_notif')->fetch_row()[0];
+
+  $tree = [];
+  $node = &$tree;
+  $steps = 0;
+  $end = null;
+  while (true) {
+    $state = compactState(Arena::oracleState($g));
+    $w = V1::view($g, Arena::PLAYER_IDS[0])['waitingFor'] ?? [];
+    if (empty($w)) {
+      $node = ['state' => $state, 'end' => $end = 'nobody to play'];
+      break;
+    }
+    $p = (int) $w[0];
+    $d = V1::view($g, $p)['decision'];
+    $node = ['player' => $p, 'decision' => slim($d), 'state' => $state];
+    if ($d === null) {
+      $end = 'no decision';
+      break;
+    }
+    if ($steps >= GAME_MAX_STEPS) {
+      $node['end'] = $end = 'truncated';
+      break;
+    }
+    $node['next'] = [];
+    $done = false;
+    for ($try = 0; $try < 20 && !$done; $try++) {
+      $a = randomAnswer($r, $d);
+      $nShuffles = count($shuffles);
+      $before = $notif();
+      try {
+        V1::answer($g, $p, $a + ['decisionId' => $d['id']]);
+      } catch (\Throwable $e) {
+        $node['next'][] = ['answer' => $a, 'error' => substr($e->getMessage(), 0, 200)];
+        continue;
+      }
+      $done = true;
+      if (count($shuffles) > $nShuffles) {
+        $random[] = ['step' => $steps, 'kind' => 'shuffle'];
+      }
+      $hand = (int) \BgaDb::conn()->query("SELECT COUNT(*) FROM arena_notif WHERE id > $before AND name = 'revealHand'")->fetch_row()[0];
+      if ($hand) {
+        $random[] = ['step' => $steps, 'kind' => 'random hand card'];
+      }
+      $node['next'][] = ['answer' => $a, 'node' => []];
+      $node = &$node['next'][count($node['next']) - 1]['node'];
+    }
+    if (!$done) {
+      $end = 'stuck';
+      break;
+    }
+    $steps++;
+  }
+  unset($node);
+  \Harness\Rng::$shuffle = $prev;
+
+  $final = Arena::oracleState($g);
+  @mkdir("$out/games", 0777, true);
+  file_put_contents("$out/games/$seed.json", json_encode([
+    'mode' => 'game',
+    'seed' => $seed,
+    'decks' => $pair,
+    'phpGame' => $g,
+    'steps' => $steps,
+    'end' => $end,
+    'day' => $final['day'],
+    'state' => $final['state'],
+    'random' => $random,
+    'shuffles' => $shuffles,
+    'dice' => $dice,
+    'initial' => $initial,
+    'db' => $db,
+    'tree' => $tree,
+  ], JSON_PARTIAL_OUTPUT_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE, 100000));
+  printf("game %d (%s vs %s): %d steps, %s, day %d, %s%s, %.1fs (php game %d)\n", $seed, $pair[0], $pair[1], $steps, $end, $final['day'], $final['state'],
+    $random ? ', random events: ' . count($random) : '', microtime(true) - $t, $g);
+  if (!$keep) {
+    dropGame($g);
+  }
+}
+
+if (($argv[1] ?? '') === 'game') {
+  $seed = (int) ($argv[2] ?? exit("usage: explore.php game SEED [OUT_DIR] [--keep]\n"));
+  $rest = array_values(array_filter(array_slice($argv, 3), fn($a) => $a !== '--keep'));
+  playGame($seed, $rest[0] ?? dirname(__DIR__) . '/goldens', in_array('--keep', $argv, true));
+  exit;
+}
+
+$ref = $argv[1] ?? exit("usage: explore.php CARD_REF [BOARD] [OUT_DIR]\n       explore.php game SEED [OUT_DIR] [--keep]\n");
+$board = $argv[2] ?? 'rich';
+$out = $argv[3] ?? dirname(__DIR__) . '/goldens';
+
 $t = microtime(true);
 $g = setupGame();
 Arena::openGame($g);
@@ -286,18 +521,7 @@ Arena::openGame($g);
 // The position, in the snapshot format both engines load (Game::from_snapshot)
 $initial = Arena::oracleState($g);
 // ...and the original engine's own tables, for an engine that loads them as they are
-$db = [];
-foreach (['cards', 'meeples', 'global_variables', 'player', 'user_preferences'] as $table) {
-  $db[$table] = \BgaDb::conn()->query("SELECT * FROM `$table` ORDER BY 1")->fetch_all(MYSQLI_ASSOC);
-}
-// ...and what the framework keeps besides: the `global` table (1 = state, 2 = active player,
-// 10 = logging), the next ids of cards and meeples, the position in the dice list
-$db['global'] = \BgaDb::conn()->query("SELECT * FROM `global` ORDER BY 1")->fetch_all(MYSQLI_ASSOC);
-$db['arena_rng'] = \BgaDb::conn()->query("SELECT * FROM `arena_rng`")->fetch_all(MYSQLI_ASSOC);
-$db['auto_increment'] = [];
-foreach (['cards', 'meeples'] as $table) {
-  $db['auto_increment'][$table] = (string) \BgaDb::conn()->query("SELECT AUTO_INCREMENT FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = '$table'")->fetch_row()[0];
-}
+$db = dumpTables();
 $tree = explore($g, 0, $cardId);
 @mkdir("$out/$board", 0777, true);
 file_put_contents("$out/$board/$ref.json", json_encode([
@@ -314,9 +538,4 @@ file_put_contents("$out/$board/$ref.json", json_encode([
 printf("%s %s: %d nodes, %.1fs (php game %d)\n", $ref, $board, $nodes, microtime(true) - $t, $g);
 
 // The game and its snapshots are not needed any more
-$db = \BgaDb::conn();
-foreach ($db->query("SHOW DATABASES LIKE 'arena_g{$g}%'")->fetch_all() as [$name]) {
-  if ($name === "arena_g$g" || str_starts_with($name, "arena_g{$g}_")) {
-    $db->query("DROP DATABASE `$name`");
-  }
-}
+dropGame($g);

@@ -186,7 +186,13 @@ fn main() {
         .map(|p| {
             let name = format!("{}/{}", p.parent().unwrap().file_name().unwrap().to_string_lossy(), p.file_stem().unwrap().to_string_lossy());
             let mut r = Report { nodes: 0, passed: 0, first_failure: None };
-            let data: Value = match std::fs::read(p).ok().and_then(|b| serde_json::from_slice(&b).ok()) {
+            // Whole games nest one node per step: no recursion limit
+            let read = |b: Vec<u8>| -> Option<Value> {
+                let mut de = serde_json::Deserializer::from_slice(&b);
+                de.disable_recursion_limit();
+                serde::Deserialize::deserialize(&mut de).ok()
+            };
+            let data: Value = match std::fs::read(p).ok().and_then(read) {
                 Some(d) => d,
                 None => {
                     r.first_failure = Some("unreadable file".into());
