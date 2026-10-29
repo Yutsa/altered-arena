@@ -72,6 +72,20 @@ pub fn get_previous(g: &Game, pid: PId) -> R<Option<PId>> {
     Ok(get(g, php::intval(php::get(&t, &pid.to_string()))))
 }
 
+/// `Players::hasOpponentBlockingPower($player, $expedition, $isGigantic)`
+// PHP: Managers/Players.php:156
+pub fn has_opponent_blocking_power(g: &mut Game, pid: PId, expedition: &str, is_gigantic: bool) -> R<bool> {
+    for p2 in get_all(g) {
+        if p2 == pid {
+            continue;
+        }
+        if crate::models::player::has_blocking_power(g, p2, expedition, is_gigantic)? {
+            return Ok(true);
+        }
+    }
+    Ok(false)
+}
+
 /// `Players::count()`
 pub fn count(g: &Game) -> usize {
     g.players.len()
