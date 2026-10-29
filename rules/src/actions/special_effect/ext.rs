@@ -1,7 +1,8 @@
 //! Player / Players methods SpecialEffect needs that are not in `models::player` /
-//! `managers::players` yet. port-storm translates `filter_biomes`, `get_biomes_in_storm` and
-//! `has_protect_*_in_expedition` with these signatures in `managers/players.rs` /
-//! `models/player.rs`: once merged, delete them here and call those.
+//! `managers::players` yet, with the signatures of the branches that translate them: port-storm
+//! (`models/player.rs`: `has_resupply_if_ascended`, `has_boost_if_ascended`,
+//! `has_protect_*_in_expedition`) and port-cards (`managers/players.rs`: `filter_biomes`,
+//! `get_biomes_in_storm`). Once merged, delete them here and call those.
 
 use crate::game::{CardId, Game, PId};
 use crate::managers::{cards, players};
