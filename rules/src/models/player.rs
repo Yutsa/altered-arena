@@ -536,21 +536,6 @@ pub fn has_expedition_tough_boosted(g: &mut Game, pid: PId, expedition: Option<&
     Ok(false)
 }
 
-/// `hasBlockingPower($expedition, $isGigantic)`
-// PHP: Models/Player.php:822
-pub fn has_blocking_power(g: &mut Game, pid: PId, expedition: &str, is_gigantic: bool) -> R<bool> {
-    for c in played_and_infinity(g, pid)? {
-        // if there are eat me energy bars
-        if card::location(g, c)? != expedition && !php::truthy(&card::is_gigantic(g, c, false)?) && !is_gigantic {
-            continue;
-        }
-        if card::is_blocking_power(g, c)? {
-            return Ok(true);
-        }
-    }
-    Ok(false)
-}
-
 /// `hasProtectAnchoredInExpedition($expedition, $gigantic)` / `hasProtectBoostedInExpedition`
 /// (`prop` = protectAnchoredInExpedition / protectBoostedInExpedition)
 // PHP: Models/Player.php:980, 1000

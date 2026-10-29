@@ -315,8 +315,8 @@ impl ActionClass for ChooseAssignment {
 /// `crate::actions::gain::gain(g, None, Some(player), card, &json!(resource), &json!(amount), &crate::actions::gain::Source::Null, args)`
 /// (tested so against the goldens)
 // PHP: Actions/Gain.php:246
-fn gain_gain(_g: &mut Game, _player: PId, _card: CardId, _resource: &str, _amount: i64, _source: Value, _args: Value) -> R<()> {
-    Err(PhpError::nt("Actions/Gain.php:246 gain"))
+fn gain_gain(g: &mut Game, player: PId, card: CardId, resource: &str, amount: i64, _source: Value, args: Value) -> R<()> {
+    crate::actions::gain::gain(g, None, Some(player), card, &json!(resource), &json!(amount), &crate::actions::gain::Source::Null, args)
 }
 
 fn active_player(g: &Game, method: &str) -> R<PId> {

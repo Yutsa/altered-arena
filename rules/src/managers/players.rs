@@ -157,20 +157,6 @@ pub fn has_block_opponent_reserve_gain(g: &mut Game, pid: PId) -> R<bool> {
     Ok(false)
 }
 
-/// `Players::hasOpponentBlockingPower($player, $expedition, $isGigantic)`
-// PHP: Managers/Players.php:156
-pub fn has_opponent_blocking_power(g: &mut Game, pid: PId, expedition: &str, is_gigantic: bool) -> R<bool> {
-    for p2 in get_all(g) {
-        if p2 == pid {
-            continue;
-        }
-        if player::has_blocking_power(g, p2, expedition, is_gigantic)? {
-            return Ok(true);
-        }
-    }
-    Ok(false)
-}
-
 /// `Players::hasBlockGainNewCounters()`
 pub fn has_block_gain_new_counters(g: &mut Game) -> R<bool> {
     for p in get_all(g) {
