@@ -3,7 +3,8 @@
 use crate::core::engine;
 use crate::core::globals;
 use crate::game::{CardId, Game, PId};
-use crate::helpers::utils;
+use crate::helpers::{collection, ft, utils};
+use crate::models::action::check_after_listeners;
 use crate::managers::{actions, cards, meeples, players};
 use crate::models::card;
 use crate::php;
@@ -911,14 +912,327 @@ pub fn advance_storm(g: &mut Game, pid: PId, token: &str, biomes: &Value, n: i64
     Ok(true)
 }
 
-/// `nightCleanup()` (Models/Player.php:626) — not translated yet
-pub fn night_cleanup(_g: &mut Game, _pid: PId) -> R<Value> {
-    Err(PhpError::nt("Models/Player.php:626 nightCleanup"))
+/// `nightCleanup()`: the expedition cards leave (Reserve, discard, or stay when anchored /
+/// asleep / eternal / unmoved expedition permanent); returns the ids discarded then moved to
+/// Reserve
+// PHP: Models/Player.php:626
+pub fn night_cleanup(g: &mut Game, pid: PId) -> R<Value> {
+    let mut deleted_cards: Vec<CardId> = vec![];
+    let mut deleted_card_tokens: Vec<CardId> = vec![];
+    let mut deleted_meeple_ids: Vec<i64> = vec![];
+    let mut cleanup_cards: Vec<CardId> = vec![];
+    let mut moved_to_reserve: Vec<CardId> = vec![];
+    let mut eternals: Vec<CardId> = vec![];
+    let mut seasoned: Vec<CardId> = vec![];
+    let mut gigantic: Vec<CardId> = vec![];
+
+    for c2 in get_played_cards(g, pid, &Value::Null)? {
+        if card::is_eternal(g, c2)? {
+            eternals.push(c2);
+        }
+        if card::is_seasoned(g, c2)? {
+            seasoned.push(c2);
+        }
+        if php::truthy(&card::is_gigantic(g, c2, false)?) {
+            gigantic.push(c2);
+        }
+    }
+    let seasoned_v = json!(seasoned);
+    let gigantic_v = json!(gigantic);
+
+    let played = get_played_cards(g, pid, &Value::Null)?;
+    let mut types = vec![];
+    for c in &played {
+        types.push(card::get_str(g, *c, "type")?);
+    }
+    let sorted = collection::sort_by(&played, &types);
+    for cid in sorted {
+        let mut nodes: Vec<Value> = vec![];
+        if php::in_array(&json!("landmark"), &card::get_subtypes(g, cid)?) {
+            continue;
+        }
+        let cpid = card::pid(g, cid)?;
+
+        // Jinn's effect (ask question to put in mana instead of discarding)
+        if !card::has_token(g, cid, "asleep")?
+            && !card::has_token(g, cid, "anchored")?
+            && (card::is(g, cid, "leaveExpeditionToMana")?
+                || card::is(g, cid, "leaveExpeditionToManaOrDraw")?
+                || (card::is(g, cid, "leaveExpeditionBoostedToMana")? && card::count_token(g, cid, "boost")? > 0))
+        {
+            nodes.push(ft::action("Discard", json!({"cardId": cid, "destination": "mana", "tapped": true, "force": true}), json!({"pId": cpid})));
+            let mut new_node =
+                ft::action("Discard", json!({"cardId": cid, "destination": "reserve", "force": true, "seasoned": seasoned.contains(&cid)}), json!({"pId": cpid}));
+            if card::is(g, cid, "leaveExpeditionToManaOrDraw")? {
+                new_node = ft::seq(vec![new_node, ft::action("Draw", json!({"players": "me"}), json!({"pId": cpid}))]);
+            }
+            nodes.push(new_node);
+            let mut to_add = ft::xor(nodes);
+            php::set(&mut to_add, "pId", json!(cpid));
+            php::set(&mut to_add, "sourceId", json!(cid));
+            engine::push_after_finishing_childs(g, &json!([to_add]))?;
+            continue;
+        }
+
+        if !card::has_token(g, cid, "asleep")? && !card::has_token(g, cid, "anchored")? && !card::has_token(g, cid, "fleeting")? && card::is(g, cid, "leaveExpeditionDefect")? {
+            let mut to_add = ft::seq(vec![
+                ft::gain(json!(cid), "fleeting", json!(1), json!(99)),
+                ft::action("SpecialEffect", json!({"effect": "defect", "cardId": cid}), json!({"sourceId": cid})),
+            ]);
+            php::set(&mut to_add, "pId", json!(cpid));
+            php::set(&mut to_add, "sourceId", json!(cid));
+            engine::push_after_finishing_childs(g, &json!([to_add]))?;
+            continue;
+        }
+
+        // Expedition permanent, if the player hasn't moved, it stays
+        if php::in_array(&json!("expedition"), &card::get_subtypes(g, cid)?) {
+            let mut has_moved = false;
+            let moves = globals::get(g, "stormMoves")?;
+            let expedition_moves = globals::get(g, "expeditionMoves")?;
+            let loc = card::location(g, cid)?;
+            let me = pid.to_string();
+            if php::isset(&moves, &me) && php::isset(php::get(&moves, &me), &loc) && php::gt(php::get(php::get(php::get(&moves, &me), &loc), "moves"), &json!(0)) {
+                has_moved = true;
+            }
+            if php::isset(&expedition_moves, &me) && php::isset(php::get(&expedition_moves, &me), &loc) && php::gt(php::get(php::get(&expedition_moves, &me), &loc), &json!(0)) {
+                has_moved = true;
+            }
+            if !has_moved {
+                continue;
+            }
+        }
+
+        // Remove card if Fleeting but is not anchored
+        if card::has_token(g, cid, "fleeting")? && !card::has_token(g, cid, "anchored")? && !card::has_token(g, cid, "asleep")? && !eternals.contains(&cid) {
+            let original_location = card::location(g, cid)?;
+            deleted_meeple_ids.extend(card::discard(g, cid, &seasoned_v, &gigantic_v)?);
+            if card::is_token(g, cid)? {
+                deleted_card_tokens.push(cid);
+                cards::delete(g, &json!(cid))?;
+            } else {
+                check_after_listeners(
+                    &crate::actions::discard::Discard,
+                    g,
+                    None,
+                    pid,
+                    &json!({"discardCard": true, "cardsToListen": [], "cardId": cid, "token": false, "from": original_location, "to": "discard", "sacrifice": false}),
+                    true,
+                    None,
+                )?;
+                if !deleted_cards.contains(&cid) {
+                    deleted_cards.push(cid);
+                }
+            }
+            continue;
+        }
+
+        // Move card without anchored,asleep to reserve
+        if !card::has_token(g, cid, "anchored")? && !card::has_token(g, cid, "asleep")? && !eternals.contains(&cid) {
+            deleted_meeple_ids.extend(card::move_to_reserve(g, cid, &seasoned_v, &gigantic_v)?);
+            if card::is_token(g, cid)? {
+                deleted_card_tokens.push(cid);
+                cards::delete(g, &json!(cid))?;
+            } else {
+                moved_to_reserve.push(cid);
+            }
+            continue;
+        }
+
+        // Remove Anchored / Asleep tokens
+        deleted_meeple_ids.extend(card::night_cleanup(g, cid)?);
+        cleanup_cards.push(cid);
+    }
+
+    let moved = cards::get_many(g, &json!(moved_to_reserve), true)?;
+    g.notify(
+        "nightCleanup",
+        json!({"player_id": pid, "cards": deleted_cards, "cards2": moved, "cards3": deleted_card_tokens, "meeples": deleted_meeple_ids}),
+    );
+    if !cleanup_cards.is_empty() {
+        g.notify("cleanupCards", json!({"player_id": pid, "cardIds": cleanup_cards}));
+    }
+    let mut out = deleted_cards;
+    out.extend(moved_to_reserve);
+    Ok(json!(out))
 }
 
-/// `getBiomeStrength($expeditions, $includeModifiers)` (Models/Player.php:771) — not translated yet
-pub fn get_biome_strength(_g: &mut Game, _pid: PId) -> R<Value> {
-    Err(PhpError::nt("Models/Player.php:771 getBiomeStrength"))
+/// `getBiomeStrength($expeditions, $includeModifiers)`: `[expedition => [ocean, mountain,
+/// forest]]`, the sums of the statistics of the characters facing each expedition
+// PHP: Models/Player.php:771
+pub fn get_biome_strength(g: &mut Game, pid: PId, expeditions: &[&str], include_modifiers: bool) -> R<Value> {
+    let mut strengths = php::arr();
+    let cards = get_played_cards(g, pid, &Value::Null)?;
+    let mut valid_biomes = json!({"forest": 0, "ocean": 0, "mountain": 0});
+
+    if globals::is(g, "tieBreakerMode")? {
+        players::biomes_modifier(g, &mut valid_biomes, pid, "", true, false)?;
+    }
+
+    for exp in expeditions {
+        let mut strength = json!({"ocean": 0, "mountain": 0, "forest": 0});
+        let increase_biomes_to_highest = has_increase_biomes_highest(g, pid, exp)?;
+        let (exclude_increase_stats, all_increase) = has_increase_all_other_characters_biomes_highest(g, pid)?;
+        let other_expedition = if *exp == "stormLeft" { "stormRight" } else { "stormLeft" };
+        for &c in &cards {
+            if card::location(g, c)? != *exp && !card::has_token(g, c, "gigantic")? && !php::truthy(&card::is_gigantic(g, c, false)?) {
+                continue;
+            }
+            let mut gigantic_increase = false;
+            if card::has_token(g, c, "asleep")? {
+                continue;
+            }
+            if php::truthy(&card::is_gigantic(g, c, false)?) && has_increase_biomes_highest(g, pid, other_expedition)? {
+                gigantic_increase = true;
+            }
+            let mut increase = increase_biomes_to_highest || gigantic_increase || all_increase;
+            if exclude_increase_stats == Some(c) {
+                increase = increase_biomes_to_highest || gigantic_increase;
+            }
+            let biome = card::get_biomes(g, c, include_modifiers, increase)?;
+            for (bi, value) in php::entries(&biome) {
+                let cur = php::intval(php::get(&strength, &bi));
+                php::set(&mut strength, &bi, json!(cur + php::intval(value)));
+            }
+        }
+        for biome in php::keys_str(&strength) {
+            if !php::isset(&valid_biomes, &biome) {
+                php::set(&mut strength, &biome, json!(0));
+            }
+        }
+        php::set(&mut strengths, exp, strength);
+    }
+    Ok(strengths)
+}
+
+/// `getPlayedCards()->where('location', $expedition)`
+fn played_in(g: &mut Game, pid: PId, expedition: &str) -> R<Vec<CardId>> {
+    let ids = get_played_cards(g, pid, &Value::Null)?;
+    Ok(cards::where_location(g, ids, &json!(expedition)))
+}
+
+/// `hasIncreaseBiomesHighest($expedition)`
+// PHP: Models/Player.php:873
+pub fn has_increase_biomes_highest(g: &mut Game, pid: PId, expedition: &str) -> R<bool> {
+    for c in played_in(g, pid, expedition)? {
+        if card::is(g, c, "increaseBiomesHighest")? {
+            return Ok(true);
+        }
+    }
+    Ok(false)
+}
+
+/// `hasIncreaseAllOtherCharactersBiomesHighest()`: `[the single boosted source to exclude, found]`
+/// (no exclusion once a second source is found)
+// PHP: Models/Player.php:884
+pub fn has_increase_all_other_characters_biomes_highest(g: &mut Game, pid: PId) -> R<(Option<CardId>, bool)> {
+    let mut exclude_list: Option<CardId> = None;
+    let mut found = false;
+    for c in get_played_cards(g, pid, &Value::Null)? {
+        if card::count_token(g, c, "boost")? > 0 && card::is(g, c, "increaseAllOtherCharactersBiomesHighest")? {
+            if exclude_list.is_none() {
+                exclude_list = Some(c);
+                found = true;
+            } else {
+                return Ok((None, found));
+            }
+        }
+    }
+    Ok((exclude_list, found))
+}
+
+/// `hasAdvanceTwiceDusk($expedition)`: the number of such cards
+// PHP: Models/Player.php:902
+pub fn has_advance_twice_dusk(g: &mut Game, pid: PId, expedition: &str) -> R<i64> {
+    let mut advance = 0;
+    for c in played_in(g, pid, expedition)? {
+        if card::is(g, c, "advanceTwiceDusk")? {
+            advance += 1;
+        }
+    }
+    Ok(advance)
+}
+
+/// `hasResupplyIfAscended()`
+pub fn has_resupply_if_ascended(g: &mut Game, pid: PId) -> R<bool> {
+    for c in get_played_cards(g, pid, &Value::Null)? {
+        if card::is(g, c, "resupplyIfAscended")? {
+            return Ok(true);
+        }
+    }
+    Ok(false)
+}
+
+/// `hasBoostIfAscended()`
+pub fn has_boost_if_ascended(g: &mut Game, pid: PId) -> R<bool> {
+    for c in get_played_cards(g, pid, &Value::Null)? {
+        if card::is(g, c, "boostIfAscended")? {
+            return Ok(true);
+        }
+    }
+    Ok(false)
+}
+
+/// `hasOppositeDefender($expedition)`
+pub fn has_opposite_defender(g: &mut Game, pid: PId, expedition: &str) -> R<bool> {
+    for c in played_in(g, pid, expedition)? {
+        if card::is_opposite_defender(g, c)? {
+            return Ok(true);
+        }
+    }
+    Ok(false)
+}
+
+/// `hasBlockMoveExpedition($expedition)` (a Gigantic card blocks both expeditions)
+// PHP: Models/Player.php:944
+pub fn has_block_move_expedition(g: &mut Game, pid: PId, expedition: &str) -> R<bool> {
+    for c in get_played_cards(g, pid, &Value::Null)? {
+        if card::location(g, c)? != expedition && !php::truthy(&card::is_gigantic(g, c, false)?) {
+            continue;
+        }
+        if card::is(g, c, "blockMoveExpedition")? {
+            return Ok(true);
+        }
+    }
+    Ok(false)
+}
+
+/// `hasProtectAnchoredInExpedition($expedition, $gigantic)`
+// PHP: Models/Player.php:980
+pub fn has_protect_anchored_in_expedition(g: &mut Game, pid: PId, expedition: &str, gigantic: bool) -> R<bool> {
+    let other = if expedition == "stormLeft" { "stormRight" } else { "stormLeft" };
+    for c in played_in(g, pid, expedition)? {
+        if card::is(g, c, "protectAnchoredInExpedition")? {
+            return Ok(true);
+        }
+    }
+    if gigantic {
+        for c in played_in(g, pid, other)? {
+            if card::is(g, c, "protectAnchoredInExpedition")? {
+                return Ok(true);
+            }
+        }
+    }
+    Ok(false)
+}
+
+/// `hasProtectBoostedInExpedition($expedition, $gigantic)`
+// PHP: Models/Player.php:1000
+pub fn has_protect_boosted_in_expedition(g: &mut Game, pid: PId, expedition: &str, gigantic: bool) -> R<bool> {
+    let other = if expedition == "stormLeft" { "stormRight" } else { "stormLeft" };
+    for c in played_in(g, pid, expedition)? {
+        if card::is(g, c, "protectBoostedInExpedition")? {
+            return Ok(true);
+        }
+    }
+    if gigantic {
+        for c in played_in(g, pid, other)? {
+            if card::is(g, c, "protectBoostedInExpedition")? {
+                return Ok(true);
+            }
+        }
+    }
+    Ok(false)
 }
 
 /// `getBiomes($storm, $excludeMove)` (Models/Player.php:560) — needs Players::biomesModifier

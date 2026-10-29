@@ -2,7 +2,6 @@
 //! tokens are destroyed) with the sacrifice / sabotage / Jinn / protection rules, firing the
 //! Discard listeners with `cardsToListen`.
 
-use crate::actions::target::storm_shims;
 use crate::core::{engine, globals};
 use crate::framework::ST_DISCARD;
 use crate::game::{CardId, Game, PId};
@@ -248,7 +247,7 @@ fn act_discard(a: &Discard, g: &mut Game, ctx: Ctx, card_ids: &Value, automatic:
         if globals::is(g, "dayPhase")? && in_storms && php::in_list(&ty, &["token", "character"]) {
             let owner = player_req(card::get_player(g, c)?, "hasProtectAnchoredInExpedition")?;
             let gig = php::truthy(&card::is_gigantic(g, c, false)?);
-            if storm_shims::has_protect_anchored_in_expedition(g, owner, &original_location, gig)? && card::has_token(g, c, "anchored")? {
+            if crate::models::player::has_protect_anchored_in_expedition(g, owner, &original_location, gig)? && card::has_token(g, c, "anchored")? {
                 cs.retain(|x| *x != c);
                 g.notify("message", json!({"log": "${card_name} is not discarded but loose <ANCHORED> instead", "cardId": c}));
                 insert_as_child(g, ctx, &json!({"action": "Loose", "args": {"cardId": c, "type": "anchored"}}))?;
@@ -260,7 +259,7 @@ fn act_discard(a: &Discard, g: &mut Game, ctx: Ctx, card_ids: &Value, automatic:
         if globals::is(g, "dayPhase")? && in_storms && php::in_list(&ty, &["token", "character"]) {
             let owner = player_req(card::get_player(g, c)?, "hasProtectBoostedInExpedition")?;
             let gig = php::truthy(&card::is_gigantic(g, c, false)?);
-            if storm_shims::has_protect_boosted_in_expedition(g, owner, &original_location, gig)? && card::has_token(g, c, "boost")? {
+            if crate::models::player::has_protect_boosted_in_expedition(g, owner, &original_location, gig)? && card::has_token(g, c, "boost")? {
                 cs.retain(|x| *x != c);
                 g.notify("message", json!({"log": "${card_name} is not discarded but loose <BOOST> instead", "cardId": c}));
                 insert_as_child(g, ctx, &json!({"action": "Loose", "args": {"cardId": c, "type": "boost", "n": 99}}))?;

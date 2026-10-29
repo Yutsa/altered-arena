@@ -9,7 +9,6 @@
 //! use a local instead, as nothing reads it after the loop.
 
 mod boosts;
-mod ext;
 mod flows;
 mod reveal;
 mod state;

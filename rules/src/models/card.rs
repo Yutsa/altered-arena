@@ -1469,9 +1469,89 @@ pub fn is_eternal(g: &mut Game, id: CardId) -> R<bool> {
     dynamic_flag(g, id, "eternal", "dynamicEternal", "eternal")
 }
 
-/// `isDefender()` (Models/Card.php:1602) — not translated yet
-pub fn is_defender(_g: &mut Game, _id: CardId) -> R<bool> {
-    Err(PhpError::nt("Models/Card.php:1602 isDefender"))
+/// `isDefender()`: the property, `dynamicDefender` (subtype counts, conditions), the
+/// "otherExpeditionCharacter" aura of another card, Gulrang Tocsin's boosted tokens
+// PHP: Models/Card.php:1602
+pub fn is_defender(g: &mut Game, id: CardId) -> R<bool> {
+    if php::loose_eq(g.card(id)?.props.get("defender").unwrap_or(&json!(false)), &json!(true)) {
+        return Ok(true);
+    }
+    let mut sub_type = "";
+    let dynamic_defender = get(g, id, "dynamicDefender")?;
+    // Dynamic attributes can be suffixed by a trigger condition ("marker:cond1|cond2"); the aura
+    // marker below must be detected on its base segment, not on the whole string.
+    let base = match &dynamic_defender {
+        Value::String(s) => php::explode(":", s)[0].clone(),
+        _ => String::new(),
+    };
+    if php::loose_eq(&dynamic_defender, &json!("2OtherPlants")) {
+        sub_type = "plant";
+    } else if php::loose_eq(&dynamic_defender, &json!("2OtherBureaucrats")) {
+        sub_type = "bureaucrat";
+    } else if php::loose_eq(&dynamic_defender, &json!("fullDefender")) {
+        return Ok(true);
+    }
+
+    if !sub_type.is_empty() {
+        let mut c = 0;
+        let p = player_req(g, id)?;
+        for other in player::get_played_cards(g, p, &Value::Null)? {
+            if other == id {
+                continue;
+            }
+            if php::in_array(&json!(sub_type), &get_subtypes(g, other)?) {
+                c += 1;
+            }
+        }
+        if c < 2 {
+            return Ok(true);
+        }
+    }
+
+    // "otherExpeditionCharacter" is an aura marker (see the aura block below), possibly followed
+    // by a trigger condition: it grants Defender to Characters in the other Expedition, it does
+    // not make this card a Defender itself.
+    if php::loose_ne(&dynamic_defender, &json!("")) && sub_type.is_empty() && base != "otherExpeditionCharacter" {
+        let p = get_player(g, id)?;
+        return Ok(!utils::check_attribute_condition(g, "defender", &dynamic_defender, p, id, &Value::Null)?.is_null());
+    }
+
+    // Aura: "Characters in your other Expedition are Defender."
+    let loc = location(g, id)?;
+    if php::in_list(&get(g, id, "type")?, &["character", "token"]) && STORMS.contains(&loc.as_str()) {
+        let p = player_req(g, id)?;
+        let played = player::get_played_cards(g, p, &Value::Null)?;
+        for aura in cards::where_location(g, played, &json!(STORMS)) {
+            if aura == id {
+                continue;
+            }
+            let aura_defender = get(g, aura, "dynamicDefender")?;
+            let Value::String(ad) = &aura_defender else { continue };
+            if php::explode(":", ad)[0] != "otherExpeditionCharacter" {
+                continue;
+            }
+            // The marker can carry a trigger condition; the aura is only active when it holds.
+            let ap = get_player(g, aura)?;
+            if utils::check_attribute_condition(g, "defender", &aura_defender, ap, aura, &Value::Null)?.is_null() {
+                continue;
+            }
+            // Gigantic cards have no "other expedition" to grant.
+            if php::truthy(&is_gigantic(g, aura, false)?) {
+                continue;
+            }
+            if location(g, aura)? != loc {
+                return Ok(true);
+            }
+        }
+    }
+
+    // OD_Common_GulrangTocsin
+    let p = player_req(g, id)?;
+    let hero = player::get_hero(g, p)?.ok_or_else(|| PhpError::new("Error: Call to a member function getUid() on null"))?;
+    if php::in_list(&get(g, hero, "uid")?, &["ALT_CORE_B_OR_03_C"]) && player::get_total_mana(g, p)? < 8 {
+        return Ok(is_token(g, id)? && has_token(g, id, "boost")?);
+    }
+    Ok(false)
 }
 
 /// `isInAscended()`

@@ -20,77 +20,6 @@ pub struct Target;
 const STORMS: [&str; 2] = ["stormLeft", "stormRight"];
 const INFTY: i64 = 1000;
 
-/// Models/Player.php helpers that port-storm translates in models/player.rs
-/// (`has_increase_biomes_highest`, `has_increase_all_other_characters_biomes_highest`,
-/// `has_protect_anchored_in_expedition`, `has_protect_boosted_in_expedition`): local copies until
-/// that work is merged, then these calls switch to `player::`.
-pub(crate) mod storm_shims {
-    use crate::game::{CardId, Game, PId};
-    use crate::managers::cards;
-    use crate::models::{card, player};
-    use crate::R;
-    use serde_json::{json, Value};
-
-    fn played_in(g: &mut Game, pid: PId, expedition: &str) -> R<Vec<CardId>> {
-        let ids = player::get_played_cards(g, pid, &Value::Null)?;
-        Ok(cards::where_location(g, ids, &json!(expedition)))
-    }
-
-    // PHP: Models/Player.php:873
-    pub fn has_increase_biomes_highest(g: &mut Game, pid: PId, expedition: &str) -> R<bool> {
-        for c in played_in(g, pid, expedition)? {
-            if card::is(g, c, "increaseBiomesHighest")? {
-                return Ok(true);
-            }
-        }
-        Ok(false)
-    }
-
-    // PHP: Models/Player.php:884
-    pub fn has_increase_all_other_characters_biomes_highest(g: &mut Game, pid: PId) -> R<(Option<CardId>, bool)> {
-        let mut exclude: Option<CardId> = None;
-        let mut found = false;
-        for c in player::get_played_cards(g, pid, &Value::Null)? {
-            if card::count_token(g, c, "boost")? > 0 && card::is(g, c, "increaseAllOtherCharactersBiomesHighest")? {
-                if exclude.is_none() {
-                    exclude = Some(c);
-                    found = true;
-                } else {
-                    return Ok((None, found));
-                }
-            }
-        }
-        Ok((exclude, found))
-    }
-
-    fn has_protect(g: &mut Game, pid: PId, expedition: &str, gigantic: bool, prop: &str) -> R<bool> {
-        let other = if expedition == "stormLeft" { "stormRight" } else { "stormLeft" };
-        for c in played_in(g, pid, expedition)? {
-            if card::is(g, c, prop)? {
-                return Ok(true);
-            }
-        }
-        if gigantic {
-            for c in played_in(g, pid, other)? {
-                if card::is(g, c, prop)? {
-                    return Ok(true);
-                }
-            }
-        }
-        Ok(false)
-    }
-
-    // PHP: Models/Player.php:980
-    pub fn has_protect_anchored_in_expedition(g: &mut Game, pid: PId, expedition: &str, gigantic: bool) -> R<bool> {
-        has_protect(g, pid, expedition, gigantic, "protectAnchoredInExpedition")
-    }
-
-    // PHP: Models/Player.php:1000
-    pub fn has_protect_boosted_in_expedition(g: &mut Game, pid: PId, expedition: &str, gigantic: bool) -> R<bool> {
-        has_protect(g, pid, expedition, gigantic, "protectBoostedInExpedition")
-    }
-}
-
 fn player_req(p: Option<PId>, method: &str) -> R<PId> {
     p.ok_or_else(|| PhpError::new(format!("Error: Call to a member function {}() on null", method)))
 }
@@ -633,7 +562,7 @@ fn act_target(a: &Target, g: &mut Game, ctx: Ctx, card_ids: &Value) -> R<Value> 
         return Err(PhpError::new("You cannot pay the additional cost (Tough effect)"));
     }
     player::pay_mana(g, pid, additional_cost)?;
-    let (exclude_increase_card, increase_other) = storm_shims::has_increase_all_other_characters_biomes_highest(g, pid)?;
+    let (exclude_increase_card, increase_other) = crate::models::player::has_increase_all_other_characters_biomes_highest(g, pid)?;
 
     let cs = cards::get_many(g, card_ids, true)?;
     let source = get_source(g, ctx)?;
@@ -683,7 +612,7 @@ fn act_target(a: &Target, g: &mut Game, ctx: Ctx, card_ids: &Value) -> R<Value> 
             let owner = player_req(card::get_player(g, c)?, "hasIncreaseBiomesHighest")?;
             let cloc = card::location(g, c)?;
             let mut gigantic_increase = false;
-            if storm_shims::has_increase_biomes_highest(g, owner, &cloc)? || (php::truthy(&card::is_gigantic(g, c, false)?) && storm_shims::has_increase_biomes_highest(g, owner, opposite(&cloc))?) {
+            if crate::models::player::has_increase_biomes_highest(g, owner, &cloc)? || (php::truthy(&card::is_gigantic(g, c, false)?) && crate::models::player::has_increase_biomes_highest(g, owner, opposite(&cloc))?) {
                 gigantic_increase = true;
             }
             let mut increase_biome = gigantic_increase || increase_other;

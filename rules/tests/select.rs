@@ -163,7 +163,6 @@ fn night_cleanup_discards_the_selection() {
 }
 
 #[test]
-#[ignore = "needs Players::biomesModifier (port-storm)"]
 fn target_opponent_character_then_discard() {
     let Some(mut g) = tiktok() else { return };
     run(
@@ -179,7 +178,6 @@ fn target_opponent_character_then_discard() {
 }
 
 #[test]
-#[ignore = "needs Players::biomesModifier (port-storm)"]
 fn target_forced_choice_is_automatic() {
     let Some(mut g) = tiktok() else { return };
     run(
