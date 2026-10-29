@@ -134,7 +134,7 @@ impl ActionClass for Loose {
 
 /// `$amount--` (ints decrement; numeric strings become numbers; other values keep PHP 8.2's
 /// behaviour: null stays null, non-numeric strings are left unchanged)
-fn php_dec(v: &Value) -> R<Value> {
+pub fn php_dec(v: &Value) -> R<Value> {
     Ok(match v {
         Value::Number(n) => match n.as_i64() {
             Some(i) => json!(i - 1),

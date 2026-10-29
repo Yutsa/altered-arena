@@ -146,3 +146,21 @@ fn activate_effect_of_a_card_without_effect_does_nothing() {
     let leaf = node::childs(&g, root)[0];
     assert!(node::is_action_resolved(&g, leaf));
 }
+
+#[test]
+fn spend_boosts_then_runs_the_bound_effect() {
+    let Some(mut g) = tiktok() else { return };
+    run(&mut g, json!([{"action": "Gain", "pId": 2001, "args": {"cardId": 2416, "type": "boost", "n": 2}}]));
+    run(&mut g, json!([{"action": "Spend", "pId": 2001, "sourceId": 2416, "args": {"cardId": "me", "n": 1, "effect": {"action": "Gain", "args": {"type": "anchored"}}}}]));
+    assert_eq!(count(&g, 2416, "boost"), 1);
+    assert_eq!(count(&g, 2416, "anchored"), 1);
+}
+
+#[test]
+fn spend_a_counter_without_boosts() {
+    let Some(mut g) = tiktok() else { return };
+    run(&mut g, json!([{"action": "Gain", "pId": 2001, "args": {"cardId": 2417, "augment": true}}]));
+    run(&mut g, json!([{"action": "Spend", "pId": 2001, "sourceId": 2417, "args": {"cardId": "me", "n": 1, "effect": {"action": "Gain", "args": {"type": "boost"}}}}]));
+    assert_eq!(card::get(&mut g, 2417, "extraDatas").unwrap()["counter"], json!(0));
+    assert_eq!(count(&g, 2417, "boost"), 1);
+}
