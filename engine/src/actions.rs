@@ -269,7 +269,7 @@ pub fn run(g: &mut Game, action: &str, a: &Map<String, Value>, node: &Value, ctx
             }
         }
         "RollDie" => {
-            let roll = g.rng.range(1, 6);
+            let roll = g.roll_die();
             g.forget_undo();
             let name = g.players[ctx.seat].name.clone();
             g.log_line(Some(ctx.seat), format!("{} rolls a {}", name, roll));
@@ -831,8 +831,12 @@ fn invoke_token(g: &mut Game, a: &Map<String, Value>, ctx: Ctx, optional: bool) 
     }
     let owner = match (s(a, "targetPlayer"), s(a, "pId")) {
         (Some("opponent"), _) | (_, Some("opponent")) => Game::other(ctx.seat),
+        // The controller of the effect's card (even when it no longer exists: a token sent to hand)
+        (Some("owner"), _) => card_arg(g, a, &ctx).map(|c| g.card(c).controller).unwrap_or(ctx.seat),
         _ => ctx.seat,
     };
+    // Where the token goes whatever the location chosen
+    let forced = s(a, "forcedLocation").and_then(Zone::from_engine);
     let locs = list(a, "targetLocation").unwrap_or_else(|| vec!["stormLeft".into(), "stormRight".into()]);
     let all_players = b(a, "allPlayers") || (a.get("targetPlayer").is_none() && locs.len() > 1);
     let mut options: Vec<(String, String, Seat, Zone)> = vec![];
@@ -852,9 +856,10 @@ fn invoke_token(g: &mut Game, a: &Map<String, Value>, ctx: Ctx, optional: bool) 
             let zone = match l.as_str() {
                 "source" | "initialSource" => ctx.source.map(|c| g.card(c).zone).filter(|z| z.is_expedition()).or(event_from).or(ctx.target_from.filter(|z| z.is_expedition())),
                 "oppositeSource" => ctx.source.and_then(|c| g.card(c).zone.side()).map(|s| s.other().zone()),
+                "discardedSource" => Some(Zone::HeroExpedition),
                 other => Zone::from_engine(other),
             };
-            let Some(zone) = zone else { continue };
+            let Some(zone) = zone.map(|z| forced.unwrap_or(z)) else { continue };
             let label = format!(
                 "{}{}",
                 if seats.len() > 1 { format!("{} — ", g.players[seat].name) } else { String::new() },

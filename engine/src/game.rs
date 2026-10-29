@@ -296,6 +296,11 @@ pub struct Game {
     pub setup_mana: [Option<Vec<CardId>>; 2],
     /// Effects the engine does not implement yet, met during this game (for coverage reports)
     pub unsupported: Vec<String>,
+    /// Die results to use in order instead of the RNG (differential tests share them with the original engine)
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub dice: Vec<i32>,
+    #[serde(default)]
+    pub dice_used: usize,
     /// State at the start of the current decision sequence, for undo (no hidden information revealed since)
     #[serde(skip)]
     pub undo_point: Option<Box<Game>>,
@@ -374,6 +379,8 @@ impl Game {
             after_night: vec![],
             setup_mana: [None, None],
             unsupported: vec![],
+            dice: vec![],
+            dice_used: 0,
             undo_point: None,
             undo_owner: None,
         };
@@ -563,6 +570,16 @@ impl Game {
         drawn
     }
 
+    /// A die result: the next one of `dice` when given, else random
+    pub fn roll_die(&mut self) -> i32 {
+        if self.dice.is_empty() {
+            return self.rng.range(1, 6) as i32;
+        }
+        let d = self.dice[self.dice_used % self.dice.len()];
+        self.dice_used += 1;
+        d
+    }
+
     pub fn reshuffle_discard(&mut self, seat: Seat) {
         let mut pile = std::mem::take(&mut self.players[seat].discard);
         if pile.is_empty() {
@@ -598,8 +615,8 @@ impl Game {
 
     /// Queues the reactions of every listening card to `event`
     /// A card left a zone: the card itself reacts to "Leave<Zone>", every other card to
-    /// "OtherLeave<Zone>" (Card::checkLeaveListener). At night, the reactions wait for the end of
-    /// the Night (AfterNightCleanup in the original engine).
+    /// "OtherLeave<Zone>" (Card::checkLeaveListener). For the Night's discards (`night`), the
+    /// reactions wait for the end of the Night (AfterNightCleanup in the original engine).
     pub fn emit_leave(&mut self, mut ev: Event, night: bool) {
         let from = ev.from.unwrap_or(Zone::Gone);
         let kind = if from.is_expedition() {
@@ -986,6 +1003,12 @@ impl Game {
                 self.stack.push(Task::Step(Step::NightCleanup(order[1])));
                 self.stack.push(Task::Step(Step::NightCleanup(order[0])));
                 self.stack.push(Task::Step(Step::Triggers(TriggerPhase::BeforeNight)));
+                // Reactions to the Rest resolve right away, all ordered by the players (stNightCleanup:
+                // noIndependent), before the Night triggers and the discards
+                self.active = self.first;
+                let fired = std::mem::take(&mut self.reactions);
+                let auto = fired.len() <= 1;
+                self.stack.push(Task::Reactions(fired, auto));
             }
             Step::BeforeNight => {}
             Step::NightCleanup(seat) => self.night_cleanup(seat),
@@ -1231,7 +1254,7 @@ impl Game {
                 self.move_card(id, Zone::Reserve, None);
             }
             let to = self.card(id).zone;
-            self.emit_leave(Event { seat, card: Some(id), from: Some(from), to: Some(to), listeners: vec![id], fleeting, ascended, boosts: Some(boosts), ..Default::default() }, true);
+            self.emit_leave(Event { seat, card: Some(id), from: Some(from), to: Some(to), listeners: vec![id], fleeting, ascended, boosts: Some(boosts), ..Default::default() }, false);
         }
     }
 

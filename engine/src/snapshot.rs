@@ -45,6 +45,8 @@ impl Game {
                 g.players[seat].position = [pos[0].as_i64().unwrap_or(0) as i32, pos[1].as_i64().unwrap_or(7) as i32];
             }
         }
+        g.dice = s["dice"].as_array().map(|a| a.iter().filter_map(|d| d.as_i64()).map(|d| d as i32).collect()).unwrap_or_default();
+        g.dice_used = s["diceUsed"].as_u64().unwrap_or(0) as usize;
         g.first = s["first"].as_u64().and_then(|f| g.seat_of(f as u32)).unwrap_or(0);
         g.active = g.first;
         g.day = s["day"].as_u64().unwrap_or(1) as u32;

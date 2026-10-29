@@ -42,7 +42,7 @@ class V1
   public static function createGame(array $body): array
   {
     $players = array_map(fn($p) => ['name' => $p['name'] ?? '', 'bot' => (bool) ($p['bot'] ?? false)], $body['players'] ?? []);
-    $game = Arena::createGame(['players' => $players]);
+    $game = Arena::createGame(['players' => $players, 'dice' => $body['dice'] ?? null]);
     // Decks chosen in the lobby are selected right away
     foreach (array_values($body['players'] ?? []) as $i => $p) {
       if (!empty($p['deck']) && empty($p['bot'])) {

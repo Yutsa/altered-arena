@@ -85,6 +85,7 @@ class Arena
    */
   public static function createGame(array $config): array
   {
+    $config0 = $config;
     $players = [];
     foreach (array_values($config['players'] ?? []) as $i => $p) {
       $players[] = [
@@ -97,6 +98,10 @@ class Arena
       throw new HttpError('A game needs 2 players', 400);
     }
     $config = ['players' => $players];
+    // Die results to use in order (differential tests: the other engine gets the same list)
+    if (!empty($config0['dice']) && is_array($config0['dice'])) {
+      $config['dice'] = array_values(array_map(fn($d) => max(1, min(6, (int) $d)), $config0['dice']));
+    }
 
     $db = self::registry();
     $db->query('INSERT INTO `' . self::REGISTRY . "`.`games` (config) VALUES ('" . $db->real_escape_string(json_encode($config)) . "')");
@@ -114,6 +119,9 @@ class Arena
       PRIMARY KEY (`id`),
       KEY (`packet`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
+    \BgaDb::conn()->query('CREATE TABLE `arena_rng` (`dice` int unsigned NOT NULL) ENGINE=InnoDB');
+    \BgaDb::conn()->query('INSERT INTO `arena_rng` VALUES (0)');
+    self::useDice($config);
 
     self::request(null, function () use ($players) {
       $names = [];
@@ -137,7 +145,42 @@ class Arena
   {
     $config = self::gameConfig($gameId);
     self::useGame($gameId);
+    self::useDice($config);
     return $config;
+  }
+
+  /**
+   * With a list of die results in the game's config, dice take the next value of the list (the
+   * cursor is in the game's database), as in production (the BGA studio always rolls 5)
+   */
+  private static function useDice(array $config): void
+  {
+    $dice = $config['dice'] ?? null;
+    if (empty($dice)) {
+      \Harness\Rng::$randInt = null;
+      \Table::$environment = 'studio';
+      return;
+    }
+    \Table::$environment = 'prod';
+    \Harness\Rng::$randInt = function (int $min, int $max) use ($dice): ?int {
+      if ($min != 1 || $max != 6) {
+        return null;
+      }
+      $db = \BgaDb::conn();
+      $i = (int) $db->query('SELECT dice FROM arena_rng')->fetch_row()[0];
+      $db->query('UPDATE arena_rng SET dice = dice + 1');
+      return $dice[$i % count($dice)];
+    };
+  }
+
+  /** How many dice were rolled (position in the config's list) */
+  private static function diceUsed(): int
+  {
+    try {
+      return (int) \BgaDb::conn()->query('SELECT dice FROM arena_rng')->fetch_row()[0];
+    } catch (\Throwable $e) {
+      return 0; // game created before dice lists existed
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -466,6 +509,8 @@ class Arena
         'storm' => $storm,
         'cards' => $cards,
         // Id of the next card created (tokens): deck selection creates and deletes cards
+        'dice' => $config['dice'] ?? [],
+        'diceUsed' => self::diceUsed(),
         'nextCardId' => (int) \BgaDb::conn()->query("SELECT AUTO_INCREMENT FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'cards'")->fetch_row()[0],
       ];
     });

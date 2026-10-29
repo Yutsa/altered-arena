@@ -166,14 +166,16 @@ def translate(ans, pd, rd):
 
 def play_game(n, decks):
     d0, d1 = rnd.choice(decks)['id'], rnd.choice(decks)['id']
-    g = call(opt.php, 'POST', '/api/v1/games', {'players': [{'name': 'A', 'deck': d0}, {'name': 'B', 'deck': d1}]})
+    # Both engines take their die results from this list (the oracle and Rust read it from the snapshot)
+    dice = [rnd.randint(1, 6) for _ in range(64)]
+    g = call(opt.php, 'POST', '/api/v1/games', {'players': [{'name': 'A', 'deck': d0}, {'name': 'B', 'deck': d1}], 'dice': dice})
     pid = g['gameId']
     snap = call(opt.php, 'GET', f'/api/oracle/games/{pid}/state')
     r = call(opt.rust, 'POST', '/api/debug/games', snap)
     if 'error' in r:
         return f'cannot load snapshot in rust: {r["error"]}', 0
     rid = r['gameId']
-    trace = {'snapshot': snap, 'answers': []}
+    trace = {'snapshot': snap, 'answers': [], 'phpGame': pid}
     traces.append(trace)
     tokens = {p['id']: p.get('token', '') for p in r['players']}
     rq = lambda player: f'player={player}&token={tokens[player]}'
@@ -214,7 +216,8 @@ def play_game(n, decks):
                     continue
             if d.get('kind') == 'choice' and len(opts) == 1 and opts[0]['id'] != 99:
                 rdec = call(opt.rust, 'GET', f'/api/v1/games/{rid}?{rq(w[0])}').get('decision')
-                if not rdec or rdec['kind'] != 'choice':
+                # Rust resolved it on its own and now asks something else (not an ordering of effects)
+                if not rdec or rdec['kind'] != 'choice' or not rdec['prompt'].startswith('Choose which effect'):
                     call(opt.php, 'POST', f'/api/v1/games/{pid}/answer?player={w[0]}', {'decisionId': d['id'], 'type': 'choice', 'id': opts[0]['id']})
                     continue
             # PHP asks about effects that can't do anything (no valid target...), with Pass; Rust skips them
@@ -226,9 +229,9 @@ def play_game(n, decks):
                     continue
         ps = call(opt.php, 'GET', f'/api/oracle/games/{pid}/state')
         rs = call(opt.rust, 'GET', f'/api/debug/games/{rid}/state')
+        if 'cards' not in ps or 'cards' not in rs:
+            return f'state export failed: php {ps.get("error")} rust {rs.get("error")}', step
         problems = diff(ps, rs)
-        if problems and any('rolls a' in l['text'] for l in call(opt.rust, 'GET', f'/api/v1/games/{rid}').get('log', [])[-6:]):
-            return 'INCONCLUSIVE: a die was rolled (random in both engines)', step
         if problems:
             pview = call(opt.php, 'GET', f'/api/v1/games/{pid}?player={(call(opt.php, "GET", f"/api/v1/games/{pid}?player=2001").get("waitingFor") or [2001])[0]}')
             pend = pview.get('decision') or {}
@@ -284,8 +287,6 @@ def play_game(n, decks):
         if rd is None:
             extra = [c['label'] for c in pd.get('choices', [])]
             return f'rust has no decision for {player}; php asks "{pd["prompt"]}" ({pd["kind"]}) {extra}, rust waits for {rv.get("waitingFor")} after {history[-1] if history else ""}', step
-        if rd['kind'] != pd['kind'] and any('rolls a' in l['text'] for l in call(opt.rust, 'GET', f'/api/v1/games/{rid}').get('log', [])[-6:]):
-            return 'INCONCLUSIVE: a die was rolled (random in both engines)', step
         if rd['kind'] != pd['kind']:
             return f'decision kind differs: php {pd["kind"]} "{pd["prompt"]}" {[c["label"] for c in pd.get("choices", [])]} / rust {rd["kind"]} "{rd["prompt"]}" after {history[-1] if history else ""}', step
         if pd['kind'] == 'turn':
@@ -331,8 +332,8 @@ for n in range(opt.games):
     if problem and not problem.startswith('INCONCLUSIVE'):
         import os
         os.makedirs('traces', exist_ok=True)
-        json.dump(dict(traces[-1], problem=problem), open(f'traces/game-{n + 1}.json', 'w'))
-    print(f'game {n + 1}: {"identical until the end" if problem is None else ("inconclusive" if problem.startswith("INCONCLUSIVE") else "DIVERGES")} ({steps} decisions)' + ('' if problem is None else '\n    ' + problem), flush=True)
+        json.dump(dict(traces[-1], problem=problem), open(f'traces/s{opt.seed}-game-{n + 1}.json', 'w'))
+    print(f'game {n + 1}: {"identical until the end" if problem is None else ("inconclusive" if problem.startswith("INCONCLUSIVE") else "DIVERGES")} ({steps} decisions, php game {traces[-1].get("phpGame")})' + ('' if problem is None else '\n    ' + problem), flush=True)
 same = sum(1 for r in results if r is None)
 inconclusive = sum(1 for r in results if r and r.startswith('INCONCLUSIVE'))
 print(f'\n{same}/{len(results)} games identical from start to end, {inconclusive} stopped by a die roll')
