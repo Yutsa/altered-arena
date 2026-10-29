@@ -144,9 +144,14 @@ pub fn instantiate_props(db: &Props, id: CardId) -> R<Props> {
             }
         }
     };
+    let id_paths = own_id_paths().get(&class_key).filter(|p| !p.is_empty());
+    if id_paths.is_none() && DYNAMIC_PROPERTIES.iter().all(|p| db.get(*p).is_none_or(Value::is_null)) {
+        // The class data as it is: shared (copied on the first write)
+        return Ok(class);
+    }
     let mut props = (*class).clone();
     // new $className($row): the constructor sees the card's id
-    for path in own_id_paths().get(&class_key).into_iter().flatten() {
+    for path in id_paths.into_iter().flatten() {
         if let Some((first, rest)) = path.split_first() {
             if let Some(v) = props.get_mut(first) {
                 set_path(v, rest, json!(id));
