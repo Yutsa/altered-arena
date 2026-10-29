@@ -15,8 +15,8 @@ impl Pieces for MeeplesT {
     fn has(g: &Game, id: i64) -> bool {
         g.meeples.contains_key(&id)
     }
-    fn location(g: &Game, id: i64) -> String {
-        g.meeples[&id].location.clone()
+    fn location_ref(g: &Game, id: i64) -> &str {
+        &g.meeples[&id].location
     }
     fn state_value(g: &Game, id: i64) -> Value {
         json!(g.meeples.get(&id).or_else(|| g.deleted_meeples.get(&id)).map(|m| m.state.clone()).unwrap_or_default())

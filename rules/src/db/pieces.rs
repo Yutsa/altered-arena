@@ -12,7 +12,10 @@ pub trait Pieces {
     /// Ids in cache order (`static::$datas`)
     fn all_ids(g: &Game) -> Vec<i64>;
     fn has(g: &Game, id: i64) -> bool;
-    fn location(g: &Game, id: i64) -> String;
+    fn location(g: &Game, id: i64) -> String {
+        Self::location_ref(g, id).to_string()
+    }
+    fn location_ref(g: &Game, id: i64) -> &str;
     /// `getState()` as PHP has it (int for cards, string for meeples)
     fn state_value(g: &Game, id: i64) -> Value;
     fn set_location(g: &mut Game, id: i64, loc: &str) -> R<()>;
@@ -43,7 +46,7 @@ pub fn location_matches(loc: &str, filter: &str) -> bool {
     if filter.contains('%') {
         php::like_match(filter, loc)
     } else {
-        php::loose_eq(&Value::String(loc.to_string()), &Value::String(filter.to_string()))
+        php::strs_loose_eq(loc, filter)
     }
 }
 
@@ -53,7 +56,7 @@ pub fn get_in_location<T: Pieces>(g: &Game, location: &str, state: Option<i64>) 
     check_location(location, true)?;
     Ok(T::all_ids(g)
         .into_iter()
-        .filter(|id| location_matches(&T::location(g, *id), location))
+        .filter(|id| location_matches(T::location_ref(g, *id), location))
         .filter(|id| state.is_none_or(|s| php::loose_eq(&T::state_value(g, *id), &Value::from(s))))
         .collect())
 }
@@ -63,8 +66,8 @@ pub fn get_in_locations<T: Pieces>(g: &Game, locations: &[&str]) -> Vec<i64> {
     T::all_ids(g)
         .into_iter()
         .filter(|id| {
-            let l = Value::String(T::location(g, *id));
-            locations.iter().any(|x| php::loose_eq(&l, &Value::String(x.to_string())))
+            let l = T::location_ref(g, *id);
+            locations.iter().any(|x| php::strs_loose_eq(l, x))
         })
         .collect()
 }

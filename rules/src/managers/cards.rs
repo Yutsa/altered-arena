@@ -183,8 +183,8 @@ impl Pieces for CardsT {
     fn has(g: &Game, id: i64) -> bool {
         g.cards.contains_key(&id)
     }
-    fn location(g: &Game, id: i64) -> String {
-        g.cards[&id].location.clone()
+    fn location_ref(g: &Game, id: i64) -> &str {
+        &g.cards[&id].location
     }
     fn state_value(g: &Game, id: i64) -> Value {
         json!(g.cards.get(&id).or_else(|| g.deleted_cards.get(&id)).map(|c| c.state).unwrap_or(0))
@@ -288,18 +288,17 @@ pub fn where_location(g: &Game, ids: Vec<CardId>, value: &Value) -> Vec<CardId> 
     if value.is_null() {
         return ids;
     }
+    let is_arr = php::is_arr(value);
+    let like = if is_arr { None } else { Some(php::strval(value)).filter(|v| v.contains('%')) };
     ids.into_iter()
         .filter(|id| {
-            let l = Value::String(g.cards.get(id).or_else(|| g.deleted_cards.get(id)).map(|c| c.location.clone()).unwrap_or_default());
-            if php::is_arr(value) {
-                php::in_array(&l, value)
+            let l = g.cards.get(id).or_else(|| g.deleted_cards.get(id)).map(|c| c.location.as_str()).unwrap_or("");
+            if is_arr {
+                php::in_array_str(l, value)
+            } else if let Some(v) = &like {
+                php::like_match(v, l)
             } else {
-                let v = php::strval(value);
-                if v.contains('%') {
-                    php::like_match(&v, &php::strval(&l))
-                } else {
-                    php::loose_eq(&l, value)
-                }
+                php::loose_eq_str(l, value)
             }
         })
         .collect()

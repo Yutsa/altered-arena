@@ -223,7 +223,10 @@ pub fn loose_eq(a: &Value, b: &Value) -> bool {
             }
         }
         (String(x), String(y)) => {
-            if is_numeric_str(x) && is_numeric_str(y) {
+            if x == y {
+                // Equal numeric strings are equal numbers too
+                true
+            } else if is_numeric_str(x) && is_numeric_str(y) {
                 str_to_f64(x) == str_to_f64(y)
             } else {
                 x == y
@@ -240,6 +243,38 @@ pub fn loose_eq(a: &Value, b: &Value) -> bool {
                 None => false,
             })
         }
+        _ => false,
+    }
+}
+
+/// `$a == $b` for a string `$a` (as `loose_eq(&Value::String(a), b)`, without the copy)
+pub fn loose_eq_str(a: &str, b: &Value) -> bool {
+    use Value::*;
+    match b {
+        Null => a.is_empty(),
+        Bool(y) => !(a.is_empty() || a == "0") == *y,
+        Number(_) => {
+            if is_numeric_str(a) {
+                num_of(b) == Some(str_to_f64(a))
+            } else {
+                strval(b) == a
+            }
+        }
+        String(y) => strs_loose_eq(a, y),
+        _ => false,
+    }
+}
+
+/// `$a == $b` for two strings
+pub fn strs_loose_eq(a: &str, b: &str) -> bool {
+    a == b || (is_numeric_str(a) && is_numeric_str(b) && str_to_f64(a) == str_to_f64(b))
+}
+
+/// `in_array($a, $haystack)` for a string `$a`
+pub fn in_array_str(a: &str, haystack: &Value) -> bool {
+    match haystack {
+        Value::Array(x) => x.iter().any(|v| loose_eq_str(a, v)),
+        Value::Object(o) => o.values().any(|v| loose_eq_str(a, v)),
         _ => false,
     }
 }
@@ -542,7 +577,11 @@ pub fn values(v: &Value) -> Value {
 
 /// `in_array($needle, $haystack)` (loose)
 pub fn in_array(needle: &Value, haystack: &Value) -> bool {
-    vals(haystack).into_iter().any(|x| loose_eq(needle, x))
+    match haystack {
+        Value::Array(a) => a.iter().any(|x| loose_eq(needle, x)),
+        Value::Object(o) => o.values().any(|x| loose_eq(needle, x)),
+        _ => false,
+    }
 }
 
 /// `in_array($needle, $haystack, true)`
@@ -552,7 +591,7 @@ pub fn in_array_strict(needle: &Value, haystack: &Value) -> bool {
 
 /// `in_array` on a list of strings
 pub fn in_list(needle: &Value, list: &[&str]) -> bool {
-    list.iter().any(|s| loose_eq(needle, &Value::String(s.to_string())))
+    list.iter().any(|s| loose_eq_str(s, needle))
 }
 
 /// `array_merge($a, $b, ...)`: integer keys renumbered, string keys overwritten
@@ -766,6 +805,17 @@ pub fn contains(haystack: &str, needle: &str) -> bool {
 
 /// PHP SQL LIKE as in Collection::like_match (`%` wildcard, case-insensitive, whole string)
 pub fn like_match(pattern: &str, subject: &str) -> bool {
+    if pattern.is_ascii() && subject.is_ascii() {
+        // ASCII: lowercase is ASCII lowercase, compared byte by byte without copies
+        fn rec_ascii(p: &[u8], s: &[u8]) -> bool {
+            match p.first() {
+                None => s.is_empty(),
+                Some(b'%') => (0..=s.len()).any(|i| rec_ascii(&p[1..], &s[i..])),
+                Some(c) => !s.is_empty() && s[0].eq_ignore_ascii_case(c) && rec_ascii(&p[1..], &s[1..]),
+            }
+        }
+        return rec_ascii(pattern.as_bytes(), subject.as_bytes());
+    }
     let p: Vec<char> = pattern.to_lowercase().chars().collect();
     let s: Vec<char> = subject.to_lowercase().chars().collect();
     fn rec(p: &[char], s: &[char]) -> bool {
