@@ -69,7 +69,11 @@ fn turn_decision_lists_the_playable_cards() {
     let Some(g) = tiktok() else { return };
     let d = g.decision(2001).expect("decision");
     assert_eq!(d["kind"], json!("turn"));
-    let play: Vec<i64> = d["play"].as_array().unwrap().iter().map(|p| p["cardId"].as_i64().unwrap()).collect();
-    assert_eq!(play, vec![35, 36, 40, 2401, 2418, 2419]);
+    let ids = |d: &Value| -> Vec<i64> { d["play"].as_array().unwrap().iter().map(|p| p["cardId"].as_i64().unwrap()).collect() };
+    // The playable cards PHP offered in the recorded position
+    let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../server/goldens/rich/AX_Common_TikTok.json");
+    let data: Value = serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap();
+    assert_eq!(ids(&d), ids(&data["tree"]["decision"]));
+    assert!(ids(&d).contains(&data["cardId"].as_i64().unwrap()));
     assert_eq!(g.waiting_for(), vec![2001]);
 }

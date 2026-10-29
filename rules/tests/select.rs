@@ -82,15 +82,23 @@ fn discard_from_deck_all() {
     assert_eq!(count(&g, "discard"), discard + 4);
 }
 
+/// Player 2001's hand in the recorded position, by id
+fn hand(g: &Game) -> Vec<i64> {
+    let mut ids: Vec<i64> = g.cards.values().filter(|c| c.location == "hand" && c.pid == 2001).map(|c| c.id as i64).collect();
+    ids.sort();
+    ids
+}
+
 #[test]
 fn discard_from_hand_asks_then_moves() {
     let Some(mut g) = tiktok() else { return };
     run(&mut g, json!({"action": "Discard", "pId": 2001, "args": {"source": "hand", "n": 1}}));
     let d = g.decision(2001).expect("decision");
     assert_eq!(d["kind"], json!("select"), "{}", d);
-    assert_eq!(d["cardIds"], json!([35, 36, 40, 2401]));
-    answer(&mut g, json!({"type": "select", "cardIds": [40]})).unwrap();
-    assert_eq!(loc(&g, 40), "discard");
+    let h = hand(&g);
+    assert_eq!(d["cardIds"], json!(h));
+    answer(&mut g, json!({"type": "select", "cardIds": [h[0]]})).unwrap();
+    assert_eq!(loc(&g, h[0] as _), "discard");
 }
 
 #[test]
@@ -115,9 +123,10 @@ fn exchange_reserve_and_hand() {
     let Some(mut g) = tiktok() else { return };
     run(&mut g, json!({"action": "Exchange", "pId": 2001, "args": {"targetType": ["character", "token", "spell", "permanent"]}}));
     let d = g.decision(2001).expect("decision");
-    answer(&mut g, json!({"type": "exchange", "reserve": 2418, "hand": 40})).unwrap_or_else(|e| panic!("{:?} {}", e, d));
+    let h = hand(&g)[0];
+    answer(&mut g, json!({"type": "exchange", "reserve": 2418, "hand": h})).unwrap_or_else(|e| panic!("{:?} {}", e, d));
     assert_eq!(loc(&g, 2418), "hand");
-    assert_eq!(loc(&g, 40), "reserve");
+    assert_eq!(loc(&g, h as _), "reserve");
 }
 
 #[test]
