@@ -285,6 +285,11 @@ Arena::openGame($g);
 [$me, $cardId] = prepare($g, $ref, $board);
 // The position, in the snapshot format both engines load (Game::from_snapshot)
 $initial = Arena::oracleState($g);
+// ...and the original engine's own tables, for an engine that loads them as they are
+$db = [];
+foreach (['cards', 'meeples', 'global_variables', 'player', 'user_preferences'] as $table) {
+  $db[$table] = \BgaDb::conn()->query("SELECT * FROM `$table` ORDER BY 1")->fetch_all(MYSQLI_ASSOC);
+}
 $tree = explore($g, 0, $cardId);
 @mkdir("$out/$board", 0777, true);
 file_put_contents("$out/$board/$ref.json", json_encode([
@@ -295,6 +300,7 @@ file_put_contents("$out/$board/$ref.json", json_encode([
   'nodes' => $nodes,
   'dice' => DICE,
   'initial' => $initial,
+  'db' => $db,
   'tree' => $tree,
 ], JSON_PARTIAL_OUTPUT_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE));
 printf("%s %s: %d nodes, %.1fs (php game %d)\n", $ref, $board, $nodes, microtime(true) - $t, $g);
