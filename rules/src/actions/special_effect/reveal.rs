@@ -308,7 +308,6 @@ fn reveal(g: &mut Game, s: &mut Se) -> R<Out> {
 }
 
 /// `Phoibos` (play the revealed card only when in contact) / `PhoibosUnique`
-/// `Collection::rand()` is PHP's array_rand: not reproducible, drawn here from the game RNG
 // PHP: Actions/SpecialEffect.php:2135
 fn phoibos(g: &mut Game, s: &mut Se, unique: bool) -> R<Out> {
     // Reveal random card
@@ -318,8 +317,8 @@ fn phoibos(g: &mut Game, s: &mut Se, unique: bool) -> R<Out> {
     let opp = req_player(players::get_next(g, p)?)?;
     let hand = player::get_hand(g, opp, &Value::Null)?;
     if !hand.is_empty() {
-        let i = g.bga_rand(0, hand.len() as i64 - 1) as usize;
-        let r = hand[i];
+        // Collection::rand(): array_rand on a copy of Player::getHand's array_filter result
+        let r = hand[g.php_array_rand_int_keys(&hand)];
         card::set_location(g, r, "limbo")?;
         g.notify("revealHand", json!({"cardId": r, "sourceId": c}));
         let play = ft::xor(vec![

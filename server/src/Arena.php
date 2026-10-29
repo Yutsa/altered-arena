@@ -119,8 +119,9 @@ class Arena
       PRIMARY KEY (`id`),
       KEY (`packet`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
-    \BgaDb::conn()->query('CREATE TABLE `arena_rng` (`dice` int unsigned NOT NULL) ENGINE=InnoDB');
-    \BgaDb::conn()->query('INSERT INTO `arena_rng` VALUES (0)');
+    // Dice cursor, and what seeds the randomness of each act (seedRng)
+    \BgaDb::conn()->query('CREATE TABLE `arena_rng` (`dice` int unsigned NOT NULL, `game` int unsigned NOT NULL, `acts` int unsigned NOT NULL) ENGINE=InnoDB');
+    \BgaDb::conn()->query("INSERT INTO `arena_rng` (dice, game, acts) VALUES (0, $gameId, 0)");
     self::useDice($config);
 
     self::request(null, function () use ($players) {
@@ -129,7 +130,7 @@ class Arena
         $names[$p['id']] = $p['name'];
       }
       \altered::harnessCreate($names, [151 => 1]);
-    });
+    }, true);
     self::runBots($gameId);
     return ['id' => $gameId] + $config;
   }
@@ -173,6 +174,30 @@ class Arena
     };
   }
 
+  /**
+   * Seeds PHP's Mersenne Twister (mt_rand, shuffle, array_rand, bga_rand without a dice list) for
+   * a request that changes the game, from the game id and the number of such requests before it.
+   * The counter is in the game's database, so a rolled back request leaves it as it was, and a
+   * position dumped with arena_rng (tools/explore.php) gives another engine the seed of each next
+   * act (rules/src/php_rand.rs).
+   */
+  private static function seedRng(): void
+  {
+    $db = \BgaDb::conn();
+    try {
+      $row = $db->query('SELECT game, acts FROM arena_rng')->fetch_row();
+    } catch (\Throwable $e) {
+      return; // game created before seeded randomness
+    }
+    $db->query('UPDATE arena_rng SET acts = acts + 1');
+    mt_srand(self::rngSeed((int) $row[0], (int) $row[1]));
+  }
+
+  public static function rngSeed(int $gameId, int $acts): int
+  {
+    return ($gameId * 1000003 + $acts) & 0xFFFFFFFF;
+  }
+
   /** How many dice were rolled (position in the config's list) */
   private static function diceUsed(): int
   {
@@ -209,15 +234,20 @@ class Arena
 
   /**
    * Runs $fn as one request of $playerId inside a transaction and stores its notifications.
+   * $act: a request that changes the game (game creation, a player's or a bot's action) starts by
+   * seeding the randomness; the others (views, bot decisions) don't draw anything the game keeps.
    * @return mixed what $fn returns
    */
-  private static function request(?int $playerId, callable $fn)
+  private static function request(?int $playerId, callable $fn, bool $act = false)
   {
     self::freshState();
     \Table::$currentPlayerId = $playerId;
     $db = \BgaDb::conn();
     $db->begin_transaction();
     try {
+      if ($act) {
+        self::seedRng();
+      }
       $result = $fn();
       self::storeNotifications();
       $db->commit();
@@ -306,7 +336,7 @@ class Arena
           throw new \BgaUserException('It is not your turn');
         }
         $game->$action(...$args);
-      });
+      }, true);
       self::runBots($gameId);
     } finally {
       self::unlock($gameId);
@@ -356,7 +386,7 @@ class Arena
         self::request($botId, function () use ($action, $args) {
           $game = new \altered();
           $game->$action(...$args);
-        });
+        }, true);
       } catch (\Throwable $e) {
         // A bad bot choice must not block the game: try the fallback once, else stop
         error_log("bot $botId $action " . json_encode($args) . ': ' . $e->getMessage());
@@ -368,7 +398,7 @@ class Arena
           self::request($botId, function () use ($fallback) {
             $game = new \altered();
             $game->{$fallback[0]}(...$fallback[1]);
-          });
+          }, true);
         } catch (\Throwable $e2) {
           error_log("bot $botId fallback failed: " . $e2->getMessage());
           return;

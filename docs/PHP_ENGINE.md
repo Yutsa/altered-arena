@@ -993,9 +993,16 @@ Harness hooks (`RNG:9-46`): `bga_rand` goes through `Harness\Rng::randInt` (defa
 feeds dice from a per-game list and switches the environment to `prod` when a list is configured, or
 uses `studio` (all dice = 5) otherwise (`Arena:155-174`).
 
+`shuffle`, `array_rand` and `mt_rand` all draw from the same Mersenne Twister. The arena seeds it at the
+start of every request that changes the game (`Arena::seedRng`, called by `request(..., act: true)` for
+game creation, player and bot actions): `mt_srand(($gameId * 1000003 + $acts) & 0xFFFFFFFF)`, where
+`arena_rng` keeps `game` and `acts` (incremented in the request's transaction, so rolled back with it).
+Views and bot decisions are not seeded; no view draws a value (random calls are only in setup, deck
+selection and actions).
+
 For the port: deck order after a shuffle is "state = index in the shuffled array", top = last element
-(highest state). A Rust RNG will not reproduce PHP's `shuffle`/`mt_rand` sequences, so replays should
-inject the shuffle results and dice values at the same call points, in the same order.
+(highest state). `rules/src/php_rand.rs` reproduces PHP 8.2's generator, `shuffle` and `array_rand`
+exactly, so the Rust engine seeded the same way draws the same values.
 
 ---
 

@@ -22,7 +22,7 @@ fn rows<'a>(tables: &'a Value, t: &str) -> Vec<&'a Value> {
 
 /// Builds the game from the dump of `cards`, `meeples`, `global_variables`, `player`,
 /// `user_preferences`, plus (when the dump has them) the framework `global` table, the
-/// AUTO_INCREMENT values (`auto_increment`) and the dice cursor (`arena_rng`)
+/// AUTO_INCREMENT values (`auto_increment`) and the dice cursor and seed (`arena_rng`)
 pub fn from_bga_tables(tables: &Value, dice: &[i64]) -> R<Game> {
     if !php::is_arr(tables) || php::empty(php::get(tables, "cards")) {
         return Err(PhpError::new("the dump has no `db` tables (golden file older than the db export)"));
@@ -77,8 +77,13 @@ pub fn from_bga_tables(tables: &Value, dice: &[i64]) -> R<Game> {
 
     g.dice = dice.to_vec();
     g.environment = if dice.is_empty() { "studio".into() } else { "prod".into() };
-    let rng = php::get(tables, "arena_rng");
-    g.dice_used = php::vals(rng).first().map(|r| i(r, "dice") as usize).unwrap_or(0);
+    // arena_rng: dice cursor, and the seed of the next act (game id, acts so far; dumps older than
+    // seeded randomness have neither)
+    if let Some(r) = php::vals(php::get(tables, "arena_rng")).first() {
+        g.dice_used = i(r, "dice") as usize;
+        g.rng_game = i(r, "game");
+        g.rng_acts = i(r, "acts");
+    }
 
     // Framework `global` table: 1 = state, 2 = active player, 10 = logging
     let fw = rows(tables, "global");

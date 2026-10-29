@@ -64,8 +64,13 @@ rules/src/
   `is_mandatory`, `get_state`, `st`, `st_pre`, `args`, `act(method, args)`, `act_pass`), with the base
   class defaults of `Models/Action.php`. An action function receives `(&mut Game, NodeId)`.
 - **Randomness**: dice from `Game.dice` (the arena's per-game list, cursor in the `arena_rng` table → a
-  field); shuffles through `Game::shuffle_hook` (golden runs: the order PHP produced is injected; normal
-  games: seeded RNG).
+  field). Everything else draws from PHP 8.2's Mersenne Twister, ported bit for bit in `php_rand.rs`
+  (`mt_srand`, `mt_rand`, `mt_rand($min, $max)`, `shuffle`, `array_rand` with the packed/hash layout
+  that decides its draws; checked against PHP by `tests/php_rand.rs`): `bga_rand` without a dice
+  list, `CachedPieces::shuffle`, `Collection::rand`. The arena seeds it at every act
+  (`Arena::seedRng`: `mt_srand` of the game id and the number of acts before, both in `arena_rng`), and
+  `v1::act` does the same (`Game::seed_rng`), so a position loaded from a dump draws what PHP drew.
+  `Game::shuffle_hook` can still inject orders recorded elsewhere.
 - **Requests**: `answer()` clones the game, runs the PHP action, and restores the clone on `Err`
   (MariaDB transaction rollback).
 

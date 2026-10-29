@@ -291,7 +291,8 @@ foreach (['cards', 'meeples', 'global_variables', 'player', 'user_preferences'] 
   $db[$table] = \BgaDb::conn()->query("SELECT * FROM `$table` ORDER BY 1")->fetch_all(MYSQLI_ASSOC);
 }
 // ...and what the framework keeps besides: the `global` table (1 = state, 2 = active player,
-// 10 = logging), the next ids of cards and meeples, the position in the dice list
+// 10 = logging), the next ids of cards and meeples, and arena_rng: the position in the dice list and
+// the seed of the next act (game id, acts so far: Arena::seedRng)
 $db['global'] = \BgaDb::conn()->query("SELECT * FROM `global` ORDER BY 1")->fetch_all(MYSQLI_ASSOC);
 $db['arena_rng'] = \BgaDb::conn()->query("SELECT * FROM `arena_rng`")->fetch_all(MYSQLI_ASSOC);
 $db['auto_increment'] = [];

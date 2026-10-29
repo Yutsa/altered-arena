@@ -11,6 +11,7 @@ pub mod load;
 pub mod managers;
 pub mod models;
 pub mod php;
+pub mod php_rand;
 pub mod states;
 pub mod v1;
 
