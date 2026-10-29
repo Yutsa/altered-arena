@@ -1,0 +1,38 @@
+{
+ "mana_prior": {
+  "AX_Common_AmeliaEarhart": -0.03,
+  "AX_Common_ArmoredJammer": 0.302,
+  "AX_Common_FoundryMechanic": 0.646,
+  "AX_Common_FrozenDelivery": -0.221,
+  "AX_Common_Gibil": 0.646,
+  "AX_Common_KelonElemental": 0.184,
+  "AX_Common_PajuAxiomPilot": 0.254,
+  "AX_Common_SapSniffer": 0.454,
+  "AX_Common_SneakySalamander": -0.097,
+  "AX_Rare_Avalanche": 0.637,
+  "AX_Rare_AxiomSalvager": -0.732,
+  "AX_Rare_HavenBravosBastion": 0.184,
+  "AX_Rare_Hooked": -0.206,
+  "AX_Rare_PushBacktheNight": 0.079,
+  "AX_Rare_TheGrems": -0.696,
+  "Unique:Petit Poucet": -0.696
+ },
+ "play_prior": {
+  "AX_Common_AmeliaEarhart": 0.177,
+  "AX_Common_ArmoredJammer": -0.141,
+  "AX_Common_FoundryMechanic": 0.207,
+  "AX_Common_FrozenDelivery": -0.0,
+  "AX_Common_Gibil": -0.327,
+  "AX_Common_KelonElemental": -0.007,
+  "AX_Common_PajuAxiomPilot": -0.214,
+  "AX_Common_SapSniffer": 0.042,
+  "AX_Common_SneakySalamander": 0.006,
+  "AX_Rare_Avalanche": -0.281,
+  "AX_Rare_AxiomSalvager": 0.382,
+  "AX_Rare_HavenBravosBastion": 0.235,
+  "AX_Rare_Hooked": -0.197,
+  "AX_Rare_PushBacktheNight": 0.098,
+  "AX_Rare_TheGrems": 0.016,
+  "Unique:Petit Poucet": 0.243
+ }
+}

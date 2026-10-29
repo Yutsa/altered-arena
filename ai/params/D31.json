@@ -1,0 +1,37 @@
+{
+ "mana_prior": {
+  "Unique:Mochizuki Chiyome": -0.509,
+  "Unique:Occultiste du Qorgan": -0.509,
+  "YZ_Common_Blizzard": 0.091,
+  "YZ_Common_Caladrius": 0.935,
+  "YZ_Common_Chrysalis": 0.252,
+  "YZ_Common_GiftofSelf": -0.065,
+  "YZ_Common_Maw": -0.424,
+  "YZ_Common_OffYouGo": 0.206,
+  "YZ_Common_StudiousDisciple": 0.114,
+  "YZ_Common_YzmirNurse": -0.678,
+  "YZ_Rare_BabasIsba": 0.007,
+  "YZ_Rare_Boom": 0.252,
+  "YZ_Rare_CorruptedWoollyback": 0.935,
+  "YZ_Rare_MoonlightJellyfish": -0.636,
+  "YZ_Rare_MothLantern": -0.084,
+  "YZ_Rare_WhiteFang": -0.326
+ },
+ "play_prior": {
+  "Unique:Mochizuki Chiyome": -0.138,
+  "Unique:Occultiste du Qorgan": 0.076,
+  "YZ_Common_Blizzard": -0.315,
+  "YZ_Common_Chrysalis": 0.182,
+  "YZ_Common_GiftofSelf": 0.113,
+  "YZ_Common_HarryHoudini": 0.282,
+  "YZ_Common_OffYouGo": -0.282,
+  "YZ_Common_Pasiphae": 0.298,
+  "YZ_Common_StudiousDisciple": 0.349,
+  "YZ_Common_YzmirNurse": -0.121,
+  "YZ_Rare_BabasIsba": 1.018,
+  "YZ_Rare_Boom": -0.189,
+  "YZ_Rare_MoonlightJellyfish": 0.269,
+  "YZ_Rare_MothLantern": -0.275,
+  "YZ_Rare_WhiteFang": 0.107
+ }
+}

@@ -1,0 +1,22 @@
+{
+ "mana_prior": {
+  "LY_Common_Carbunclo": 1.02,
+  "LY_Common_Hathor": 0.27,
+  "LY_Common_WillotheWisp": 1.224,
+  "LY_Rare_Kodama": 0.27,
+  "LY_Rare_OuroborosInkcaster": -0.576,
+  "LY_Rare_PaperHerald": -0.48,
+  "Unique:Mia, Danseuse \u00c9toile": -0.72
+ },
+ "play_prior": {
+  "LY_Common_Hathor": -0.312,
+  "LY_Common_Martengale": -0.469,
+  "LY_Common_SleightofHand": 0.188,
+  "LY_Common_TwinkleTwinkle": -0.083,
+  "LY_Rare_Kodama": 0.188,
+  "LY_Rare_MagicalTraining": -0.1,
+  "LY_Rare_OuroborosInkcaster": -0.067,
+  "LY_Rare_PaperHerald": 0.25,
+  "Unique:Mia, Danseuse \u00c9toile": 0.398
+ }
+}

@@ -1,0 +1,38 @@
+{
+ "mana_prior": {
+  "MU_Common_BeautySleep": -0.167,
+  "MU_Common_DrowsyDodo": 0.143,
+  "MU_Common_Raksha": 1.5,
+  "MU_Common_ResentfulRobin": 0.25,
+  "MU_Common_RunningwiththeWolves": 0.143,
+  "MU_Common_SpindleHarvesters": -0.75,
+  "MU_Common_Yeti": 1.2,
+  "MU_Exalted_SoundtheHowl": 0.0,
+  "MU_Rare_ColorfulCuckoo": 0.25,
+  "MU_Rare_FairFox": 0.25,
+  "MU_Rare_KarhuLordofBears": -0.5,
+  "MU_Rare_LyraThespian": -0.8,
+  "MU_Rare_SmokingSkunk": 1.0,
+  "MU_Rare_WigwaggingKiwi": 0.143,
+  "Unique:Ocelot Aiguilleur": -0.5,
+  "Unique:P\u00e9lican Serviable": -0.714,
+  "Unique:Rouge-gorge Rancunier": -0.667
+ },
+ "play_prior": {
+  "MU_Common_BeautySleep": 0.091,
+  "MU_Common_DrowsyDodo": 0.477,
+  "MU_Common_ResentfulRobin": 0.414,
+  "MU_Common_RunningwiththeWolves": 0.034,
+  "MU_Common_SpindleHarvesters": 0.351,
+  "MU_Exalted_SoundtheHowl": -0.088,
+  "MU_Rare_ColorfulCuckoo": 0.792,
+  "MU_Rare_FairFox": 0.593,
+  "MU_Rare_KarhuLordofBears": -0.552,
+  "MU_Rare_LyraThespian": -0.253,
+  "MU_Rare_SmokingSkunk": -0.03,
+  "MU_Rare_WigwaggingKiwi": -0.159,
+  "Unique:Ocelot Aiguilleur": 0.048,
+  "Unique:P\u00e9lican Serviable": -0.209,
+  "Unique:Rouge-gorge Rancunier": -0.068
+ }
+}

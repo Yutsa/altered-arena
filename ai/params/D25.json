@@ -1,0 +1,39 @@
+{
+ "mana_prior": {
+  "MU_Common_BeautySleep": 0.248,
+  "MU_Common_Bumblebeet": 1.288,
+  "MU_Common_ColorfulCuckoo": 1.288,
+  "MU_Common_CountingSheep": 0.324,
+  "MU_Common_DrowsyDodo": 0.324,
+  "MU_Common_Kitsune": 1.004,
+  "MU_Common_MunaBotanist": 0.932,
+  "MU_Common_Requiem": 0.111,
+  "MU_Common_ResentfulRobin": -0.082,
+  "MU_Rare_BurrowingNoosh": -0.512,
+  "MU_Rare_DaughterofYggdrasil": -0.491,
+  "MU_Rare_Hesperide": 0.337,
+  "MU_Rare_ManaChanneling": -0.426,
+  "MU_Rare_ReaptheMana": -0.33,
+  "MU_Rare_Sustenance": -0.663,
+  "Unique:Fils du Naos": -0.663,
+  "Unique:P\u00e9gase": -0.721
+ },
+ "play_prior": {
+  "MU_Common_BeautySleep": -0.38,
+  "MU_Common_Bumblebeet": -0.332,
+  "MU_Common_CountingSheep": -0.098,
+  "MU_Common_DrowsyDodo": 0.024,
+  "MU_Common_Kitsune": 0.113,
+  "MU_Common_MunaBotanist": -0.279,
+  "MU_Common_Requiem": -0.398,
+  "MU_Common_ResentfulRobin": -0.044,
+  "MU_Rare_BurrowingNoosh": -0.239,
+  "MU_Rare_DaughterofYggdrasil": 0.649,
+  "MU_Rare_Hesperide": 0.083,
+  "MU_Rare_ManaChanneling": 0.357,
+  "MU_Rare_ReaptheMana": 0.094,
+  "MU_Rare_Sustenance": 0.228,
+  "Unique:Fils du Naos": 0.165,
+  "Unique:P\u00e9gase": -0.156
+ }
+}

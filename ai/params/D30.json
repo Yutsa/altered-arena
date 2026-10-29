@@ -1,0 +1,43 @@
+{
+ "mana_prior": {
+  "Unique:Chasseur de Hextag": -0.259,
+  "Unique:Mochizuki Chiyome": -0.007,
+  "Unique:Shiramun, Techno-moine": -0.571,
+  "YZ_Common_Blizzard": -0.384,
+  "YZ_Common_Caladrius": -0.438,
+  "YZ_Common_HarryHoudini": 0.493,
+  "YZ_Common_MagicalTraining": -0.26,
+  "YZ_Common_MothcatcherWand": 0.742,
+  "YZ_Common_SylasCrypticWarlock": 0.742,
+  "YZ_Common_TheNilamWitheredTree": 0.993,
+  "YZ_Common_YzmirSignet": 0.459,
+  "YZ_Exalted_ClosetheBreach": -0.309,
+  "YZ_Rare_BabaYaga": -0.51,
+  "YZ_Rare_RekaBioengineer": -0.309,
+  "YZ_Rare_Shiva": 0.743,
+  "YZ_Rare_SuhaQorganOperative": 0.313,
+  "YZ_Rare_Tag": 0.143,
+  "YZ_Rare_TheHunger": 0.143
+ },
+ "play_prior": {
+  "Unique:Chasseur de Hextag": 0.168,
+  "Unique:Mochizuki Chiyome": 0.464,
+  "Unique:Shiramun, Techno-moine": 0.109,
+  "YZ_Common_Blizzard": -0.279,
+  "YZ_Common_Caladrius": -0.001,
+  "YZ_Common_HarryHoudini": -0.13,
+  "YZ_Common_MagicalTraining": -0.071,
+  "YZ_Common_MothcatcherWand": -0.043,
+  "YZ_Common_RimeFrost": -0.182,
+  "YZ_Common_SylasCrypticWarlock": 0.218,
+  "YZ_Common_YzmirSignet": -0.115,
+  "YZ_Exalted_ClosetheBreach": -0.095,
+  "YZ_Rare_BabaYaga": 0.028,
+  "YZ_Rare_BeautySleep": 0.354,
+  "YZ_Rare_RekaBioengineer": 0.244,
+  "YZ_Rare_Shiva": 0.218,
+  "YZ_Rare_SuhaQorganOperative": -0.167,
+  "YZ_Rare_Tag": 0.348,
+  "YZ_Rare_TheHunger": 0.069
+ }
+}

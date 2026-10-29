@@ -1,0 +1,28 @@
+{
+ "mana_prior": {
+  "BR_Common_ArcolanoMilk": 0.1,
+  "BR_Common_BoldOutrider": 1.083,
+  "BR_Common_DuelofGrit": 0.7,
+  "BR_Common_FireRabbit": -0.556,
+  "BR_Common_ManaChanneling": 1.083,
+  "BR_Common_MightyJinn": -0.595,
+  "BR_Rare_KaurisIntervention": 1.083,
+  "BR_Rare_LeviathanSpotter": -0.417,
+  "BR_Rare_PhysicalTraining": -0.315,
+  "BR_Rare_TheHunger": -0.5,
+  "BR_Rare_Valemon": 0.019
+ },
+ "play_prior": {
+  "BR_Common_ArcolanoMilk": 0.912,
+  "BR_Common_DuelofGrit": -0.165,
+  "BR_Common_FireRabbit": -0.147,
+  "BR_Common_MightyJinn": 0.175,
+  "BR_Common_Tengu": -0.105,
+  "BR_Rare_LeviathanSpotter": 0.406,
+  "BR_Rare_PhysicalTraining": -0.526,
+  "BR_Rare_RekaFisherman": 0.684,
+  "BR_Rare_TheHunger": 0.12,
+  "BR_Rare_Valemon": -0.398,
+  "Unique:Sekhmet": 0.421
+ }
+}

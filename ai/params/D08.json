@@ -1,0 +1,34 @@
+{
+ "mana_prior": {
+  "BR_Common_ArcolanoMilk": 0.269,
+  "BR_Common_BravosBladedancer": -0.242,
+  "BR_Common_Chiron": 0.778,
+  "BR_Common_FireRabbit": 1.026,
+  "BR_Common_HavenBouncer": 0.269,
+  "BR_Common_HelpingHand": -0.642,
+  "BR_Common_ManaEruption": -0.578,
+  "BR_Common_MightyJinn": -0.142,
+  "BR_Common_TalarianSkater": 0.622,
+  "BR_Rare_ColorfulCuckoo": -0.416,
+  "BR_Rare_KaurisIntervention": -0.578,
+  "BR_Rare_LernaeanHydra": 0.03,
+  "BR_Rare_Nuit": 0.13,
+  "Unique:Ocelot Aiguilleur": -0.47,
+  "Unique:Raij\u016b": -0.688
+ },
+ "play_prior": {
+  "BR_Common_ArcolanoMilk": 0.695,
+  "BR_Common_BravosBladedancer": 0.052,
+  "BR_Common_Chiron": -0.208,
+  "BR_Common_FireRabbit": 0.195,
+  "BR_Common_HelpingHand": -0.033,
+  "BR_Common_ManaEruption": -0.474,
+  "BR_Common_MightyJinn": 0.043,
+  "BR_Rare_ColorfulCuckoo": 0.312,
+  "BR_Rare_KaurisIntervention": -0.008,
+  "BR_Rare_LernaeanHydra": 0.047,
+  "BR_Rare_Nuit": -0.128,
+  "Unique:Ocelot Aiguilleur": -0.185,
+  "Unique:Raij\u016b": 0.312
+ }
+}

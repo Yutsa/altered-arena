@@ -1,0 +1,19 @@
+{
+ "mana_prior": {
+  "OD_Common_LicenseWithdrawal": -0.071,
+  "OD_Rare_ArmoredJammer": -0.429,
+  "OD_Rare_BrassbugNursery": -0.429,
+  "OD_Rare_CableCarStation": 0.686,
+  "OD_Rare_DelaytheCollapse": -0.429,
+  "OD_Rare_TheReunion": -0.514
+ },
+ "play_prior": {
+  "OD_Common_LicenseWithdrawal": -0.363,
+  "OD_Common_RallyingCall": 0.022,
+  "OD_Common_TheLectern": -0.311,
+  "OD_Rare_ArmoredJammer": 0.12,
+  "OD_Rare_CableCarStation": 0.12,
+  "OD_Rare_DelaytheCollapse": 0.022,
+  "OD_Rare_TheLectern": 0.12
+ }
+}

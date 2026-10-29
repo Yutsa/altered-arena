@@ -1,0 +1,38 @@
+{
+ "mana_prior": {
+  "AX_Common_AerolithReef": 0.216,
+  "AX_Common_AmeliaEarhart": -0.212,
+  "AX_Common_BugOutBag": 0.182,
+  "AX_Common_FoundryMechanic": 0.63,
+  "AX_Common_FrozenDelivery": 0.452,
+  "AX_Common_Gibil": 0.301,
+  "AX_Common_PajuAxiomPilot": -0.673,
+  "AX_Common_SapSniffer": 0.645,
+  "AX_Common_TechnologicalEncounter": 1.073,
+  "AX_Rare_ArmoredJammer": -0.538,
+  "AX_Rare_Avalanche": -0.189,
+  "AX_Rare_AxiomSalvager": -0.498,
+  "AX_Rare_HavenBravosBastion": 0.645,
+  "AX_Rare_Hooked": 0.084,
+  "AX_Rare_TheGrems": -0.734,
+  "Unique:Petit Poucet": -0.528
+ },
+ "play_prior": {
+  "AX_Common_AerolithReef": -0.153,
+  "AX_Common_AmeliaEarhart": 0.398,
+  "AX_Common_BugOutBag": -0.345,
+  "AX_Common_FoundryMechanic": -0.16,
+  "AX_Common_FrozenDelivery": 0.419,
+  "AX_Common_Gibil": -0.128,
+  "AX_Common_PajuAxiomPilot": -0.18,
+  "AX_Common_SapSniffer": 0.039,
+  "AX_Common_TechnologicalEncounter": -0.072,
+  "AX_Rare_ArmoredJammer": -0.247,
+  "AX_Rare_Avalanche": -0.188,
+  "AX_Rare_AxiomSalvager": 0.128,
+  "AX_Rare_HavenBravosBastion": 0.108,
+  "AX_Rare_Hooked": 0.091,
+  "AX_Rare_TheGrems": -0.051,
+  "Unique:Petit Poucet": 0.291
+ }
+}

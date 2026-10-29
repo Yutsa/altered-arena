@@ -1,0 +1,32 @@
+{
+ "mana_prior": {
+  "AX_Common_AbandonedDepot": 0.222,
+  "AX_Common_BugOutBag": -0.206,
+  "AX_Common_FoundryMechanic": 0.067,
+  "AX_Common_MechanicalTraining": 0.222,
+  "AX_Common_RekaMagnate": 0.067,
+  "AX_Common_TheFoundryAxiomBastion": -0.206,
+  "AX_Rare_Boom": -0.206,
+  "AX_Rare_BrassbugHive": -0.667,
+  "AX_Rare_Hooked": 0.306,
+  "AX_Rare_RekaFisherman": 0.306,
+  "AX_Rare_SmolderingJinn": -0.533,
+  "AX_Rare_TheGrems": 1.267,
+  "Unique:Thomas Edison": -0.292
+ },
+ "play_prior": {
+  "AX_Common_AbandonedDepot": -0.075,
+  "AX_Common_AerolithReef": 0.097,
+  "AX_Common_BugOutBag": 0.196,
+  "AX_Common_FoundryMechanic": -0.088,
+  "AX_Common_MechanicalTraining": -0.266,
+  "AX_Common_RekaMagnate": -0.088,
+  "AX_Common_TheFoundryAxiomBastion": -0.171,
+  "AX_Rare_Boom": 0.121,
+  "AX_Rare_BrassbugHive": 0.497,
+  "AX_Rare_Hooked": 0.497,
+  "AX_Rare_RekaFisherman": 0.097,
+  "AX_Rare_SmolderingJinn": -0.12,
+  "Unique:Thomas Edison": 0.246
+ }
+}

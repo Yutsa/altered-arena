@@ -1,0 +1,31 @@
+{
+ "mana_prior": {
+  "OD_Common_AegisTemplar": 0.775,
+  "OD_Common_LicenseWithdrawal": -0.156,
+  "OD_Common_OrdisOverseer": 0.775,
+  "OD_Common_RallyingCall": -0.59,
+  "OD_Common_RekaInvestor": 1.637,
+  "OD_Common_TeamworkTraining": -0.531,
+  "OD_Common_TheConsulate": -0.614,
+  "OD_Rare_ArmoredJammer": -0.077,
+  "OD_Rare_BrassbugNursery": 0.594,
+  "OD_Rare_CableCarStation": -0.077,
+  "OD_Rare_DelaytheCollapse": -0.077,
+  "Unique:Petit Poucet": -0.354
+ },
+ "play_prior": {
+  "OD_Common_AegisTemplar": 0.119,
+  "OD_Common_LicenseWithdrawal": -0.251,
+  "OD_Common_OrdisOverseer": -0.103,
+  "OD_Common_RallyingCall": -0.147,
+  "OD_Common_TeamworkTraining": -0.251,
+  "OD_Common_TheConsulate": 0.721,
+  "OD_Rare_APebbleinthePond": 0.318,
+  "OD_Rare_ArmoredJammer": -0.063,
+  "OD_Rare_BrassbugNursery": 0.291,
+  "OD_Rare_CableCarStation": -0.015,
+  "OD_Rare_DelaytheCollapse": -0.2,
+  "OD_Rare_TheReunion": 0.549,
+  "Unique:Petit Poucet": 0.721
+ }
+}

@@ -208,6 +208,142 @@ fn agree(n: u64, agent_name: &str, params_dir: &str, decks: &Value, threads: usi
     );
 }
 
+fn load_pairings() -> Vec<(String, String)> {
+    let p: Value = serde_json::from_str(&std::fs::read_to_string(format!("{}/pairings.json", PRIVATE)).expect("pairings")).unwrap();
+    p["pairings"].as_array().unwrap().iter().map(|x| (x["a"].as_str().unwrap().to_string(), x["b"].as_str().unwrap().to_string())).collect()
+}
+
+fn read_params(dir: &str, deck: &str) -> Params {
+    std::fs::read_to_string(format!("{}/{}.json", dir, deck)).ok().map(|s| serde_json::from_str::<Params>(&s).expect("params JSON")).unwrap_or_default()
+}
+
+/// Version A (params in dir_a) against version B (dir_b) on the real pairings: each pairing is
+/// played with A on either deck and in either seat, so decks and seats cancel out. Returns A's
+/// wins and the decided games.
+fn ab(dir_a: &str, dir_b: &str, per_pairing: u64, limit: usize, threads: usize, decks: &Value, seed0: u64) -> (f64, f64, f64) {
+    let pairings: Vec<(String, String)> = load_pairings().into_iter().take(limit).collect();
+    let jobs: Vec<(usize, u64)> = (0..pairings.len()).flat_map(|p| (0..per_pairing).map(move |g| (p, g))).collect();
+    let res = play::run_parallel(
+        &jobs,
+        threads,
+        |&(p, g)| {
+            let (a, b) = &pairings[p];
+            // g % 4: which deck A plays, which seat goes first
+            let a_on_first_deck = g % 2 == 0;
+            let swap = (g / 2) % 2 == 1;
+            let (d0, d1) = if swap { (b, a) } else { (a, b) };
+            let a_seat = if (d0 == a) == a_on_first_deck { 0 } else { 1 };
+            let pair = [decks[d0.as_str()].clone(), decks[d1.as_str()].clone()];
+            let dirs = if a_seat == 0 { [dir_a, dir_b] } else { [dir_b, dir_a] };
+            let mut agents: [Box<dyn Agent>; 2] = [Box::new(Ai::new("x", read_params(dirs[0], d0))), Box::new(Ai::new("y", read_params(dirs[1], d1)))];
+            let r = play::play_game(&pair, &mut agents, seed0 + p as u64 * 1000 + g / 4);
+            (r.winner.map(|w| (w == a_seat) as u8 as f64), r.millis)
+        },
+        |_, _| (None, 0),
+    );
+    let wins: f64 = res.iter().filter_map(|r| r.0).sum();
+    let n = res.iter().filter(|r| r.0.is_some()).count() as f64;
+    let ms: u64 = res.iter().map(|r| r.1).sum();
+    (wins, n, ms as f64 / 1000.0 / res.len().max(1) as f64)
+}
+
+/// Multiplies each weight by exp(sigma * N(0, 1))
+fn perturb(p: &Params, sigma: f64, rng: &mut rand_chacha::ChaCha8Rng) -> Params {
+    use rand::Rng;
+    let mut q = p.clone();
+    let mut w = serde_json::to_value(&q.weights).unwrap();
+    for (_, v) in w.as_object_mut().unwrap().iter_mut() {
+        if let Some(x) = v.as_f64() {
+            // Box-Muller
+            let (u1, u2): (f64, f64) = (rng.random_range(1e-9..1.0), rng.random_range(0.0..1.0));
+            let z = (-2.0 * u1.ln()).sqrt() * (2.0 * std::f64::consts::PI * u2).cos();
+            *v = json!(x * (sigma * z).exp());
+        }
+    }
+    q.weights = serde_json::from_value(w).unwrap();
+    let (u1, u2): (f64, f64) = (rng.random_range(1e-9..1.0), rng.random_range(0.0..1.0));
+    let z = (-2.0 * u1.ln()).sqrt() * (2.0 * std::f64::consts::PI * u2).cos();
+    q.end_turn_bias = p.end_turn_bias + sigma * 2.0 * z;
+    q
+}
+
+/// Per-deck evolution strategy: for every deck, `cands` perturbed parameter sets are played,
+/// with the same seeds as the current set, against the deck's tournament opponents and two other
+/// decks of the field (their current parameters); the best replaces the current one when it wins
+/// at least `margin` more of the games. Writes every deck's parameters to `out`.
+#[allow(clippy::too_many_arguments)]
+fn evolve(round: u64, dir: &str, out: &str, cands: usize, games: u64, sigma: f64, margin: f64, threads: usize, decks: &Value) {
+    let ids: Vec<String> = decks.as_object().unwrap().keys().cloned().collect();
+    let pairings = load_pairings();
+    let opponents = |d: &str| -> Vec<String> {
+        let mut o: Vec<String> = pairings.iter().filter_map(|(a, b)| if a == d { Some(b.clone()) } else if b == d { Some(a.clone()) } else { None }).collect();
+        let i = ids.iter().position(|x| x == d).unwrap();
+        for k in [7, 19] {
+            let f = ids[(i + k) % ids.len()].clone();
+            if !o.contains(&f) && f != d {
+                o.push(f);
+            }
+        }
+        o
+    };
+    // Candidate sets per deck (index 0: the current parameters)
+    let mut sets: std::collections::BTreeMap<String, Vec<Params>> = Default::default();
+    for (i, d) in ids.iter().enumerate() {
+        let base = read_params(dir, d);
+        let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(round * 7_777 + i as u64);
+        let mut v = vec![base.clone()];
+        for _ in 0..cands {
+            v.push(perturb(&base, sigma, &mut rng));
+        }
+        sets.insert(d.clone(), v);
+    }
+    let mut jobs = vec![];
+    for d in &ids {
+        let opps = opponents(d);
+        for c in 0..=cands {
+            for g in 0..games {
+                jobs.push((d.clone(), c, opps[g as usize % opps.len()].clone(), g));
+            }
+        }
+    }
+    let t = std::time::Instant::now();
+    let res = play::run_parallel(
+        &jobs,
+        threads,
+        |(d, c, o, g)| {
+            let swap = g % 2 == 1;
+            let me: Box<dyn Agent> = Box::new(Ai::new("me", sets[d][*c].clone()));
+            let opp: Box<dyn Agent> = Box::new(Ai::new("opp", read_params(dir, o)));
+            let (pair, mut agents, my_seat) = if swap {
+                ([decks[o.as_str()].clone(), decks[d.as_str()].clone()], [opp, me], 1)
+            } else {
+                ([decks[d.as_str()].clone(), decks[o.as_str()].clone()], [me, opp], 0)
+            };
+            // Held-out seeds (not the pass's), the same for every candidate of a deck
+            let r = play::play_game(&pair, &mut agents, 900_000 + round * 100_000 + g * 97 + d[1..].parse::<u64>().unwrap_or(0) * 1000);
+            r.winner.map(|w| (w == my_seat) as u8 as f64)
+        },
+        |_, _| None,
+    );
+    std::fs::create_dir_all(out).unwrap();
+    let mut log = vec![];
+    for d in &ids {
+        let mut rates = vec![];
+        for c in 0..=cands {
+            let rs: Vec<f64> = jobs.iter().zip(&res).filter(|((x, k, _, _), _)| x == d && *k == c).filter_map(|(_, r)| *r).collect();
+            rates.push(rs.iter().sum::<f64>() / rs.len().max(1) as f64);
+        }
+        let best = (1..=cands).max_by(|&x, &y| rates[x].partial_cmp(&rates[y]).unwrap()).unwrap_or(0);
+        let keep = cands > 0 && rates[best] >= rates[0] + margin;
+        let chosen = if keep { &sets[d][best] } else { &sets[d][0] };
+        std::fs::write(format!("{}/{}.json", out, d), serde_json::to_string_pretty(chosen).unwrap()).unwrap();
+        log.push(json!({"deck": d, "base": rates[0], "best": rates[best], "kept": keep, "rates": rates}));
+        println!("{} base {:.0} % best {:.0} % {}", d, 100.0 * rates[0], 100.0 * rates[best], if keep { "-> kept" } else { "" });
+    }
+    std::fs::write(format!("{}/passes/EVOLVE_{}.json", PRIVATE, round), serde_json::to_string_pretty(&log).unwrap()).unwrap();
+    println!("evolve {}: {} games, {:.0}s", round, jobs.len(), t.elapsed().as_secs_f64());
+}
+
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     let threads: usize = opt(&args, "--threads").and_then(|s| s.parse().ok()).unwrap_or(10);
@@ -300,6 +436,29 @@ fn main() {
             let ms: u64 = res.iter().map(|(_, r)| r.millis).sum();
             let errs = res.iter().filter(|(_, r)| r.error.is_some()).count();
             println!("{} vs {}: {:.1} % [{:.1}, {:.1}] of {} games, {} errors, {:.2} s CPU/game, wall {:.0}s\n {}", ag_a, ag_b, 100.0 * tot.0 / tot.1.max(1.0), 100.0 * lo, 100.0 * hi, tot.1, errs, ms as f64 / 1000.0 / res.len() as f64, t.elapsed().as_secs_f64(), line);
+        }
+        Some("ab") => {
+            // aitool ab GAMES_PER_PAIRING --params A --params-b B [--pairings K] [--seed S]
+            let n: u64 = args[2].parse().unwrap();
+            let a = opt(&args, "--params").unwrap_or("ai/params".into());
+            let b = opt(&args, "--params-b").unwrap_or("ai/params".into());
+            let k: usize = opt(&args, "--pairings").and_then(|s| s.parse().ok()).unwrap_or(usize::MAX);
+            let seed: u64 = opt(&args, "--seed").and_then(|s| s.parse().ok()).unwrap_or(700_000);
+            let t = std::time::Instant::now();
+            let (w, d, cpu) = ab(&a, &b, n, k, threads, &decks, seed);
+            let (lo, hi) = wilson(w, d);
+            println!("{} vs {}: A wins {:.1} % [{:.1}, {:.1}] of {} games, {:.2} s CPU/game, wall {:.0}s", a, b, 100.0 * w / d.max(1.0), 100.0 * lo, 100.0 * hi, d, cpu, t.elapsed().as_secs_f64());
+        }
+        Some("evolve") => {
+            // aitool evolve ROUND --params DIR --out DIR2 [--cands C] [--games G] [--sigma S] [--margin M]
+            let round: u64 = args[2].parse().unwrap();
+            let dir = opt(&args, "--params").unwrap_or("ai/params".into());
+            let out = opt(&args, "--out").expect("--out");
+            let c: usize = opt(&args, "--cands").and_then(|s| s.parse().ok()).unwrap_or(3);
+            let g: u64 = opt(&args, "--games").and_then(|s| s.parse().ok()).unwrap_or(40);
+            let sigma: f64 = opt(&args, "--sigma").and_then(|s| s.parse().ok()).unwrap_or(0.3);
+            let margin: f64 = opt(&args, "--margin").and_then(|s| s.parse().ok()).unwrap_or(0.075);
+            evolve(round, &dir, &out, c, g, sigma, margin, threads, &decks);
         }
         Some("agree") => {
             let n: u64 = args[2].parse().unwrap();

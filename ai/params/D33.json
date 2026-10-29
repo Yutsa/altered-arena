@@ -1,0 +1,23 @@
+{
+ "mana_prior": {
+  "Unique:Reka Patron": -0.6,
+  "YZ_Common_KrakensWrath": 1.0,
+  "YZ_Common_MochizukiChiyome": -0.5,
+  "YZ_Common_OffYouGo": 0.0,
+  "YZ_Rare_ConjuringSeal": 0.25,
+  "YZ_Rare_StudiousDisciple": 0.0,
+  "YZ_Rare_WinterNova": -0.667
+ },
+ "play_prior": {
+  "Unique:Reka Patron": 0.355,
+  "YZ_Common_MochizukiChiyome": -0.216,
+  "YZ_Common_MothtoaSpring": -0.102,
+  "YZ_Common_OffYouGo": -0.468,
+  "YZ_Common_StudiousAcolyte": -0.135,
+  "YZ_Rare_ConjuringSeal": -0.351,
+  "YZ_Rare_MothtoaSpring": 0.149,
+  "YZ_Rare_StudiousDisciple": 0.378,
+  "YZ_Rare_Undine": 0.378,
+  "YZ_Rare_WinterNova": 0.149
+ }
+}

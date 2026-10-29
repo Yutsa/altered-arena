@@ -1,0 +1,34 @@
+{
+ "mana_prior": {
+  "BR_Common_EatMeEnergyBars": 0.235,
+  "BR_Common_HaluaRagingLeviathan": 1.085,
+  "BR_Common_LernaeanHydra": 0.127,
+  "BR_Common_ManaFlare": -0.415,
+  "BR_Common_MightyJinn": -0.665,
+  "BR_Common_Rage": -0.593,
+  "BR_Common_SmolderingJinn": 0.335,
+  "BR_Common_SwiftJinn": 0.502,
+  "BR_Common_TalarianSkater": 0.335,
+  "BR_Rare_KaibaraAsgarthanLeviathan": 1.085,
+  "BR_Rare_KaurisIntervention": -0.165,
+  "BR_Rare_LeviathanSpotter": 0.102,
+  "BR_Rare_Sakarabru": -0.165,
+  "BR_Rare_TheHunger": -0.415,
+  "Unique:DJ Lyra": -0.593
+ },
+ "play_prior": {
+  "BR_Common_EatMeEnergyBars": -0.12,
+  "BR_Common_LernaeanHydra": -0.337,
+  "BR_Common_ManaFlare": -0.361,
+  "BR_Common_MightyJinn": 0.245,
+  "BR_Common_Rage": -0.305,
+  "BR_Common_SmolderingJinn": 0.132,
+  "BR_Common_SwiftJinn": 0.497,
+  "BR_Common_TalarianSkater": -0.303,
+  "BR_Rare_KaurisIntervention": -0.005,
+  "BR_Rare_LeviathanSpotter": 0.497,
+  "BR_Rare_Sakarabru": 0.247,
+  "BR_Rare_TheHunger": -0.171,
+  "Unique:DJ Lyra": 0.195
+ }
+}

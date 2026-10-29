@@ -1,0 +1,28 @@
+{
+ "mana_prior": {
+  "BR_Common_BoldOutrider": 0.038,
+  "BR_Common_HavenBouncer": 0.281,
+  "BR_Common_ManaChanneling": 1.031,
+  "BR_Common_MightyJinn": 0.281,
+  "BR_Common_TalarianSkater": 0.281,
+  "BR_Common_Tengu": -0.562,
+  "BR_Rare_LeviathanSpotter": -0.469,
+  "BR_Rare_PhysicalTraining": -0.67,
+  "BR_Rare_TheHunger": 1.031,
+  "Unique:Mia, Danseuse \u00c9toile": -0.469
+ },
+ "play_prior": {
+  "BR_Common_BoldOutrider": -0.35,
+  "BR_Common_CatchoftheDay": -0.231,
+  "BR_Common_DuelofGrit": -0.34,
+  "BR_Common_FireRabbit": 0.208,
+  "BR_Common_MightyJinn": -0.292,
+  "BR_Common_TalarianSkater": 0.155,
+  "BR_Common_Tengu": 0.133,
+  "BR_Rare_LeviathanSpotter": -0.186,
+  "BR_Rare_MightyJinn": 0.155,
+  "BR_Rare_PhysicalTraining": -0.114,
+  "Unique:Djinn Ardent": 0.278,
+  "Unique:Mia, Danseuse \u00c9toile": 0.708
+ }
+}

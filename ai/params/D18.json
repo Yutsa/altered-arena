@@ -1,0 +1,33 @@
+{
+ "mana_prior": {
+  "LY_Common_BLISSBassist": 0.329,
+  "LY_Common_BLISSKeytarist": -0.632,
+  "LY_Common_CorruptedEsmeralda": 0.329,
+  "LY_Common_Hathor": -0.421,
+  "LY_Common_SnowballCommando": -0.061,
+  "LY_Common_Tanuki": -0.061,
+  "LY_Common_TwinkleTwinkle": -0.561,
+  "LY_Common_WillotheWisp": 1.295,
+  "LY_Rare_Carbunclo": 0.256,
+  "LY_Rare_LakshmisOwl": 1.295,
+  "LY_Rare_NilsHolgersson": 0.095,
+  "LY_Rare_RekaThurifer": -0.632,
+  "LY_Rare_SmokingSkunk": -0.144,
+  "Unique:Mia, Danseuse \u00c9toile": -0.421
+ },
+ "play_prior": {
+  "LY_Common_BLISSBassist": 0.357,
+  "LY_Common_BLISSKeytarist": 0.179,
+  "LY_Common_CorruptedEsmeralda": -0.279,
+  "LY_Common_Hathor": 0.083,
+  "LY_Common_SnowballCommando": 0.166,
+  "LY_Common_Tanuki": 0.029,
+  "LY_Common_TwinkleTwinkle": -0.156,
+  "LY_Rare_Carbunclo": -0.361,
+  "LY_Rare_Martengale": 0.521,
+  "LY_Rare_NilsHolgersson": 0.024,
+  "LY_Rare_RekaThurifer": 0.069,
+  "LY_Rare_SmokingSkunk": -0.302,
+  "Unique:Mia, Danseuse \u00c9toile": 0.069
+ }
+}

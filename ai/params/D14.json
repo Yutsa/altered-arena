@@ -1,0 +1,27 @@
+{
+ "mana_prior": {
+  "LY_Common_Anansi": -0.041,
+  "LY_Common_LyraContortionist": -0.486,
+  "LY_Common_LyraSignet": 0.459,
+  "LY_Common_TwinkleTwinkle": 0.278,
+  "LY_Rare_MagicalTraining": -0.579,
+  "LY_Rare_OuroborosInkcaster": 0.345,
+  "LY_Rare_RekaRecycler": -0.151
+ },
+ "play_prior": {
+  "LY_Common_ACappellaTraining": 0.244,
+  "LY_Common_Anansi": -0.073,
+  "LY_Common_ClothCocoon": -0.065,
+  "LY_Common_Hathor": -0.185,
+  "LY_Common_LyraContortionist": -0.096,
+  "LY_Common_LyraSignet": -0.12,
+  "LY_Common_Martengale": -0.187,
+  "LY_Common_TwinkleTwinkle": -0.187,
+  "LY_Rare_MagicalTraining": 0.427,
+  "LY_Rare_OuroborosInkcaster": -0.106,
+  "LY_Rare_RekaRecycler": -0.031,
+  "LY_Rare_SneakySalamander": 0.026,
+  "Unique:Dansecorde Reka": 0.223,
+  "Unique:Guide Reka": 0.421
+ }
+}

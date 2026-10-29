@@ -1,0 +1,20 @@
+{
+ "mana_prior": {
+  "LY_Common_CorruptedEsmeralda": -0.6,
+  "LY_Common_Esmeralda": 1.2,
+  "LY_Common_Hathor": 1.0,
+  "LY_Rare_TheSandman": -0.167,
+  "Unique:Mia, Danseuse \u00c9toile": -0.6
+ },
+ "play_prior": {
+  "LY_Common_ClothCocoon": 0.197,
+  "LY_Common_CorruptedEsmeralda": -0.071,
+  "LY_Common_LyraContortionist": -0.455,
+  "LY_Rare_FragrantMeerkat": 0.697,
+  "LY_Rare_LakshmisOwl": 0.436,
+  "LY_Rare_Martengale": 0.197,
+  "LY_Rare_SmokingSkunk": 0.197,
+  "LY_Rare_TheSandman": -0.433,
+  "Unique:Mia, Danseuse \u00c9toile": -0.027
+ }
+}

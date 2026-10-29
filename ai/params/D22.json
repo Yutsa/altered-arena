@@ -1,0 +1,36 @@
+{
+ "mana_prior": {
+  "MU_Common_BeautySleep": 0.358,
+  "MU_Common_BurrowingNoosh": 0.858,
+  "MU_Common_HelpfulPelican": -0.642,
+  "MU_Common_MagicBeans": 1.528,
+  "MU_Common_Persephone": -0.347,
+  "MU_Common_ResentfulRobin": 0.169,
+  "MU_Common_SpindleHarvesters": 0.028,
+  "MU_Rare_Coppelia": -0.17,
+  "MU_Rare_DonJuan": 1.019,
+  "MU_Rare_FloreCaringGardener": -0.259,
+  "MU_Rare_Gargoyle": -0.259,
+  "MU_Rare_LyraContortionist": 0.622,
+  "MU_Rare_RekaInvestor": -0.688,
+  "MU_Rare_TheUglyDuckling": -0.353,
+  "Unique:Croc Blanc": -0.642,
+  "Unique:Raksha": -0.578
+ },
+ "play_prior": {
+  "MU_Common_BeautySleep": -0.147,
+  "MU_Common_BurrowingNoosh": 0.478,
+  "MU_Common_HelpfulPelican": 0.068,
+  "MU_Common_Persephone": -0.255,
+  "MU_Common_ResentfulRobin": -0.301,
+  "MU_Common_SpindleHarvesters": -0.076,
+  "MU_Rare_Coppelia": 0.117,
+  "MU_Rare_FloreCaringGardener": 0.28,
+  "MU_Rare_Gargoyle": -0.003,
+  "MU_Rare_LyraContortionist": 0.731,
+  "MU_Rare_RekaInvestor": 0.114,
+  "MU_Rare_TheUglyDuckling": -0.191,
+  "Unique:Croc Blanc": 0.027,
+  "Unique:Raksha": 0.161
+ }
+}

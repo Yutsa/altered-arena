@@ -1,0 +1,31 @@
+{
+ "mana_prior": {
+  "BR_Common_ArcolanoMilk": 0.012,
+  "BR_Common_DuelofGrit": -0.078,
+  "BR_Common_FireRabbit": 0.095,
+  "BR_Common_JumpingFrog": 1.346,
+  "BR_Common_Tengu": 1.079,
+  "BR_Common_WingsuitJumper": -0.481,
+  "BR_Rare_LeviathanSpotter": -0.061,
+  "BR_Rare_MightyJinn": -0.673,
+  "BR_Rare_TheHunger": 0.13,
+  "BR_Rare_TheShell": -0.256,
+  "BR_Rare_TwinkleTwinkle": 0.095,
+  "Unique:N\u00e9ph\u00e9l\u00e9": -0.561,
+  "Unique:Reka Skipper": -0.561
+ },
+ "play_prior": {
+  "BR_Common_ArcolanoMilk": -0.076,
+  "BR_Common_DuelofGrit": -0.464,
+  "BR_Common_FireRabbit": -0.155,
+  "BR_Common_JumpingFrog": 0.153,
+  "BR_Common_Tengu": 0.207,
+  "BR_Common_WingsuitJumper": 0.362,
+  "BR_Rare_LeviathanSpotter": 0.355,
+  "BR_Rare_MightyJinn": -0.26,
+  "BR_Rare_TheShell": 0.426,
+  "BR_Rare_TwinkleTwinkle": -0.297,
+  "Unique:N\u00e9ph\u00e9l\u00e9": 0.331,
+  "Unique:Reka Skipper": 0.061
+ }
+}

@@ -1,0 +1,36 @@
+{
+ "mana_prior": {
+  "MU_Common_BeautySleep": 0.062,
+  "MU_Common_CountingSheep": -0.212,
+  "MU_Common_DrowsyDodo": 0.217,
+  "MU_Common_HerdingPuli": 0.302,
+  "MU_Common_Raksha": -0.031,
+  "MU_Common_ResentfulRobin": 0.453,
+  "MU_Common_TheNaos": 0.626,
+  "MU_Exalted_PlagueofPrejudice": 0.062,
+  "MU_Rare_ColorfulCuckoo": 0.183,
+  "MU_Rare_KaurisIntervention": -0.448,
+  "MU_Rare_Pasiphae": -0.364,
+  "MU_Rare_Soar": -0.297,
+  "MU_Rare_WhiteFang": -0.297,
+  "MU_Rare_ZaratanSocialLeviathan": -0.247
+ },
+ "play_prior": {
+  "MU_Common_BeautySleep": -0.08,
+  "MU_Common_CountingSheep": -0.305,
+  "MU_Common_DrowsyDodo": 0.566,
+  "MU_Common_HerdingPuli": -0.199,
+  "MU_Common_Raksha": -0.125,
+  "MU_Common_ResentfulRobin": 0.107,
+  "MU_Common_TheNaos": -0.199,
+  "MU_Exalted_PlagueofPrejudice": 0.075,
+  "MU_Rare_ColorfulCuckoo": 0.566,
+  "MU_Rare_KaurisIntervention": -0.179,
+  "MU_Rare_Pasiphae": -0.259,
+  "MU_Rare_Soar": 0.026,
+  "MU_Rare_WhiteFang": 0.147,
+  "MU_Rare_ZaratanSocialLeviathan": -0.118,
+  "Unique:Crabe en Mue": 0.475,
+  "Unique:Dawon": 0.075
+ }
+}

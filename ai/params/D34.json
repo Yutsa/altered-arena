@@ -1,0 +1,35 @@
+{
+ "mana_prior": {
+  "Unique:Novice Studieux": -0.489,
+  "YZ_Common_AleloEerieLeviathan": 0.011,
+  "YZ_Common_FlutterofMoths": -0.176,
+  "YZ_Common_MochizukiChiyome": 0.429,
+  "YZ_Common_MothtoaSpring": 0.429,
+  "YZ_Common_RekaSupporter": 0.76,
+  "YZ_Common_StudiousAcolyte": -0.629,
+  "YZ_Common_StudiousDisciple": 0.574,
+  "YZ_Common_TheWellofTears": -0.367,
+  "YZ_Rare_AngryCrowd": -0.601,
+  "YZ_Rare_BabaYaga": 0.429,
+  "YZ_Rare_ConjuringSeal": 0.013,
+  "YZ_Rare_ManaFlare": 0.313,
+  "YZ_Rare_MothCollision": 0.011,
+  "YZ_Rare_Tag": -0.238
+ },
+ "play_prior": {
+  "Unique:Novice Studieux": 0.011,
+  "YZ_Common_AleloEerieLeviathan": -0.189,
+  "YZ_Common_FlutterofMoths": -0.104,
+  "YZ_Common_MochizukiChiyome": -0.155,
+  "YZ_Common_MothtoaSpring": -0.324,
+  "YZ_Common_StudiousAcolyte": 0.137,
+  "YZ_Common_StudiousDisciple": -0.072,
+  "YZ_Common_TheWellofTears": 0.757,
+  "YZ_Rare_AngryCrowd": 0.012,
+  "YZ_Rare_BabaYaga": 0.693,
+  "YZ_Rare_ConjuringSeal": -0.051,
+  "YZ_Rare_ManaFlare": -0.034,
+  "YZ_Rare_MothCollision": 0.095,
+  "YZ_Rare_Tag": -0.412
+ }
+}

@@ -1,0 +1,36 @@
+{
+ "mana_prior": {
+  "MU_Common_BeautySleep": -0.23,
+  "MU_Common_Bumblebeet": 0.549,
+  "MU_Common_DrowsyDodo": 0.736,
+  "MU_Common_Raksha": -0.016,
+  "MU_Common_ResentfulRobin": 0.462,
+  "MU_Common_RunningwiththeWolves": 0.12,
+  "MU_Common_SpindleHarvesters": 0.11,
+  "MU_Common_WhiteFang": 0.737,
+  "MU_Rare_ColorfulCuckoo": -0.266,
+  "MU_Rare_LyraThespian": -0.39,
+  "MU_Rare_ManaEruption": -0.14,
+  "MU_Rare_SmokingSkunk": 0.102,
+  "MU_Rare_TheUglyDuckling": -0.466,
+  "MU_Rare_WigwaggingKiwi": -0.264,
+  "Unique:Karhu, Seigneur des Ours": -0.266
+ },
+ "play_prior": {
+  "MU_Common_BeautySleep": -0.305,
+  "MU_Common_Bumblebeet": -0.24,
+  "MU_Common_DrowsyDodo": 0.328,
+  "MU_Common_Raksha": -0.039,
+  "MU_Common_ResentfulRobin": 0.233,
+  "MU_Common_RunningwiththeWolves": -0.078,
+  "MU_Common_SpindleHarvesters": 0.363,
+  "MU_Common_WhiteFang": 0.093,
+  "MU_Rare_ColorfulCuckoo": 0.861,
+  "MU_Rare_LyraThespian": -0.147,
+  "MU_Rare_ManaEruption": -0.156,
+  "MU_Rare_SmokingSkunk": -0.27,
+  "MU_Rare_TheUglyDuckling": -0.26,
+  "MU_Rare_WigwaggingKiwi": 0.011,
+  "Unique:Karhu, Seigneur des Ours": 0.305
+ }
+}

@@ -1,0 +1,23 @@
+{
+ "mana_prior": {
+  "LY_Common_Cleanse": 0.908,
+  "LY_Common_Lakshmi": -0.513,
+  "LY_Common_OuroborosTrickster": 0.158,
+  "LY_Common_XMarkstheSpot": 0.908,
+  "LY_Rare_FragrantMeerkat": -0.888,
+  "LY_Rare_KadigiranMageDancer": -0.947,
+  "LY_Rare_Loki": 0.908,
+  "Unique:Bastet": 0.158
+ },
+ "play_prior": {
+  "LY_Common_Cleanse": -0.04,
+  "LY_Common_ClothCocoon": -0.248,
+  "LY_Common_Lakshmi": 0.025,
+  "LY_Rare_Daedalus": -0.06,
+  "LY_Rare_FragrantMeerkat": 0.207,
+  "LY_Rare_KadigiranMageDancer": 0.074,
+  "Unique:Bastet": -0.04,
+  "Unique:Dansecorde Reka": -0.04,
+  "Unique:Hibou de Lakshmi": -0.248
+ }
+}

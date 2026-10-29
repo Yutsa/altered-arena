@@ -1,0 +1,42 @@
+{
+ "mana_prior": {
+  "Unique:Baba Yaga Corrompue": -0.489,
+  "Unique:Exorciste du Qorgan": -0.489,
+  "Unique:Reka Patron": -0.061,
+  "YZ_Common_Caladrius": 0.543,
+  "YZ_Common_FortheGreaterGood": -0.252,
+  "YZ_Common_Pasiphae": 0.113,
+  "YZ_Common_QorganPhantom": 0.113,
+  "YZ_Common_SportsEncounter": 0.343,
+  "YZ_Common_StigmaofFallacy": -0.58,
+  "YZ_Common_StudiousDisciple": 0.543,
+  "YZ_Exalted_PlagueofIgnorance": 0.652,
+  "YZ_Rare_GrumpyImp": 0.236,
+  "YZ_Rare_InvestigatetheCorruption": -0.061,
+  "YZ_Rare_Issitoq": -0.548,
+  "YZ_Rare_PushBacktheNight": 0.043,
+  "YZ_Rare_Shiva": -0.061,
+  "YZ_Rare_Tag": -0.061,
+  "YZ_Rare_TerrifiedGhost": 0.189
+ },
+ "play_prior": {
+  "Unique:Baba Yaga Corrompue": 0.466,
+  "Unique:Exorciste du Qorgan": 0.194,
+  "Unique:Reka Patron": -0.004,
+  "YZ_Common_Caladrius": 0.037,
+  "YZ_Common_FortheGreaterGood": 0.025,
+  "YZ_Common_Pasiphae": -0.126,
+  "YZ_Common_QorganPhantom": -0.216,
+  "YZ_Common_SportsEncounter": -0.194,
+  "YZ_Common_StigmaofFallacy": -0.086,
+  "YZ_Common_StudiousDisciple": -0.004,
+  "YZ_Exalted_PlagueofIgnorance": -0.137,
+  "YZ_Rare_GrumpyImp": 0.037,
+  "YZ_Rare_InvestigatetheCorruption": 0.466,
+  "YZ_Rare_Issitoq": -0.174,
+  "YZ_Rare_PushBacktheNight": 0.371,
+  "YZ_Rare_Shiva": 0.368,
+  "YZ_Rare_Tag": -0.251,
+  "YZ_Rare_TerrifiedGhost": -0.075
+ }
+}

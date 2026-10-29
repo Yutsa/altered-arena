@@ -1,0 +1,37 @@
+{
+ "mana_prior": {
+  "AX_Common_AbandonedDepot": -0.306,
+  "AX_Common_AerolithReef": 1.064,
+  "AX_Common_BugOutBag": -0.397,
+  "AX_Common_FoundryMechanic": 0.322,
+  "AX_Common_Gibil": 0.503,
+  "AX_Common_MechanicalTraining": -0.155,
+  "AX_Common_ScienceFair": 0.11,
+  "AX_Common_TikTok": 0.471,
+  "AX_Rare_Boom": 0.245,
+  "AX_Rare_BrassbugHive": -0.656,
+  "AX_Rare_FoundryArmorer": 0.235,
+  "AX_Rare_Hooked": -0.194,
+  "AX_Rare_Martengale": 0.322,
+  "AX_Rare_MoonlightJellyfish": 0.416,
+  "Unique:Expert en D\u00e9molition": -0.436,
+  "Unique:Petit Poucet": -0.104
+ },
+ "play_prior": {
+  "AX_Common_AbandonedDepot": -0.06,
+  "AX_Common_BugOutBag": 0.161,
+  "AX_Common_FoundryMechanic": 0.113,
+  "AX_Common_Gibil": -0.101,
+  "AX_Common_MechanicalTraining": -0.29,
+  "AX_Common_ScienceFair": 0.11,
+  "AX_Common_TikTok": -0.129,
+  "AX_Rare_Boom": -0.274,
+  "AX_Rare_BrassbugHive": 0.63,
+  "AX_Rare_FoundryArmorer": 0.049,
+  "AX_Rare_Hooked": 0.151,
+  "AX_Rare_Martengale": -0.007,
+  "AX_Rare_MoonlightJellyfish": 0.254,
+  "Unique:Expert en D\u00e9molition": 0.049,
+  "Unique:Petit Poucet": -0.269
+ }
+}
