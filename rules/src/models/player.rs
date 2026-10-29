@@ -27,6 +27,22 @@ pub fn get_pref(g: &Game, pid: PId, pref: i64) -> Value {
         .unwrap_or(Value::Null)
 }
 
+/// `initializeDecks()`: the starter decks the player can choose from (`playerDecks`)
+// PHP: Models/Player.php:1134
+pub fn initialize_decks(g: &mut Game, pid: PId) -> R<()> {
+    let i = 0;
+    let decks = php::arr();
+    if globals::get(g, "deckFormat")? == json!("DEMO") {
+        return Err(PhpError::nt("Managers/Cards.php setupDemoDeck (DEMO_ROC_FLOCK_DECKS)"));
+    }
+    let list = cards::setup_preco_deck(g, pid, i, decks.clone())?;
+    let decks = php::array_merge(&[&decks, &list]);
+    let mut all = globals::get(g, "playerDecks")?;
+    php::set(&mut all, &pid.to_string(), decks);
+    globals::set(g, "playerDecks", all)?;
+    Ok(())
+}
+
 /// `getDeckCount()`: deck + revealed cards
 pub fn get_deck_count(g: &Game, pid: PId) -> R<usize> {
     Ok(cards::count_in_location(g, &format!("deck-{}", pid))? + cards::count_in_location(g, &format!("reveal-{}", pid))?)

@@ -1,6 +1,8 @@
 //! Faithful translation of the AlteredBGA PHP rules engine (see docs/RUST_PORT.md)
 
 pub mod actions;
+pub mod arena;
+pub mod bot;
 pub mod core;
 pub mod db;
 pub mod framework;
@@ -81,4 +83,35 @@ impl Game {
         let mut g = self.clone();
         v1::oracle_state(&mut g).unwrap_or(Value::Null)
     }
+
+    /// A new game as the arena creates it (`V1::createGame`): players 2001 and 2002, the
+    /// randomness seeded from `game_id` (Arena::seedRng), dice from `dice` (in order, cycling;
+    /// empty: the BGA studio rule, every die is a 5), the decks of human players selected right
+    /// away, then the bots play their decisions
+    pub fn create(game_id: i64, players: &[arena::NewPlayer], dice: &[i64]) -> Result<Game, PhpError> {
+        arena::create_v1_game(game_id, players, dice)
+    }
+
+    /// The protocol v1 GameView of a player (None: a spectator). As in PHP, a view may create the
+    /// missing user preferences and global rows (with their default values).
+    pub fn view(&mut self, player: Option<u32>, game_id: &str) -> Result<Value, PhpError> {
+        v1::build(self, player.map(|p| p as PId), game_id)
+    }
+
+    /// Bot players take every decision that is theirs (Arena::runBots)
+    pub fn run_bots(&mut self) -> Result<(), PhpError> {
+        arena::run_bots(self)
+    }
+
+    /// The players the bot plays
+    pub fn bots(&self) -> &[PId] {
+        &self.bots
+    }
+
+    /// The tables in the format of `from_bga_tables` (explore.php `dumpTables`)
+    pub fn bga_tables(&self) -> Value {
+        load::to_bga_tables(self)
+    }
 }
+
+use game::PId;

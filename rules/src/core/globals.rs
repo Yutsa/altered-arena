@@ -83,7 +83,7 @@ pub fn var_type(name: &str) -> Option<&'static str> {
     VARIABLES.iter().find(|(n, _)| *n == name).map(|(_, t)| *t)
 }
 
-fn default_of(t: &str) -> Value {
+pub fn default_of(t: &str) -> Value {
     match t {
         "int" => json!(0),
         "bool" => json!(false),

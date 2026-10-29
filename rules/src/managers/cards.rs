@@ -692,3 +692,102 @@ pub fn apply_effect(g: &mut Game, cid: CardId, _player: PId, _method: &Value, ar
 pub fn apply_effects(_g: &mut Game, _player: PId, _method: &str, _args: &mut Value) -> R<bool> {
     Ok(false)
 }
+
+// ---------------------------------------------------------------------------
+// Setup (Managers/Cards.php:664 setupPrecoDeck, Cards/cards.inc.php STARTER_DECKS)
+// ---------------------------------------------------------------------------
+
+/// `STARTER_DECKS` (Cards/cards.inc.php:90): deck id and faction, in the order of the constant
+pub const STARTER_DECKS: &[(&str, &str)] = &[
+    ("ax_1_sierra", "AX"),
+    ("ax_2_treyst", "AX"),
+    ("ax_3_subhash", "AX"),
+    ("ax_65_isaree", "AX"),
+    ("ax_85_della", "AX"),
+    ("br_1_kojo", "BR"),
+    ("br_2_atsadi", "BR"),
+    ("br_3_basira", "BR"),
+    ("br_65_sol", "BR"),
+    ("br_105_gretel", "BR"),
+    ("ly_1_nevenka", "LY"),
+    ("ly_2_auraq", "LY"),
+    ("ly_3_fen", "LY"),
+    ("ly_65_nadir", "LY"),
+    ("ly_105_yeonggi", "LY"),
+    ("mu_1_teija", "MU"),
+    ("mu_2_arjun", "MU"),
+    ("mu_3_rin", "MU"),
+    ("mu_65_kauri", "MU"),
+    ("mu_85_turuun", "MU"),
+    ("or_1_sigismar", "OD"),
+    ("or_2_waru", "OD"),
+    ("or_3_gulrang", "OD"),
+    ("or_65_zhen", "OD"),
+    ("or_85_matz", "OD"),
+    ("yz_1_akesha", "YZ"),
+    ("yz_2_lindiwe", "YZ"),
+    ("yz_3_afanas", "YZ"),
+    ("yz_65_moyo", "YZ"),
+    ("yz_105_sam", "YZ"),
+];
+
+type StarterList = Vec<(String, i64)>;
+static STARTERS: OnceLock<HashMap<String, StarterList>> = OnceLock::new();
+
+/// The contents of a starter deck (`STARTER_<HERO>` of Cards/StarterDecks/<deck id>.inc.php,
+/// exported to engine/data/starters.min.json): class name and number of copies, in order
+pub fn starter_contents(deck_id: &str) -> &'static [(String, i64)] {
+    let all = STARTERS.get_or_init(|| {
+        let data: Map<String, Value> = serde_json::from_str(include_str!("../../../engine/data/starters.min.json")).expect("starters.min.json");
+        data.into_iter()
+            .map(|(k, v)| {
+                let list = match v {
+                    Value::Object(m) => m.into_iter().map(|(c, n)| (c, php::intval(&n))).collect(),
+                    _ => vec![],
+                };
+                (k, list)
+            })
+            .collect()
+    });
+    all.get(deck_id).map(|v| v.as_slice()).unwrap_or(&[])
+}
+
+/// `new $className(null)`: the properties of a card class
+pub fn class_props(class: &str) -> R<Props> {
+    classes().get(class).cloned().ok_or_else(|| PhpError::new(format!("Error: Class \"{}\" not found", class)))
+}
+
+/// `Cards::setupPrecoDeck($player, $deckNumber, $deckList)`: every starter deck in the player's
+/// `deck-<n>` locations (the chosen one is kept at deck setup)
+// PHP: Managers/Cards.php:664
+pub fn setup_preco_deck(g: &mut Game, pid: PId, deck_number: i64, deck_list: Value) -> R<Value> {
+    let mut deck_list = deck_list;
+    let mut deck_number = deck_number;
+    let mut to_create = vec![];
+    for (deck_id, faction) in STARTER_DECKS {
+        for (class, n) in starter_contents(deck_id) {
+            let card = class_props(class)?;
+            let location = format!("deck-{}", deck_number);
+            if card.get("type") == Some(&json!("hero")) {
+                php::seti(&mut deck_list, deck_number, json!({"deckNumber": deck_number, "deckId": deck_id, "faction": faction}));
+            }
+            // we do not create token as they will be created on the fly
+            if php::truthy(card.get("token").unwrap_or(&Value::Null)) {
+                continue;
+            }
+            to_create.push(json!({
+                "player_id": pid,
+                "location": location,
+                "nbr": n,
+                "properties": {
+                    "rarity": php::intval(card.get("rarity").unwrap_or(&Value::Null)),
+                    "name": card.get("name").cloned().unwrap_or(Value::Null),
+                    "faction": card.get("faction").cloned().unwrap_or(Value::Null),
+                },
+            }));
+        }
+        deck_number += 1;
+    }
+    create(g, &Value::Array(to_create), None)?;
+    Ok(deck_list)
+}

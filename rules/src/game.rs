@@ -143,6 +143,24 @@ pub struct Game {
     /// `Helpers/Evaluation.php` scope
     #[serde(skip)]
     pub memo: Option<HashMap<String, Value>>,
+    /// The arena's game config: players played by the bot (Arena::runBots)
+    #[serde(default)]
+    pub bots: Vec<PId>,
+    /// The log of the game (the arena's `arena_notif` table, as V1::log reads it): the latest
+    /// lines with a text, kept after each request
+    #[serde(default)]
+    pub history: Vec<LogLine>,
+}
+
+/// A line of the game log (protocol v1 LogEntry, with its target when private)
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct LogLine {
+    pub seq: u64,
+    pub text: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub player: Option<PId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub target: Option<PId>,
 }
 
 impl Game {
@@ -174,6 +192,8 @@ impl Game {
             seat_order: vec![],
             last_args: None,
             memo: None,
+            bots: vec![],
+            history: vec![],
         }
     }
 
@@ -246,7 +266,13 @@ impl Game {
 
     pub fn notify(&mut self, name: &str, args: Value) {
         self.notif_seq += 1;
-        self.notifications.push(serde_json::json!({ "name": name, "args": args }));
+        self.notifications.push(serde_json::json!({ "seq": self.notif_seq, "name": name, "args": args }));
+    }
+
+    /// `notifyAllPlayers` (no target) / `notifyPlayer` with the log message
+    pub fn notify_to(&mut self, target: Option<PId>, name: &str, msg: &str, args: Value) {
+        self.notif_seq += 1;
+        self.notifications.push(serde_json::json!({ "seq": self.notif_seq, "name": name, "msg": msg, "target": target, "args": args }));
     }
 
     // -----------------------------------------------------------------------

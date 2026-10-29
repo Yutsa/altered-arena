@@ -101,6 +101,110 @@ pub fn from_bga_tables(tables: &Value, dice: &[i64]) -> R<Game> {
     Ok(g)
 }
 
+/// The game's tables in the format of `from_bga_tables` (explore.php `dumpTables`: every value
+/// a string, JSON columns as JSON text)
+pub fn to_bga_tables(g: &Game) -> Value {
+    let s = |v: &dyn std::fmt::Display| json!(v.to_string());
+    let mut cards: Vec<&crate::game::CardRow> = g.cards.values().collect();
+    cards.sort_by_key(|c| c.id);
+    let cards: Vec<Value> = cards
+        .into_iter()
+        .map(|c| json!({"card_id": s(&c.id), "card_location": c.location, "card_state": s(&c.state), "player_id": s(&c.pid), "properties": serde_json::to_string(&*c.db_props).unwrap()}))
+        .collect();
+    let mut meeples: Vec<&Meeple> = g.meeples.values().collect();
+    meeples.sort_by_key(|m| m.id);
+    let meeples: Vec<Value> = meeples
+        .into_iter()
+        .map(|m| json!({"meeple_id": s(&m.id), "meeple_location": m.location, "meeple_state": m.state, "type": m.kind, "player_id": m.pid}))
+        .collect();
+    let mut names: Vec<&String> = g.globals.keys().collect();
+    names.sort();
+    let globals: Vec<Value> = names.into_iter().map(|n| json!({"name": n, "value": serde_json::to_string(&g.globals[n]).unwrap()})).collect();
+    let players: Vec<Value> = g
+        .players
+        .values()
+        .map(|p| {
+            json!({
+                "player_id": s(&p.id), "player_no": s(&p.no), "player_name": p.name, "player_color": p.color,
+                "player_score": s(&p.score), "player_score_aux": s(&p.score_aux), "player_zombie": p.zombie,
+                "player_eliminated": p.eliminated, "player_is_multiactive": if p.is_multiactive { "1" } else { "0" },
+                "faction": if p.faction.is_empty() { Value::Null } else { json!(p.faction) },
+            })
+        })
+        .collect();
+    let prefs: Vec<Value> = g.prefs.iter().map(|p| json!({"id": s(&p.id), "player_id": s(&p.player_id), "pref_id": s(&p.pref_id), "pref_value": p.value})).collect();
+    let fw: Vec<Value> = g.fw.iter().map(|(k, v)| json!({"global_id": s(k), "global_value": s(v)})).collect();
+    json!({
+        "cards": cards,
+        "meeples": meeples,
+        "global_variables": globals,
+        "player": players,
+        "user_preferences": prefs,
+        "global": fw,
+        "arena_rng": [{"dice": s(&g.dice_used), "game": s(&g.rng_game), "acts": s(&g.rng_acts)}],
+        "auto_increment": {"cards": s(&g.next_card_id), "meeples": s(&g.next_meeple_id)},
+    })
+}
+
+/// The differences between two table dumps (`to_bga_tables` / explore.php `dumpTables`): values
+/// compared as PHP reads them (numeric strings as numbers, JSON columns decoded, null faction as
+/// empty), columns the translation does not keep (player_row, avatar, canal) ignored
+pub fn diff_tables(a: &Value, b: &Value) -> Vec<String> {
+    fn canon(v: &Value, json_col: bool) -> Value {
+        match v {
+            Value::String(s) if json_col => {
+                let mut x: Value = serde_json::from_str(s).unwrap_or(Value::String(s.clone()));
+                php::normalize(&mut x);
+                x
+            }
+            Value::String(s) => s.parse::<i64>().map(|n| json!(n)).unwrap_or_else(|_| v.clone()),
+            Value::Null => json!(""),
+            _ => v.clone(),
+        }
+    }
+    let mut out = vec![];
+    let tables = ["cards", "meeples", "player", "user_preferences", "global", "arena_rng"];
+    for t in tables {
+        let ra = php::vals(php::get(a, t));
+        let rb = php::vals(php::get(b, t));
+        if ra.len() != rb.len() {
+            out.push(format!("{}: {} rows vs {}", t, ra.len(), rb.len()));
+        }
+        for (x, y) in ra.iter().zip(rb.iter()) {
+            let keys: Vec<String> = php::keys_str(x).into_iter().chain(php::keys_str(y)).filter(|k| !["player_row", "player_avatar", "player_canal"].contains(&k.as_str())).collect();
+            for k in keys {
+                let j = k == "properties";
+                let (va, vb) = (canon(php::get(x, &k), j), canon(php::get(y, &k), j));
+                if va != vb {
+                    out.push(format!("{} row {}: {} = {} vs {}", t, php::strval(&canon(&php::vals(x).first().cloned().cloned().unwrap_or(Value::Null), false)), k, va, vb));
+                    break;
+                }
+            }
+        }
+    }
+    let globals = |v: &Value| -> Vec<(String, Value)> { php::vals(php::get(v, "global_variables")).into_iter().map(|r| (php::strval(php::get(r, "name")), canon(php::get(r, "value"), true))).collect() };
+    let (ga, gb) = (globals(a), globals(b));
+    for (k, v) in &ga {
+        match gb.iter().find(|(n, _)| n == k) {
+            Some((_, w)) if w != v => out.push(format!("global {}: {} vs {}", k, v, w)),
+            None => out.push(format!("global {} only in the first dump: {}", k, v)),
+            _ => {}
+        }
+    }
+    for (k, v) in &gb {
+        if !ga.iter().any(|(n, _)| n == k) {
+            out.push(format!("global {} only in the second dump: {}", k, v));
+        }
+    }
+    for k in ["cards", "meeples"] {
+        let (x, y) = (canon(php::get(php::get(a, "auto_increment"), k), false), canon(php::get(php::get(b, "auto_increment"), k), false));
+        if x != y {
+            out.push(format!("auto_increment {}: {} vs {}", k, x, y));
+        }
+    }
+    out
+}
+
 /// Dumps without the framework `global` table: the state is the one of the engine's next action
 /// (the dumped positions all wait for a player's engine action) and the active player its pId
 fn infer_framework_state(g: &mut Game) -> R<()> {

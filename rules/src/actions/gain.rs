@@ -55,9 +55,14 @@ pub fn ctx_source(g: &mut Game, ctx: Ctx) -> R<Source> {
     })
 }
 
-/// `Utils::resourcesToStr([$type => $n], true)`: notification text only
+/// `Utils::resourcesToStr([$type => $n], true)`: description text only
+// PHP: Helpers/Utils.php:118
 pub fn resources_to_str(ty: &Value, n: &Value) -> Value {
-    json!({"log": "${n} ${type}", "args": {"n": n, "type": ty}})
+    let t = php::strval(ty);
+    if ["sources", "sourcesDesc", "cardId", "cId", "pId", "income"].contains(&t.as_str()) {
+        return json!("");
+    }
+    json!(format!("{}<{}>", php::strval(n), t.to_uppercase()))
 }
 
 /// A PHP arithmetic operand: null/bool/int/float/numeric string; other values are a TypeError

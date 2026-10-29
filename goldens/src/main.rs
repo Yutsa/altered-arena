@@ -2,10 +2,13 @@
 //! the Rust translation: at every node, the player waited for, the decision asked and the state must
 //! be the same; then every recorded answer is applied to a copy of the game.
 //!
-//!   cargo run --release -p goldens -- [DIR] [--only SUBSTRING] [-v]
+//!   cargo run --release -p goldens -- [DIR] [--only SUBSTRING] [-v] [--create]
 //!
 //! DIR defaults to server/goldens. Prints the first difference of each failing file and a summary.
+//! --create: whole games start from a game created by the translation (Game::create with the
+//! recorded game id, decks and dice), whose tables must be those PHP dumped after V1::createGame.
 
+use altered_rules::arena::NewPlayer;
 use altered_rules::Game;
 use rayon::prelude::*;
 use serde_json::{json, Map, Value};
@@ -168,6 +171,8 @@ fn main() {
     rayon::ThreadPoolBuilder::new().stack_size(256 << 20).build_global().expect("thread pool");
     let args: Vec<String> = std::env::args().skip(1).collect();
     let verbose = args.iter().any(|a| a == "-v");
+    // Whole games start from a game created by the translation instead of PHP's tables
+    let create = args.iter().any(|a| a == "--create");
     let only = args.iter().position(|a| a == "--only").and_then(|i| args.get(i + 1)).cloned();
     let dir = args.iter().find(|a| !a.starts_with('-') && Some(*a) != only.as_ref()).cloned().unwrap_or_else(|| "server/goldens".into());
     let mut files: Vec<PathBuf> = vec![];
@@ -200,6 +205,24 @@ fn main() {
                 }
             };
             let dice: Vec<i64> = data["dice"].as_array().map(|a| a.iter().filter_map(Value::as_i64).collect()).unwrap_or_default();
+            if create && data["mode"] == json!("game") {
+                // The game created by the translation (same game id, decks and dice) must have
+                // the tables PHP had after V1::createGame, then play the same game
+                let decks: Vec<String> = data["decks"].as_array().into_iter().flatten().filter_map(|d| d.as_str().map(String::from)).collect();
+                let players: Vec<NewPlayer> = ["A", "B"].iter().enumerate().map(|(i, n)| NewPlayer { name: n.to_string(), bot: false, deck: decks.get(i).cloned() }).collect();
+                match Game::create(data["phpGame"].as_i64().unwrap_or(0), &players, &dice) {
+                    Ok(g) => {
+                        let diffs = altered_rules::load::diff_tables(&data["db"], &g.bga_tables());
+                        if diffs.is_empty() {
+                            check_node(&g, &data["tree"], "", &mut r);
+                        } else {
+                            r.first_failure = Some(format!("created tables differ (php vs rust):\n    {}", diffs.iter().take(10).cloned().collect::<Vec<_>>().join("\n    ")));
+                        }
+                    }
+                    Err(e) => r.first_failure = Some(format!("cannot create: {}", e)),
+                }
+                return (name, r);
+            }
             match Game::from_bga_tables(&data["db"], &dice) {
                 Ok(g) => check_node(&g, &data["tree"], "", &mut r),
                 Err(e) => r.first_failure = Some(format!("cannot load: {}", e)),
