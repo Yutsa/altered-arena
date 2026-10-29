@@ -49,7 +49,7 @@ pub fn get_starter_deck_preview(g: &mut Game, pid: PId, deck_number: &Value) -> 
         return Ok(Value::Null);
     };
     let mut content = Map::new();
-    content.insert("hero".into(), json!({"card": {"properties": Value::Object((*g.card(hero)?.props).clone())}, "n": 1}));
+    content.insert("hero".into(), json!({"card": {"properties": Value::Object(g.card(hero)?.props.to_map())}, "n": 1}));
     let mut i = 0;
     for (class, n) in cards::starter_contents(deck_id) {
         let props = cards::class_props(class)?;
@@ -109,7 +109,7 @@ pub fn args_preco_deck_selection(g: &mut Game) -> R<Value> {
 /// A card object as JSON (`jsonSerialize`: id, location, state, pId, properties)
 pub fn card_ui(g: &Game, id: i64) -> R<Value> {
     let c = g.card(id)?;
-    Ok(json!({"id": c.id, "location": c.location, "state": c.state, "pId": c.pid, "properties": Value::Object((*c.props).clone())}))
+    Ok(json!({"id": c.id, "location": c.location, "state": c.state, "pId": c.pid, "properties": Value::Object(c.props.to_map())}))
 }
 
 /// `actSelectPrecoDeck($choice)`

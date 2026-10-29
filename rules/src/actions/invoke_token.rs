@@ -5,7 +5,7 @@
 
 use crate::core::{globals, node};
 use crate::framework::*;
-use crate::game::{CardId, Game, PId, Props};
+use crate::game::{CardId, ClassData, Game, PId};
 use crate::helpers::ft;
 use crate::managers::{cards, players};
 use crate::models::action::{self, get_arg, get_ctx_arg, get_ctx_args, ActionClass, Ctx};
@@ -20,7 +20,7 @@ const STORMS: [&str; 2] = ["stormLeft", "stormRight"];
 
 /// `getToken()`: `new \ALT\Cards\<faction>\<tokenType>(null)`, i.e. the class properties
 // PHP: Actions/InvokeToken.php:106
-fn get_token(g: &Game, ctx: Ctx) -> R<Props> {
+fn get_token(g: &Game, ctx: Ctx) -> R<ClassData> {
     let token_type = php::strval(&get_ctx_arg(g, ctx, "tokenType"));
     let faction = php::explode("_", &token_type).into_iter().next().unwrap_or_default();
     cards::classes()
@@ -30,7 +30,7 @@ fn get_token(g: &Game, ctx: Ctx) -> R<Props> {
 }
 
 /// `getToken()->getName()`
-fn token_name(t: &Props) -> Value {
+fn token_name(t: &ClassData) -> Value {
     t.get("name").cloned().filter(|v| !v.is_null()).unwrap_or(json!(""))
 }
 

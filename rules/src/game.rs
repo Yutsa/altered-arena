@@ -14,7 +14,86 @@ use std::sync::Arc;
 
 pub type CardId = i64;
 pub type PId = i64;
-pub type Props = Arc<Map<String, Value>>;
+pub type Props = Arc<PropMap>;
+/// The properties of a card class (`new $className(null)`)
+pub type ClassData = Arc<Map<String, Value>>;
+
+/// `$this->properties` of a card: the data of its class, shared by every card of the class, with
+/// the card's own values on top. Same keys, values and order as the PHP array (the class data,
+/// then the keys the class does not have, in the order they were first written).
+#[derive(Clone, Debug, Default)]
+pub struct PropMap {
+    base: Option<ClassData>,
+    own: Map<String, Value>,
+}
+
+impl PropMap {
+    pub fn from_map(own: Map<String, Value>) -> PropMap {
+        PropMap { base: None, own }
+    }
+
+    pub fn with_base(base: ClassData) -> PropMap {
+        PropMap { base: Some(base), own: Map::new() }
+    }
+
+    pub fn get(&self, k: &str) -> Option<&Value> {
+        self.own.get(k).or_else(|| self.base.as_ref().and_then(|b| b.get(k)))
+    }
+
+    pub fn contains_key(&self, k: &str) -> bool {
+        self.own.contains_key(k) || self.base.as_ref().is_some_and(|b| b.contains_key(k))
+    }
+
+    pub fn get_mut(&mut self, k: &str) -> Option<&mut Value> {
+        if !self.own.contains_key(k) {
+            let v = self.base.as_ref().and_then(|b| b.get(k)).cloned()?;
+            self.own.insert(k.to_string(), v);
+        }
+        self.own.get_mut(k)
+    }
+
+    pub fn insert(&mut self, k: String, v: Value) {
+        self.own.insert(k, v);
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = (&String, &Value)> {
+        let base = self.base.as_deref();
+        let own = &self.own;
+        base.into_iter()
+            .flat_map(move |b| b.iter().map(move |(k, v)| (k, own.get(k).unwrap_or(v))))
+            .chain(own.iter().filter(move |(k, _)| !base.is_some_and(|b| b.contains_key(k.as_str()))))
+    }
+
+    pub fn len(&self) -> usize {
+        self.iter().count()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    pub fn to_map(&self) -> Map<String, Value> {
+        self.iter().map(|(k, v)| (k.clone(), v.clone())).collect()
+    }
+}
+
+impl PartialEq for PropMap {
+    fn eq(&self, other: &PropMap) -> bool {
+        self.iter().eq(other.iter())
+    }
+}
+
+impl Serialize for PropMap {
+    fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+        s.collect_map(self.iter())
+    }
+}
+
+impl<'de> Deserialize<'de> for PropMap {
+    fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<PropMap, D::Error> {
+        Ok(PropMap::from_map(Map::deserialize(d)?))
+    }
+}
 
 /// A row of `cards` and its `Card` object (Models/Card.php)
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -397,6 +476,20 @@ impl Game {
         self.memo = None;
         self.last_args = None;
         Ok(())
+    }
+
+    /// Drops what only the last request used (rows it deleted, its notifications) once the game
+    /// waits for its next request: the next request starts with `fresh_state`, which drops them
+    /// anyway
+    pub fn compact(&mut self) {
+        self.deleted_cards = IndexMap::new();
+        self.deleted_meeples = IndexMap::new();
+        self.notifications = vec![];
+        self.last_args = None;
+        // A game holds 2400 cards during deck selection: the tables keep that capacity
+        self.cards.shrink_to_fit();
+        self.meeples.shrink_to_fit();
+        self.history.shrink_to_fit();
     }
 
     /// Starts a request of `player` (None = a server request): fresh state, then `new altered()`

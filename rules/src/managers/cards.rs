@@ -1,7 +1,7 @@
 //! Managers/Cards.php: card instantiation, queries, moves, listeners and reactions
 
 use crate::db::pieces::{self, Pieces};
-use crate::game::{decode_props, CardId, CardRow, Game, PId, Props};
+use crate::game::{decode_props, CardId, CardRow, ClassData, Game, PId, PropMap, Props};
 use crate::models::card;
 use crate::php;
 use crate::{PhpError, R};
@@ -13,10 +13,10 @@ use std::sync::{Arc, OnceLock};
 // Card classes (modules/php/Cards/*, exported to engine/data/cards.min.json)
 // ---------------------------------------------------------------------------
 
-static CLASSES: OnceLock<HashMap<String, Props>> = OnceLock::new();
+static CLASSES: OnceLock<HashMap<String, ClassData>> = OnceLock::new();
 
 /// Class name → properties of the class
-pub fn classes() -> &'static HashMap<String, Props> {
+pub fn classes() -> &'static HashMap<String, ClassData> {
     CLASSES.get_or_init(|| {
         let data: Map<String, Value> = serde_json::from_str(include_str!("../../../engine/data/cards.min.json")).expect("cards.min.json");
         data.into_iter()
@@ -83,7 +83,7 @@ pub fn slugify(text: &str) -> String {
 }
 
 /// The class of a card from its DB properties (`<faction>_<Rarity>_<slug(name)>`)
-pub fn class_name(p: &Map<String, Value>) -> String {
+pub fn class_name(p: &PropMap) -> String {
     let faction = php::strval(p.get("faction").unwrap_or(&Value::Null));
     let rarity = match php::intval(p.get("rarity").unwrap_or(&Value::Null)) {
         0 => "Common",
@@ -144,14 +144,9 @@ pub fn instantiate_props(db: &Props, id: CardId) -> R<Props> {
             }
         }
     };
-    let id_paths = own_id_paths().get(&class_key).filter(|p| !p.is_empty());
-    if id_paths.is_none() && DYNAMIC_PROPERTIES.iter().all(|p| db.get(*p).is_none_or(Value::is_null)) {
-        // The class data as it is: shared (copied on the first write)
-        return Ok(class);
-    }
-    let mut props = (*class).clone();
+    let mut props = PropMap::with_base(class);
     // new $className($row): the constructor sees the card's id
-    for path in id_paths.into_iter().flatten() {
+    for path in own_id_paths().get(&class_key).into_iter().flatten() {
         if let Some((first, rest)) = path.split_first() {
             if let Some(v) = props.get_mut(first) {
                 set_path(v, rest, json!(id));
@@ -170,7 +165,7 @@ pub fn instantiate_props(db: &Props, id: CardId) -> R<Props> {
 
 /// A card row from the DB columns
 pub fn card_from_row(id: i64, location: &str, state: i64, pid: i64, properties: &str) -> R<CardRow> {
-    let db = Arc::new(decode_props(properties)?);
+    let db = Arc::new(PropMap::from_map(decode_props(properties)?));
     let props = instantiate_props(&db, id)?;
     Ok(CardRow { id, location: location.to_string(), state, pid, props, db_props: db, reload: false })
 }
@@ -758,7 +753,7 @@ pub fn starter_contents(deck_id: &str) -> &'static [(String, i64)] {
 }
 
 /// `new $className(null)`: the properties of a card class
-pub fn class_props(class: &str) -> R<Props> {
+pub fn class_props(class: &str) -> R<ClassData> {
     classes().get(class).cloned().ok_or_else(|| PhpError::new(format!("Error: Class \"{}\" not found", class)))
 }
 

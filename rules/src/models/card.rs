@@ -176,7 +176,7 @@ pub fn get_impl(g: &mut Game, id: CardId, name: &str, arg: Option<&str>) -> R<Va
         "state" => return Ok(json!(c.state)),
         "pId" => return Ok(json!(c.pid)),
         "properties" => {
-            let p = Value::Object((*c.props).clone());
+            let p = Value::Object(c.props.to_map());
             return Ok(match arg {
                 Some(a) => php::get(&p, a).clone(),
                 None => p,
@@ -1040,7 +1040,7 @@ pub fn has_biomes_equal_to_highest_self(g: &mut Game, id: CardId) -> R<bool> {
     if php::count(&list) == 0 {
         return Ok(false);
     }
-    let printed = g.card(id)?.props.contains_key("dynamicIncreaseBiomeHighestSelf") && !g.card(id)?.props["dynamicIncreaseBiomeHighestSelf"].is_null();
+    let printed = g.card(id)?.props.contains_key("dynamicIncreaseBiomeHighestSelf") && !g.card(id)?.props.get("dynamicIncreaseBiomeHighestSelf").is_some_and(Value::is_null);
     if printed && !STORMS.contains(&location(g, id)?.as_str()) {
         return Ok(false);
     }

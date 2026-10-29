@@ -180,6 +180,8 @@ impl AnyGame {
                 if let Err(e) = g.game.run_bots() {
                     eprintln!("game {}: bots: {}", g.id, e);
                 }
+                // The game now waits for a player
+                g.game.compact();
             }
         }
     }
