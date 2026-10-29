@@ -24,6 +24,9 @@ fn rows<'a>(tables: &'a Value, t: &str) -> Vec<&'a Value> {
 /// `user_preferences`, plus (when the dump has them) the framework `global` table, the
 /// AUTO_INCREMENT values (`auto_increment`) and the dice cursor (`arena_rng`)
 pub fn from_bga_tables(tables: &Value, dice: &[i64]) -> R<Game> {
+    if !php::is_arr(tables) || php::empty(php::get(tables, "cards")) {
+        return Err(PhpError::new("the dump has no `db` tables (golden file older than the db export)"));
+    }
     let mut g = Game::empty();
     for r in rows(tables, "cards") {
         let id = i(r, "card_id");

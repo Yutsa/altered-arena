@@ -290,6 +290,14 @@ $db = [];
 foreach (['cards', 'meeples', 'global_variables', 'player', 'user_preferences'] as $table) {
   $db[$table] = \BgaDb::conn()->query("SELECT * FROM `$table` ORDER BY 1")->fetch_all(MYSQLI_ASSOC);
 }
+// ...and what the framework keeps besides: the `global` table (1 = state, 2 = active player,
+// 10 = logging), the next ids of cards and meeples, the position in the dice list
+$db['global'] = \BgaDb::conn()->query("SELECT * FROM `global` ORDER BY 1")->fetch_all(MYSQLI_ASSOC);
+$db['arena_rng'] = \BgaDb::conn()->query("SELECT * FROM `arena_rng`")->fetch_all(MYSQLI_ASSOC);
+$db['auto_increment'] = [];
+foreach (['cards', 'meeples'] as $table) {
+  $db['auto_increment'][$table] = (string) \BgaDb::conn()->query("SELECT AUTO_INCREMENT FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = '$table'")->fetch_row()[0];
+}
 $tree = explore($g, 0, $cardId);
 @mkdir("$out/$board", 0777, true);
 file_put_contents("$out/$board/$ref.json", json_encode([
