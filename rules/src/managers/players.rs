@@ -345,8 +345,69 @@ pub fn check_victory(g: &mut Game) -> R<bool> {
 }
 
 /// `Players::initializeDecks()` (setup)
-pub fn initialize_decks(_g: &mut Game) -> R<()> {
-    Err(PhpError::nt("Managers/Players.php:309 initializeDecks"))
+// PHP: Managers/Players.php:309
+pub fn initialize_decks(g: &mut Game) -> R<()> {
+    for pid in get_all(g) {
+        crate::models::player::initialize_decks(g, pid)?;
+    }
+    Ok(())
+}
+
+/// `gameinfos.inc.php` `player_colors`
+const PLAYER_COLORS: &[&str] = &["ff0000", "008000", "0000ff", "ffa500", "773300"];
+
+/// `Players::setupNewGame($players, $options)`: the `player` rows, colors in seat order
+/// (`reattributeColorsBasedOnPreferences` does nothing in the local framework)
+// PHP: Managers/Players.php:29
+pub fn setup_new_game(g: &mut Game, players: &[(PId, String)]) -> R<()> {
+    let mut colors = PLAYER_COLORS.iter();
+    for (pid, name) in players {
+        let color = colors.next().copied().unwrap_or("").to_string();
+        g.players.insert(
+            *pid,
+            crate::game::PlayerRow {
+                id: *pid,
+                no: 0,
+                name: name.clone(),
+                color,
+                eliminated: "0".into(),
+                score: 0,
+                score_aux: 0,
+                zombie: "0".into(),
+                faction: String::new(),
+                is_multiactive: false,
+            },
+        );
+    }
+    Ok(())
+}
+
+/// `Players::setStats()`: the statistics of the decks (only `statMapping` is kept: the
+/// statistics table is not part of the game state here)
+// PHP: Managers/Players.php:911
+pub fn set_stats(g: &mut Game) -> R<()> {
+    let mut stat_data = php::arr();
+    for pid in get_all(g) {
+        let mut card_stat = php::arr();
+        let mut count = 1;
+        let ids = cards::get_filtered(g, &json!(pid), &Value::Null, &Value::Null, false)?;
+        let ids = cards::where_location(g, ids, &json!(format!("deck-{}", pid)));
+        for cid in ids {
+            if php::intval(&crate::models::card::get(g, cid, "rarity")?) == 2 {
+                continue;
+            }
+            // Stats::setCard<n>($player, ...) (uid encoded as an int): not kept
+            php::set(&mut card_stat, &cid.to_string(), json!(format!("card{}", count)));
+            count += 1;
+            if count > 40 {
+                break;
+            }
+        }
+        php::set(&mut stat_data, &pid.to_string(), card_stat);
+    }
+    // Stats::setMatchUp: not kept
+    globals::set(g, "statMapping", stat_data)?;
+    Ok(())
 }
 
 const STORMS: [&str; 2] = ["stormLeft", "stormRight"];

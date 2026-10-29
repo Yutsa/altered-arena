@@ -5,20 +5,24 @@
 //! the web client (CLIENT_DIR) with the card art (ART_DIR) as static files.
 //!
 //! Environment: PORT (8080), CLIENT_DIR (client/dist), ART_DIR (../AlteredBGA/img/illustrations),
-//! PROTOCOL_DIR (protocol/data), DATA_DIR (data), PERSIST_SECS (10), ARENA_DEBUG (debug routes).
+//! PROTOCOL_DIR (protocol/data), DATA_DIR (data), PERSIST_SECS (10), ARENA_DEBUG (debug routes),
+//! ARENA_ENGINE (legacy: the first Rust engine, `engine/`; rules: the translation of the PHP
+//! engine, `rules/`), ENGINE_THREADS (number of engine threads, default: CPUs), ENGINE_STACK_MB
+//! (their stack size, 256).
 //! Recommended: MIMALLOC_PURGE_DELAY=0 (returns freed memory to the OS sooner).
 
 /// Faster than the system allocator for many small allocations, and less fragmentation
 #[global_allocator]
 static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
-use altered_engine::model::Seat;
-use altered_engine::{Answer, Game, PlayerConfig};
+mod engines;
+
 use axum::extract::{Path, Query, State};
 use axum::http::{header, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
 use axum::{Json, Router};
+use engines::{AnyGame, EngineKind, EnginePool};
 use serde::Deserialize;
 use serde_json::{json, Value};
 use std::collections::{HashMap, HashSet};
@@ -31,15 +35,15 @@ use tower_http::cors::CorsLayer;
 use tower_http::services::{ServeDir, ServeFile};
 
 struct GameEntry {
-    game: Mutex<Game>,
+    game: Arc<Mutex<AnyGame>>,
     changed: Notify,
     /// Last request on this game (unix seconds), to unload idle games from memory
     last_access: AtomicU64,
 }
 
 impl GameEntry {
-    fn new(game: Game) -> Arc<GameEntry> {
-        Arc::new(GameEntry { game: Mutex::new(game), changed: Notify::new(), last_access: AtomicU64::new(now()) })
+    fn new(game: AnyGame) -> Arc<GameEntry> {
+        Arc::new(GameEntry { game: Arc::new(Mutex::new(game)), changed: Notify::new(), last_access: AtomicU64::new(now()) })
     }
 }
 
@@ -53,6 +57,8 @@ struct Ticket {
 }
 
 struct AppState {
+    kind: EngineKind,
+    pool: EnginePool,
     games: RwLock<HashMap<String, Arc<GameEntry>>>,
     dirty: Mutex<HashSet<String>>,
     queue: Mutex<HashMap<String, Ticket>>,
@@ -100,8 +106,13 @@ async fn main() {
     let protocol_dir = env("PROTOCOL_DIR", "protocol/data");
     let data_dir = std::path::PathBuf::from(env("DATA_DIR", "data"));
     let _ = std::fs::create_dir_all(data_dir.join("games"));
+    let kind = EngineKind::from_env();
+    let threads: usize = env("ENGINE_THREADS", "0").parse().ok().filter(|n| *n > 0).unwrap_or_else(|| std::thread::available_parallelism().map(|n| n.get()).unwrap_or(4));
+    let stack_mb: usize = env("ENGINE_STACK_MB", "256").parse().unwrap_or(256);
 
     let state = Arc::new(AppState {
+        kind,
+        pool: EnginePool::new(threads, stack_mb),
         games: RwLock::new(HashMap::new()),
         dirty: Mutex::new(HashSet::new()),
         queue: Mutex::new(HashMap::new()),
@@ -111,7 +122,14 @@ async fn main() {
         decks_json: std::fs::read(format!("{}/decks.json", protocol_dir)).expect("protocol/data/decks.json"),
         data_dir: data_dir.clone(),
     });
-    altered_engine::catalog::catalog();
+    match kind {
+        EngineKind::Legacy => {
+            altered_engine::catalog::catalog();
+        }
+        EngineKind::Rules => {
+            altered_rules::managers::cards::classes();
+        }
+    }
 
     // Persist changed games every few seconds (a crash loses at most that much play)
     let persist_secs: u64 = env("PERSIST_SECS", "10").parse().unwrap_or(10);
@@ -126,7 +144,7 @@ async fn main() {
 
     let index = format!("{}/index.html", client_dir);
     let app = Router::new()
-        .route("/api/health", get(|| async { Json(json!({"ok": true})) }))
+        .route("/api/health", get(health))
         .route("/api/v1/cards", get(cards))
         .route("/api/v1/decks", get(decks))
         .route("/api/v1/games", post(create_game))
@@ -154,7 +172,7 @@ async fn main() {
         app
     };
     let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{}", port)).await.expect("bind");
-    println!("Altered Arena server on http://localhost:{}", port);
+    println!("Altered Arena server on http://localhost:{} (engine: {})", port, kind.name());
     let s3 = state.clone();
     axum::serve(listener, app)
         .with_graceful_shutdown(async move {
@@ -165,12 +183,40 @@ async fn main() {
         .unwrap();
 }
 
+async fn health(State(s): State<Shared>) -> Response {
+    Json(json!({"ok": true, "engine": s.kind.name()})).into_response()
+}
+
 async fn cards(State(s): State<Shared>) -> Response {
     ([(header::CONTENT_TYPE, "application/json"), (header::CACHE_CONTROL, "public, max-age=3600")], s.cards_json.clone()).into_response()
 }
 
 async fn decks(State(s): State<Shared>) -> Response {
     ([(header::CONTENT_TYPE, "application/json")], s.decks_json.clone()).into_response()
+}
+
+// ---------------------------------------------------------------------------
+// Engine calls
+// ---------------------------------------------------------------------------
+
+/// Runs `op` on the game, on an engine thread (large stack), holding the game's lock. A panic of
+/// the `rules` engine leaves the game as it was before the call.
+async fn with_game<T: Send + 'static>(s: &Shared, e: &Arc<GameEntry>, op: impl FnOnce(&mut AnyGame) -> T + Send + 'static) -> Result<T, String> {
+    let mut guard = e.game.clone().lock_owned().await;
+    s.pool
+        .run(move || {
+            let backup = matches!(*guard, AnyGame::Rules(_)).then(|| guard.clone());
+            match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| op(&mut guard))) {
+                Ok(v) => Ok(v),
+                Err(p) => {
+                    if let Some(b) = backup {
+                        *guard = b;
+                    }
+                    Err(p.downcast_ref::<String>().cloned().or_else(|| p.downcast_ref::<&str>().map(|s| s.to_string())).unwrap_or_else(|| "engine panic".into()))
+                }
+            }
+        })
+        .await?
 }
 
 // ---------------------------------------------------------------------------
@@ -200,26 +246,34 @@ fn clean_name(n: Option<&str>, i: usize) -> String {
     }
 }
 
-/// Registers a game; each human seat gets a secret token, returned only to whoever created
-/// the game (lobby: the same person may play both seats) or to the matched player
-async fn insert_game(s: &Shared, mut game: Game) -> Value {
-    game.run_bots();
-    for p in game.players.iter_mut() {
-        if !p.bot && p.token.is_empty() {
-            p.token = new_token();
-        }
-    }
-    let id = game.id.clone();
-    let players: Vec<Value> = game.players.iter().map(|p| {
-        let mut v = json!({"id": p.id, "name": p.name, "bot": p.bot});
-        if !p.bot {
-            v["token"] = json!(p.token);
-        }
-        v
-    }).collect();
+/// Creates a game on an engine thread, lets the bots play, gives each human seat a secret
+/// token (returned only to whoever created the game, or to the matched player) and registers it
+async fn insert_game(s: &Shared, id: String, players: [(String, bool, Option<String>); 2], seed: u64) -> Result<Value, String> {
+    let kind = s.kind;
+    let game = s
+        .pool
+        .run(move || -> Result<AnyGame, String> {
+            let mut game = AnyGame::new(kind, id, players, seed)?;
+            game.run_bots();
+            game.set_tokens(new_token);
+            Ok(game)
+        })
+        .await??;
+    let id = game.id().to_string();
+    let players: Vec<Value> = game
+        .seats()
+        .into_iter()
+        .map(|(pid, name, bot, token)| {
+            let mut v = json!({"id": pid, "name": name, "bot": bot});
+            if !bot {
+                v["token"] = json!(token);
+            }
+            v
+        })
+        .collect();
     s.games.write().await.insert(id.clone(), GameEntry::new(game));
     s.dirty.lock().await.insert(id.clone());
-    json!({"gameId": id, "players": players})
+    Ok(json!({"gameId": id, "players": players}))
 }
 
 /// Short unguessable-enough id: counter + time bits, base 36
@@ -234,25 +288,33 @@ fn new_game_id(s: &Shared) -> String {
     out
 }
 
+fn known_deck(kind: EngineKind, deck: &str) -> bool {
+    match kind {
+        EngineKind::Legacy => altered_engine::catalog::catalog().starter(deck).is_some(),
+        EngineKind::Rules => altered_rules::v1::deck_summaries().iter().any(|d| d["id"] == json!(deck)),
+    }
+}
+
 async fn create_game(State(s): State<Shared>, Json(req): Json<NewGame>) -> Response {
     if req.players.len() != 2 {
         return error(StatusCode::BAD_REQUEST, "A game needs 2 players", true);
     }
-    let decks = altered_engine::catalog::catalog();
     for p in &req.players {
         if let Some(d) = &p.deck {
-            if decks.starter(d).is_none() {
+            if !known_deck(s.kind, d) {
                 return error(StatusCode::BAD_REQUEST, format!("Unknown deck {}", d), true);
             }
         }
     }
     let cfg = |i: usize| {
         let p = &req.players[i];
-        PlayerConfig { id: 2001 + i as u32, name: clean_name(p.name.as_deref(), i), bot: p.bot, deck: p.deck.clone() }
+        (clean_name(p.name.as_deref(), i), p.bot, p.deck.clone())
     };
     let id = new_game_id(&s);
-    let game = Game::new(id, [cfg(0), cfg(1)], req.seed.unwrap_or_else(seed));
-    Json(insert_game(&s, game).await).into_response()
+    match insert_game(&s, id, [cfg(0), cfg(1)], req.seed.unwrap_or_else(seed)).await {
+        Ok(v) => Json(v).into_response(),
+        Err(e) => error(StatusCode::INTERNAL_SERVER_ERROR, e, false),
+    }
 }
 
 #[derive(Deserialize)]
@@ -263,13 +325,14 @@ struct ViewQuery {
 }
 
 /// Seat of the requester: the token decides (a wrong player/token pair is refused)
-fn seat_of(g: &Game, q: &ViewQuery, headers: &axum::http::HeaderMap) -> Result<Option<Seat>, Response> {
+fn seat_of(g: &AnyGame, q: &ViewQuery, headers: &axum::http::HeaderMap) -> Result<Option<usize>, Response> {
     let token = q.token.clone().or_else(|| {
         headers.get(header::AUTHORIZATION).and_then(|h| h.to_str().ok()).and_then(|h| h.strip_prefix("Bearer ")).map(String::from)
     });
     let Some(token) = token.filter(|t| !t.is_empty()) else { return Ok(None) };
-    match g.players.iter().position(|p| !p.token.is_empty() && p.token == token) {
-        Some(seat) if q.player.map(|id| g.players[seat].id == id).unwrap_or(true) => Ok(Some(seat)),
+    let seats = g.seats();
+    match seats.iter().position(|p| !p.3.is_empty() && p.3 == token) {
+        Some(seat) if q.player.map(|id| seats[seat].0 == id).unwrap_or(true) => Ok(Some(seat)),
         _ => Err(error(StatusCode::FORBIDDEN, "Wrong token", false)),
     }
 }
@@ -284,7 +347,7 @@ async fn entry(s: &Shared, id: &str) -> Option<Arc<GameEntry>> {
         return None;
     }
     let bytes = tokio::fs::read(s.data_dir.join("games").join(format!("{}.json", id))).await.ok()?;
-    let game: Game = serde_json::from_slice(&bytes).ok()?;
+    let game = AnyGame::load(s.kind, &bytes)?;
     let mut games = s.games.write().await;
     Some(games.entry(id.to_string()).or_insert_with(|| GameEntry::new(game)).clone())
 }
@@ -296,7 +359,7 @@ async fn unload_idle(s: &Shared) {
     let t = now();
     games.retain(|id, e| {
         let idle = t.saturating_sub(e.last_access.load(Ordering::Relaxed));
-        let ended = e.game.try_lock().map(|g| g.winner.is_some()).unwrap_or(false);
+        let ended = e.game.try_lock().map(|g| g.ended()).unwrap_or(false);
         dirty.contains(id) || idle < if ended { 60 } else { 1800 }
     });
 }
@@ -308,7 +371,7 @@ async fn view_game(State(s): State<Shared>, Path(id): Path<String>, Query(q): Qu
         let deadline = tokio::time::Instant::now() + Duration::from_secs(20);
         loop {
             let notified = e.changed.notified();
-            if e.game.lock().await.seq > since {
+            if e.game.lock().await.seq() > since {
                 break;
             }
             if tokio::time::timeout_at(deadline, notified).await.is_err() {
@@ -316,11 +379,14 @@ async fn view_game(State(s): State<Shared>, Path(id): Path<String>, Query(q): Qu
             }
         }
     }
-    let g = e.game.lock().await;
     // Without a token: spectator view (no hidden cards, no decision)
-    match seat_of(&g, &q, &headers) {
-        Ok(seat) => json_bytes(g.view_json(seat)),
-        Err(r) => r,
+    let seat = match seat_of(&*e.game.lock().await, &q, &headers) {
+        Ok(seat) => seat,
+        Err(r) => return r,
+    };
+    match with_game(&s, &e, move |g| g.view_json(seat)).await {
+        Ok(Ok(view)) => json_bytes(view),
+        Ok(Err(err)) | Err(err) => error(StatusCode::INTERNAL_SERVER_ERROR, err, false),
     }
 }
 
@@ -332,30 +398,31 @@ async fn answer(
     Json(body): Json<Value>,
 ) -> Response {
     let Some(e) = entry(&s, &id).await else { return error(StatusCode::NOT_FOUND, "Unknown game", false) };
-    let mut g = e.game.lock().await;
-    let seat = match seat_of(&g, &q, &headers) {
+    let seat = match seat_of(&*e.game.lock().await, &q, &headers) {
         Ok(Some(seat)) => seat,
         Ok(None) => return error(StatusCode::UNAUTHORIZED, "A player token is required", false),
         Err(r) => return r,
     };
-    let decision_id = body.get("decisionId").and_then(Value::as_str).unwrap_or("");
-    let is_undo = body.get("type").and_then(Value::as_str) == Some("undo");
-    if !is_undo && g.decision_id(seat).as_deref() != Some(decision_id) {
-        return error(StatusCode::CONFLICT, "This decision is no longer current", true);
+    let res = with_game(&s, &e, move |g| {
+        g.answer(seat, &body)?;
+        g.run_bots();
+        Ok::<_, engines::Refused>(g.view_json(Some(seat)))
+    })
+    .await;
+    match res {
+        Ok(Ok(Ok(view))) => {
+            e.changed.notify_waiters();
+            s.dirty.lock().await.insert(id);
+            json_bytes(view)
+        }
+        Ok(Ok(Err(err))) | Err(err) => {
+            // The answer was played: the view failed
+            e.changed.notify_waiters();
+            s.dirty.lock().await.insert(id);
+            error(StatusCode::INTERNAL_SERVER_ERROR, err, false)
+        }
+        Ok(Err(refused)) => error(StatusCode::from_u16(refused.status).unwrap_or(StatusCode::BAD_REQUEST), refused.msg, refused.user),
     }
-    let answer: Answer = match serde_json::from_value(body.clone()) {
-        Ok(a) => a,
-        Err(err) => return error(StatusCode::BAD_REQUEST, format!("Bad answer: {}", err), true),
-    };
-    if let Err(err) = g.answer(seat as Seat, answer) {
-        return error(StatusCode::BAD_REQUEST, err.0, true);
-    }
-    g.run_bots();
-    let view = g.view_json(Some(seat));
-    drop(g);
-    e.changed.notify_waiters();
-    s.dirty.lock().await.insert(id);
-    json_bytes(view)
 }
 
 // ---------------------------------------------------------------------------
@@ -371,21 +438,21 @@ struct JoinQueue {
 async fn join_queue(State(s): State<Shared>, Json(req): Json<JoinQueue>) -> Response {
     let ticket_id = format!("t{}", seed());
     let name = clean_name(req.name.as_deref(), 0);
+    if let Some(d) = &req.deck {
+        if !known_deck(s.kind, d) {
+            return error(StatusCode::BAD_REQUEST, format!("Unknown deck {}", d), true);
+        }
+    }
     let mut queue = s.queue.lock().await;
     queue.retain(|_, t| t.matched.is_some() || now() - t.created < 120);
     let waiting = queue.iter().find(|(_, t)| t.matched.is_none()).map(|(k, t)| (k.clone(), t.clone()));
     match waiting {
         Some((other_id, other)) => {
             let id = new_game_id(&s);
-            let game = Game::new(
-                id.clone(),
-                [
-                    PlayerConfig { id: 2001, name: other.name.clone(), bot: false, deck: other.deck.clone() },
-                    PlayerConfig { id: 2002, name: name.clone(), bot: false, deck: req.deck.clone() },
-                ],
-                seed(),
-            );
-            let created = insert_game(&s, game).await;
+            let created = match insert_game(&s, id.clone(), [(other.name.clone(), false, other.deck.clone()), (name.clone(), false, req.deck.clone())], seed()).await {
+                Ok(v) => v,
+                Err(e) => return error(StatusCode::INTERNAL_SERVER_ERROR, e, false),
+            };
             let token = |i: usize| created["players"][i]["token"].as_str().unwrap_or("").to_string();
             queue.get_mut(&other_id).unwrap().matched = Some((id.clone(), 2001, token(0)));
             queue.insert(ticket_id.clone(), Ticket { name, deck: req.deck, matched: Some((id.clone(), 2002, token(1))), created: now() });
@@ -428,16 +495,30 @@ async fn leave_queue(State(s): State<Shared>, Path(ticket): Path<String>) -> Res
 // ---------------------------------------------------------------------------
 
 async fn create_from_snapshot(State(s): State<Shared>, Json(snapshot): Json<Value>) -> Response {
-    match Game::from_snapshot(new_game_id(&s), &snapshot) {
-        Ok(game) => Json(insert_game(&s, game).await).into_response(),
+    if s.kind != EngineKind::Legacy {
+        return error(StatusCode::BAD_REQUEST, "Snapshots are a format of the legacy engine", true);
+    }
+    match altered_engine::Game::from_snapshot(new_game_id(&s), &snapshot) {
+        Ok(mut game) => {
+            game.run_bots();
+            let mut game = AnyGame::Legacy(game);
+            game.set_tokens(new_token);
+            let id = game.id().to_string();
+            let players: Vec<Value> = game.seats().into_iter().map(|(pid, name, bot, token)| json!({"id": pid, "name": name, "bot": bot, "token": token})).collect();
+            s.games.write().await.insert(id.clone(), GameEntry::new(game));
+            s.dirty.lock().await.insert(id.clone());
+            Json(json!({"gameId": id, "players": players})).into_response()
+        }
         Err(e) => error(StatusCode::BAD_REQUEST, e.0, true),
     }
 }
 
 async fn debug_state(State(s): State<Shared>, Path(id): Path<String>) -> Response {
     let Some(e) = entry(&s, &id).await else { return error(StatusCode::NOT_FOUND, "Unknown game", false) };
-    let g = e.game.lock().await;
-    Json(g.snapshot()).into_response()
+    match with_game(&s, &e, |g| g.debug_state()).await {
+        Ok(v) => Json(v).into_response(),
+        Err(err) => error(StatusCode::INTERNAL_SERVER_ERROR, err, false),
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -448,7 +529,7 @@ async fn save_dirty(s: &Shared) {
     let ids: Vec<String> = s.dirty.lock().await.drain().collect();
     for id in ids {
         let Some(e) = entry(s, &id).await else { continue };
-        let json = serde_json::to_vec(&*e.game.lock().await).unwrap_or_default();
+        let json = e.game.lock().await.to_json();
         let path = s.data_dir.join("games").join(format!("{}.json", id));
         let tmp = path.with_extension("tmp");
         if tokio::fs::write(&tmp, json).await.is_ok() {

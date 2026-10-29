@@ -41,8 +41,14 @@ rules/src/
   helpers/{conditions,utils,ft,collection}.rs
   states/{setup,new_day,turn,engine,end_game}.rs   the *Trait.php files
   game_methods.rs   altered.game.php (checkCardListeners, genericPlayerCheckListeners, custom orders)
-  v1.rs             server/src/V1.php: GameView and decisions of protocol v1, answers → PHP actions
-  load.rs           Game::from_bga_tables (rows of cards, meeples, global_variables, player, user_preferences)
+  v1.rs             server/src/V1.php: GameView (V1::build on getAllDatas) and decisions of protocol v1,
+                    answers → PHP actions, prompts / labels / log texts (V1::format)
+  arena.rs          server/src/Arena.php + V1::createGame: game creation (harnessCreate), requests,
+                    stored notifications (the log), runBots
+  bot.rs            server/src/Bot.php (decide, fallback) + a last resort from the v1 decision
+  core/preferences.rs  Core/Preferences.php (rows created by the first view)
+  load.rs           Game::from_bga_tables (rows of cards, meeples, global_variables, player, user_preferences),
+                    to_bga_tables / diff_tables (the same format back, comparison with a PHP dump)
 ```
 
 ## Key representations
@@ -74,17 +80,39 @@ rules/src/
 - **Requests**: `answer()` clones the game, runs the PHP action, and restores the clone on `Err`
   (MariaDB transaction rollback).
 
-## Public API (used by the golden runner and later by the server)
+## Public API (used by the golden runner and the server)
 
 ```rust
 impl Game {
+    // V1::createGame: players 2001/2002, randomness seeded from game_id as Arena::seedRng does,
+    // dice taken in order (empty: the studio rule, every die is a 5), lobby decks selected, bots played
+    pub fn create(game_id: i64, players: &[arena::NewPlayer], dice: &[i64]) -> Result<Game, PhpError>;
     pub fn from_bga_tables(tables: &Value, dice: &[i64]) -> Result<Game, PhpError>;
+    pub fn view(&mut self, player: Option<u32>, game_id: &str) -> Result<Value, PhpError>; // GameView
     pub fn waiting_for(&self) -> Vec<u32>;                  // player ids, as V1 `waitingFor`
     pub fn decision(&self, player: u32) -> Option<Value>;   // V1 decision of that player (with its id)
     pub fn answer(&mut self, player: u32, answer: &Value) -> Result<(), PhpError>; // V1 answer
+    pub fn run_bots(&mut self) -> Result<(), PhpError>;     // Arena::runBots
+    pub fn is_over(&self) -> bool;
     pub fn oracle_state(&self) -> Value;                    // same format as Arena::oracleState
+    pub fn bga_tables(&self) -> Value;                      // same format as explore.php dumpTables
 }
 ```
+
+Requests recurse as in PHP (jumpToState is re-entrant): callers run them on threads with large stacks
+(the golden runner and the server use 256 MB; only the pages touched are committed).
+
+A view is built on a copy of the game, but keeps what a PHP view request writes: the user preferences
+`getAllDatas` creates and the global rows it reads for the first time. The GameView follows V1::build
+(stats are the printed ones plus boosts, costs are the printed ones, no `PlayOption.cost`); only the
+log differs from PHP's: the translation's notifications carry few messages, so `v1::log_line` writes
+the public message of Notifications.php from the notification's name and ids.
+
+The bot is Bot.php: it answers from the state args and draws from the generator where the last act
+left it, as PHP's runBots does in the same HTTP request, so a game against the bot plays as in PHP
+(`tests/v1_games.rs`). When Bot.php's answer and its fallback are both refused, PHP's runBots stops and
+the game waits for the bot forever; `bot::last_resort` then tries the answers of the bot's v1 decision
+(pass, each target alone, end of turn, each option, undo) until one is accepted.
 
 ## Golden tests
 
@@ -137,3 +165,11 @@ and the file has `injectShuffles`, the deck
 orders forced after the dump, in call order, which the runner gives the Rust engine
 (`ShuffleHook::Injected`: a shuffle of the same ids takes the next order, any other draws from the
 seeded generator).
+
+Game creation: `--create` starts each whole game from a game created by the translation
+(`Game::create` with the recorded game id, decks and dice) instead of PHP's tables: its tables must be
+those PHP dumped after V1::createGame (`load::diff_tables`), then every step must match.
+`tests/v1_games.rs` checks four arena games against PHP without the golden files (decks chosen in
+the lobby, by a bot, in game): the tables after creation, then both players' GameViews after each of
+30 answers (labels compared as empty or not, log and sequence numbers not compared), with save and
+reload in between (`tests/data/v1_games_php.php` makes the reference in the server container).

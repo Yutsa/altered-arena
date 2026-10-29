@@ -30,6 +30,7 @@ name = "arena-server"
 version = "0.1.0"
 dependencies = [
  "altered-engine",
+ "altered-rules",
  "axum",
  "mimalloc",
  "serde",
