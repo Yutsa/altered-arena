@@ -1,14 +1,11 @@
-//! Actions/InteruptReveal.php
-//!
-//! Not translated yet: every method below returns `PhpError::nt` (the base-class defaults of
-//! Models/Action.php apply to the methods the PHP class does not define). PHP methods:
-//! getDescription (:22), argsMarkRegion (:32), actInteruptReveal (:39)
-//! Default args: `protected $args` at Actions/InteruptReveal.php:27 (to port into `default_args`).
+//! Actions/InteruptReveal.php: the revealed cards (in limbo) go back to the hand once seen.
+//! Its `argsMarkRegion()` is not `argsInteruptReveal()`: the state has no args.
 
-#![allow(unused_imports)]
 use crate::framework::*;
-use crate::game::{Game, PId};
+use crate::game::Game;
+use crate::managers::cards;
 use crate::models::action::{ActionClass, Ctx};
+use crate::models::card;
 use crate::{PhpError, R};
 use serde_json::{json, Value};
 
@@ -19,19 +16,43 @@ impl ActionClass for InteruptReveal {
         "InteruptReveal"
     }
 
+    // PHP: Actions/InteruptReveal.php:27
+    fn default_args(&self) -> Value {
+        json!({"create": false, "regionType": null})
+    }
+
     // PHP: Actions/InteruptReveal.php:17
     fn get_state(&self, _g: &mut Game, _ctx: Ctx) -> R<Value> {
         Ok(json!(ST_INTERRUPT_REVEAL))
     }
 
+    // PHP: Actions/InteruptReveal.php:22
     fn get_description(&self, _g: &mut Game, _ctx: Ctx) -> R<Value> {
-        Err(PhpError::nt("Actions/InteruptReveal.php:22 getDescription"))
+        Ok(json!("Confirm display of card"))
     }
 
-    fn act(&self, _g: &mut Game, _ctx: Ctx, method: &str, _args: &Value) -> R<Value> {
+    fn act(&self, g: &mut Game, _ctx: Ctx, method: &str, _args: &Value) -> R<Value> {
         match method.to_lowercase().as_str() {
-            "actinteruptreveal" => Err(PhpError::nt("Actions/InteruptReveal.php:39 actInteruptReveal")),
+            "actinteruptreveal" => {
+                act_interupt_reveal(g)?;
+                Ok(Value::Null)
+            }
             _ => Err(PhpError::new(format!("Error: Call to undefined method ALT\\Actions\\InteruptReveal::{}()", method))),
         }
     }
+}
+
+/// `actInteruptReveal()`
+// PHP: Actions/InteruptReveal.php:39
+fn act_interupt_reveal(g: &mut Game) -> R<()> {
+    let revealed = cards::get_in_location(g, "limbo", None)?;
+    let mut player = None;
+    for c in &revealed {
+        card::set_location(g, *c, "hand")?;
+        player = card::get_player(g, *c)?;
+    }
+    // Notifications::endReveal: `$player->getId()` (undefined when nothing was revealed)
+    let p = player.ok_or_else(|| PhpError::new("Error: Call to a member function getId() on null"))?;
+    g.notify("endReveal", json!({"player_id": p, "cardsRevealed": revealed}));
+    Ok(())
 }

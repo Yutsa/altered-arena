@@ -3,7 +3,7 @@
 use crate::core::engine;
 use crate::core::globals;
 use crate::framework::{self, ST_END_OF_NIGHT, ST_NEW_DAY, ST_PRE_END_OF_GAME};
-use crate::game::Game;
+use crate::game::{Game, PId};
 use crate::game_methods;
 use crate::helpers::conditions;
 use crate::managers::{cards, meeples, players};
@@ -206,8 +206,69 @@ pub fn st_advance_dusk(g: &mut Game) -> R<()> {
         players::compute_storm(g, true)?;
         return engine::proceed(g, false, false);
     }
-    // Tie breaker mode: needs Players::biomesModifier and Player::getBiomeStrength
-    Err(PhpError::nt("States/TurnTrait.php:258 stAdvanceDusk (tie breaker)"))
+    // Tie breaker mode
+    let mut winners = json!({
+        "forest": {"pId": null, "value": 0},
+        "mountain": {"pId": null, "value": 0},
+        "ocean": {"pId": null, "value": 0},
+    });
+    let mut region: Option<String> = None;
+    let markers = players::sort_markers_by_state(g, "storm-4")?;
+    if !markers.is_empty() {
+        for m in markers {
+            region = Some(g.meeple(m)?.kind.clone());
+        }
+    }
+    for p in players::get_all(g) {
+        let expeditions = player::get_biome_strength(g, p, &["stormLeft", "stormRight"], true)?;
+        let mut valid_biomes = json!({"forest": 0, "ocean": 0, "mountain": 0});
+        if let Some(r) = &region {
+            valid_biomes = php::arr();
+            php::set(&mut valid_biomes, r, json!(0));
+        }
+        players::biomes_modifier(g, &mut valid_biomes, p, "", true, false)?;
+        for biome in php::keys_str(&valid_biomes) {
+            let value = php::intval(php::get(php::get(&expeditions, "stormLeft"), &biome)) + php::intval(php::get(php::get(&expeditions, "stormRight"), &biome));
+            let w = php::get_mut(&mut winners, &biome);
+            let cur = php::intval(php::get(w, "value"));
+            if cur < value {
+                php::set(w, "value", json!(value));
+                php::set(w, "pId", json!(p));
+            } else if cur == value {
+                php::set(w, "pId", Value::Null);
+            }
+        }
+    }
+
+    let mut p_win = php::arr();
+    let mut max = 0;
+    let mut victor: Option<PId> = None;
+    for (_biome, info) in php::entries(&winners) {
+        if php::get(info, "pId").is_null() {
+            continue;
+        }
+        let wp = php::intval(php::get(info, "pId"));
+        let k = wp.to_string();
+        let n = php::intval(php::get(&p_win, &k)) + 1;
+        php::set(&mut p_win, &k, json!(n));
+        if n > max {
+            max = n;
+            victor = Some(wp);
+        } else if n == max {
+            victor = None;
+        }
+    }
+
+    if let Some(v) = victor {
+        let n = php::get(&p_win, &v.to_string()).clone();
+        g.notify("winTieBreaker", json!({"player_id": v, "n": n}));
+        if let Some(pr) = g.players.get_mut(&v) {
+            pr.score = 1;
+        }
+        return game_methods::jump_to_or_call(g, &json!(ST_PRE_END_OF_GAME), &json!([]));
+    }
+    g.notify("message", json!({"log": "No winner is found. New tiebreaker round starts"}));
+    st_after_dusk(g)
 }
 
 /// `stAfterDusk()`
