@@ -267,6 +267,9 @@ export interface PlayerDecision extends DecisionBase {
 export interface NumberDecision extends DecisionBase {
   kind: 'number';
   values: number[];
+  // Die result choice of All In!: Reserve cards that may be discarded to add 2 to the results
+  // (answer { type: 'select', cardIds: [id] } instead of a number)
+  discardCardIds?: number[];
 }
 
 export interface LocationDecision extends DecisionBase {

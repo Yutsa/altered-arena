@@ -749,8 +749,10 @@ pub fn special(g: &mut Game, a: &Map<String, Value>, _node: &Value, ctx: Ctx) {
             }
         }
         "drawTopIfRoll" | "exhaustPlayFree" => {
-            // The die result comes from the RollDie event (selectedRoll)
-            let Some(roll) = ctx.event.as_ref().filter(|e| e.trigger == "RollDie").map(|e| e.n) else { return };
+            // The die result comes from the RollDie event (selectedRoll), else the "roll" arg (the Wayfarer, OD)
+            let event_roll = ctx.event.as_ref().filter(|e| e.trigger == "RollDie").map(|e| e.n);
+            let arg_roll = if effect == "drawTopIfRoll" { a.get("roll").and_then(Value::as_i64).map(|r| r as i32) } else { None };
+            let Some(roll) = event_roll.or(arg_roll) else { return };
             let Some(c) = g.mods.special.revealed[me] else { return };
             if g.card(c).zone != Zone::Deck || g.card(c).def().cost_hand != roll {
                 return;
@@ -965,10 +967,21 @@ pub fn special(g: &mut Game, a: &Map<String, Value>, _node: &Value, ctx: Ctx) {
             }
         }
         "_wolvesPick" => wolves_pick(g, &inner, ctx),
+        // Give Fate a Twist: each result of the roll being resolved is also offered +n
+        "addToCurrentRolls" => {
+            let n = i(&inner, "n", 1);
+            if !g.dice_rolls.is_empty() && n > 0 {
+                let mut rolls = g.dice_rolls.clone();
+                rolls.extend(g.dice_rolls.iter().map(|r| r + n));
+                rolls.sort();
+                rolls.dedup();
+                g.dice_rolls = rolls;
+            }
+        }
 
         other => {
-            // Not supported: playAnotherTurn (no turn-order hook), addToCurrentRolls (no dice-roll
-            // state), swapBoostsWithSource (BoostExchange), doEachCardInDiscardPileSourceName
+            // Not supported: playAnotherTurn (no turn-order hook), swapBoostsWithSource
+            // (BoostExchange), doEachCardInDiscardPileSourceName
             g.unsupported(format!("special {}", other));
             let name = src.map(|c| g.card(c).name()).unwrap_or("?");
             g.log_line(None, format!("(Not implemented yet: [[{}]] effect \"{}\")", name, other));

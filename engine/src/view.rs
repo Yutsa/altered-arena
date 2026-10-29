@@ -324,7 +324,16 @@ impl Game {
                 "max": max,
             }),
             PendingKind::Player { options, .. } => json!({"kind": "player", "players": options.iter().map(|s| self.players[*s].id).collect::<Vec<_>>()}),
-            PendingKind::Number { values, .. } => json!({"kind": "number", "values": values}),
+            PendingKind::Number { values, then } => {
+                let mut v = json!({"kind": "number", "values": values});
+                // All In!: Reserve cards that may be discarded to add 2 (answered with a select)
+                if let NumberThen::Die { discard, .. } = then {
+                    if !discard.is_empty() {
+                        v["discardCardIds"] = json!(discard);
+                    }
+                }
+                v
+            }
             PendingKind::Location { options, .. } => json!({
                 "kind": "location",
                 "locations": options.iter().map(|(k, l, s, z)| json!({"key": k, "label": l, "player": self.players[*s].id, "zone": zone_name(*z)})).collect::<Vec<_>>(),

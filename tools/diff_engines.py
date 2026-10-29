@@ -223,8 +223,10 @@ def play_game(n, decks):
                     continue
             if d.get('kind') == 'choice' and len(opts) == 1 and opts[0]['id'] != 99:
                 rdec = call(opt.rust, 'GET', f'/api/v1/games/{rid}?{rq(w[0])}').get('decision')
-                # Rust resolved it on its own and now asks something else (no option like this one)
-                if not rdec or rdec['kind'] != 'choice' or not any(label_words(opts[0]['label']) & label_words(c['label']) for c in rdec['choices']):
+                # Rust resolved it on its own and now asks something else (no option like this one);
+                # a die roll left alone (irreversible, confirmed with undo on) is rolled at once by Rust
+                rolled = opts[0]['label'].startswith('Roll ') and not any('Roll a die' in c['label'] for c in (rdec or {}).get('choices', []))
+                if not rdec or rdec['kind'] != 'choice' or not any(label_words(opts[0]['label']) & label_words(c['label']) for c in rdec['choices']) or rolled:
                     call(opt.php, 'POST', f'/api/v1/games/{pid}/answer?player={w[0]}', {'decisionId': d['id'], 'type': 'choice', 'id': opts[0]['id']})
                     continue
             # PHP asks about effects that can't do anything (no valid target...), with Pass; Rust skips them

@@ -76,6 +76,9 @@ pub struct Event {
     pub ascended: bool,
     #[serde(default)]
     pub boosts: Option<i32>,
+    /// RollDie / ImmediateRollDie: the die results that can be chosen
+    #[serde(default)]
+    pub rolls: Vec<i32>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -170,7 +173,8 @@ pub enum PendingKind {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum NumberThen {
     Pay,
-    Die { effects: Value, bonus: i32 },
+    /// Choice of a die result: the RollDie args; Reserve cards that may be discarded to add 2 (All In!)
+    Die { args: Value, discard: Vec<CardId> },
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -304,6 +308,9 @@ pub struct Game {
     pub dice: Vec<i32>,
     #[serde(default)]
     pub dice_used: usize,
+    /// Results of the die roll being resolved, with the +1 options (DiceRolls global of the original engine)
+    #[serde(default)]
+    pub dice_rolls: Vec<i32>,
     /// State at the start of the current decision sequence, for undo (no hidden information revealed since)
     #[serde(skip)]
     pub undo_point: Option<Box<Game>>,
@@ -384,6 +391,7 @@ impl Game {
             unsupported: vec![],
             dice: vec![],
             dice_used: 0,
+            dice_rolls: vec![],
             undo_point: None,
             undo_owner: None,
         };
