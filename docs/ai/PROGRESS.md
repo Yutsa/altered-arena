@@ -5,7 +5,7 @@ Plan: `docs/plans/AI_TOURNAMENT.md`. Private data (replays, decklists, player na
 
 ## Current phase
 
-A (collection) finishing, B (custom decks) in progress.
+D (priors from the replays) and E (AI) before pass 1. Pass 0 (simple bot baseline) done.
 
 ## Done
 
@@ -29,14 +29,41 @@ A (collection) finishing, B (custom decks) in progress.
   with `\"` gain a backslash each time the deck content global is read back): `GlobalSlot` keeps
   the row value when the cached one differs. With it, `--create` tables match PHP's exactly.
 
+- B.3 Goldens of the tournament decks: `tools/goldens_decks.sh` with every real pairing twice
+  (seats swapped) = 148 whole random games, 16,048 steps, all pass, also with `--create` (Rust
+  creates the game itself: tables identical to PHP's).
+- B.5 Tournament replays as goldens: `tools/goldens_tournament.sh` (RUNNER=private/harness_replay,
+  a copy of the harness's ReplayRunner whose notification comparison ignores backslashes, which
+  `Globals::cast` multiplies in card texts as many times as BGA's request history read them).
+  About half the 74 replays replay exactly; the others diverge in the oracle itself (BGA version
+  drift: `simpleNote` notifications, state sequences 93/97, a `count(null)`), not in Rust.
+  Output `server/goldens/tournament/replays`, linked as `server/goldens/tournament_replays`.
+- C. Crate `ai/` (`aitool`): `match`, `mirror`, `pass N AGENT`, `agree N AGENT`; legal answers
+  (`legal.rs`), determinisation (`sim.rs`), runner on 256 MB-stack threads with panics recorded
+  (`play.rs`), Wilson intervals. Tests: hidden cards do not change the AI's inputs, candidates are
+  legal and contain the simple bot's answer, games are deterministic.
+- Pass 0 (simple bot, both seats): 7400 games, 0 errors, 3.5 min; the pass's favourite won the real
+  game in 36/74 pairings, Spearman 0.49 with the real standings (`docs/ai/passes/PASS_0.md`).
+- E. AI v1 (`search.rs`, `eval.rs`): candidates applied on a redealt copy, the action finished by
+  Bot.php, GameView evaluated (progress, Dusk outlook per expedition and biome, hand, Reserve,
+  concave Mana, landmarks); turn decisions: the 3 best + end of turn rolled out to Night by Bot.php;
+  Mana choices by priors (else the most expensive cards) until 10 orbs. Mirror against the simple
+  bot (12 decks x 10 games): 82.5 % [74.7, 88.3], 1.55 s CPU per AI per game.
+
 ## Decisions
 
 - Forfeited matches (no game played) are not pairings to replay: 74 pairings.
 - Deck ids `D01..` sorted by faction, hero, player id; the mapping to players is only in
   `private/tournament-617607/decks.json`.
+- Pass seeds are the same at every pass (10000 + 1000 x pairing + game): passes differ only by the
+  AI. Optimisation (phase F) uses other seeds (500000+).
+- Every player used one deck all tournament: 37 decks (the 38th player only had a forfeit).
+- Agreement counts decisions with at least 2 candidates, real `undo` answers excluded; an answer
+  agrees when it equals the real one or leads to the same state.
 
 ## Next steps
 
-1. Finish the replay download, re-run `extract_decks.py`, record deck goldens (3+ seeds per deck).
-2. Full golden run (6336 + new), commit.
-3. Phase C: `ai/` crate (match runner, legal answers, tournament pass 0 with the simple bot).
+1. When the tournament replays are recorded: full golden run, `aitool agree 0 ai`, priors
+   (`tools/ai/build_priors.py`), A/B priors on vs off.
+2. Pass 1 (`aitool pass 1 ai`, ~40 min), report, analysis.
+3. Phase F loop (shared code A/B, per-deck evolution strategy) for passes 2..5.
