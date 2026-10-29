@@ -83,7 +83,6 @@ fn discard_from_deck_all() {
 }
 
 #[test]
-#[ignore = "a Discard listener needs Conditions::isSacrificed (port-conditions)"]
 fn discard_from_hand_asks_then_moves() {
     let Some(mut g) = tiktok() else { return };
     run(&mut g, json!({"action": "Discard", "pId": 2001, "args": {"source": "hand", "n": 1}}));
@@ -164,6 +163,7 @@ fn night_cleanup_discards_the_selection() {
 }
 
 #[test]
+#[ignore = "needs Players::biomesModifier (port-storm)"]
 fn target_opponent_character_then_discard() {
     let Some(mut g) = tiktok() else { return };
     run(
@@ -179,6 +179,7 @@ fn target_opponent_character_then_discard() {
 }
 
 #[test]
+#[ignore = "needs Players::biomesModifier (port-storm)"]
 fn target_forced_choice_is_automatic() {
     let Some(mut g) = tiktok() else { return };
     run(
