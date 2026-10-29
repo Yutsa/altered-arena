@@ -224,6 +224,76 @@ pub fn get_all_reserve_slots(g: &mut Game) -> R<i64> {
     Ok(n)
 }
 
+/// `Players::getBiomesInStorm($excludeMoveInfo)`: pId → expedition → biome => biome, with the
+/// modifiers of the cards in play
+// PHP: Managers/Players.php:513
+pub fn get_biomes_in_storm(g: &mut Game, exclude_move: bool) -> R<Value> {
+    let mut all = php::arr();
+    for p in get_all(g) {
+        let player_storm = player::get_biome_in_storms(g, p)?;
+        for (side, biomes) in php::entries(&player_storm) {
+            let expedition = if side == "hero" { "stormLeft" } else { "stormRight" };
+            let mut new_biomes = php::arr();
+            for b in php::vals(biomes) {
+                php::set(&mut new_biomes, &php::key_of(b), b.clone());
+            }
+            biomes_modifier(g, &mut new_biomes, p, expedition, false, exclude_move)?;
+            php::set(php::get_mut(&mut all, &p.to_string()), expedition, new_biomes);
+        }
+    }
+    Ok(all)
+}
+
+/// `Players::filterBiomes($expeditionAttributes)`: pId → the expeditions having one of the biomes
+/// (all of them when null)
+// PHP: Managers/Players.php:531
+pub fn filter_biomes(g: &mut Game, attrs: &Value) -> R<Value> {
+    let all = get_biomes_in_storm(g, true)?;
+    let mut authorized = php::arr();
+    for (pid, player_storm) in php::entries(&all) {
+        php::set(&mut authorized, &pid, php::arr());
+        if attrs.is_null() {
+            php::set(&mut authorized, &pid, Value::Array(php::keys(player_storm)));
+            continue;
+        }
+        for a in foreach_vals(attrs)? {
+            let k = php::key_of(&a);
+            if php::isset(php::get(player_storm, "stormLeft"), &k) {
+                php::push(php::get_mut(&mut authorized, &pid), json!("stormLeft"));
+            }
+            if php::isset(php::get(player_storm, "stormRight"), &k) {
+                php::push(php::get_mut(&mut authorized, &pid), json!("stormRight"));
+            }
+        }
+    }
+    Ok(authorized)
+}
+
+/// `Players::excludeBiomes($expeditionAttributes)`: pId → the expeditions missing one of the
+/// biomes
+// PHP: Managers/Players.php:554
+pub fn exclude_biomes(g: &mut Game, attrs: &Value) -> R<Value> {
+    let all = get_biomes_in_storm(g, true)?;
+    let mut excluded = php::arr();
+    for (pid, player_storm) in php::entries(&all) {
+        for a in foreach_vals(attrs)? {
+            let k = php::key_of(&a);
+            if !php::isset(php::get(player_storm, "stormLeft"), &k) {
+                php::push(php::get_mut(&mut excluded, &pid), json!("stormLeft"));
+            }
+            if !php::isset(php::get(player_storm, "stormRight"), &k) {
+                php::push(php::get_mut(&mut excluded, &pid), json!("stormRight"));
+            }
+        }
+    }
+    Ok(excluded)
+}
+
+/// `foreach ($x as ...)` on a non-array: a warning and no iteration
+fn foreach_vals(v: &Value) -> R<Vec<Value>> {
+    Ok(php::vals(v).into_iter().cloned().collect())
+}
+
 /// `Players::checkVictory()`
 // PHP: Managers/Players.php:249
 pub fn check_victory(g: &mut Game) -> R<bool> {

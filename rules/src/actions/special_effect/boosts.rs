@@ -1,6 +1,6 @@
 //! SpecialEffect cases that boost cards: mass boosts and "1 boost per X" counts.
 
-use super::{ext, gain, gigantic, has_subtype, player_of, req_player, type_in, Case, Out, Se, STORMS};
+use super::{gain, gigantic, has_subtype, player_of, req_player, type_in, Case, Out, Se, STORMS};
 use crate::game::{CardId, Game, PId};
 use crate::helpers::{conditions, ft};
 use crate::managers::players;
@@ -222,7 +222,7 @@ fn boost_stat0(g: &mut Game, s: &mut Se, n: Value) -> R<Out> {
 
 // PHP: Actions/SpecialEffect.php:1141
 fn boost_x_for_forest(g: &mut Game, s: &mut Se) -> R<Out> {
-    let biomes = ext::filter_biomes(g, &json!(["forest"]))?;
+    let biomes = crate::managers::players::filter_biomes(g, &json!(["forest"]))?;
     let mut n = 0;
     for locs in php::vals(&biomes) {
         n += php::count_strict(locs)? as i64;
