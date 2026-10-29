@@ -168,7 +168,7 @@ fn target_opponent_character_then_discard() {
     let Some(mut g) = tiktok() else { return };
     run(
         &mut g,
-        json!({"action": "Target", "pId": 2001, "args": {"targetPlayer": "opponent", "targetType": ["character"], "effect": {"action": "Discard", "args": {}}}}),
+        json!({"action": "Target", "pId": 2001, "sourceId": 2416, "args": {"targetPlayer": "opponent", "targetType": ["character"], "effect": {"action": "Discard", "args": {}}}}),
     );
     let d = g.try_decision(2001).unwrap().expect("decision");
     assert_eq!(d["kind"], json!("select"), "{}", d);
