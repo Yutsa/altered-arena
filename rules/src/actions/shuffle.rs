@@ -1,14 +1,9 @@
-//! Actions/Shuffle.php
-//!
-//! Not translated yet: every method below returns `PhpError::nt` (the base-class defaults of
-//! Models/Action.php apply to the methods the PHP class does not define). PHP methods:
-//! getDescription (:20), isAutomatic (:25), isIndependent (:30), isOptional (:35), isIrreversible (:40), stShuffle (:47)
-//! Default args: `protected $args` at Actions/Shuffle.php:45 (to port into `default_args`).
+//! Actions/Shuffle.php: reforms the active player's deck from the discard pile.
 
-#![allow(unused_imports)]
-use crate::framework::*;
+use crate::framework::ST_SHUFFLE;
 use crate::game::{Game, PId};
-use crate::models::action::{ActionClass, Ctx};
+use crate::managers::{cards, players};
+use crate::models::action::{resolve_action, ActionClass, Ctx};
 use crate::{PhpError, R};
 use serde_json::{json, Value};
 
@@ -24,27 +19,36 @@ impl ActionClass for Shuffle {
         Ok(json!(ST_SHUFFLE))
     }
 
+    // PHP: Actions/Shuffle.php:20
     fn get_description(&self, _g: &mut Game, _ctx: Ctx) -> R<Value> {
-        Err(PhpError::nt("Actions/Shuffle.php:20 getDescription"))
+        Ok(json!("Shuffle the discard pile"))
     }
 
-    fn is_optional(&self, _g: &mut Game, _ctx: Ctx, _player: Option<PId>) -> R<bool> {
-        Err(PhpError::nt("Actions/Shuffle.php:35 isOptional"))
-    }
-
-    fn is_independent(&self, _g: &mut Game, _ctx: Ctx, _player: Option<PId>) -> R<bool> {
-        Err(PhpError::nt("Actions/Shuffle.php:30 isIndependent"))
-    }
-
+    // PHP: Actions/Shuffle.php:25
     fn is_automatic(&self, _g: &mut Game, _ctx: Ctx, _player: Option<PId>) -> R<bool> {
-        Err(PhpError::nt("Actions/Shuffle.php:25 isAutomatic"))
+        Ok(false)
     }
 
+    // PHP: Actions/Shuffle.php:30
+    fn is_independent(&self, _g: &mut Game, _ctx: Ctx, _player: Option<PId>) -> R<bool> {
+        Ok(false)
+    }
+
+    // PHP: Actions/Shuffle.php:35
+    fn is_optional(&self, _g: &mut Game, _ctx: Ctx, _player: Option<PId>) -> R<bool> {
+        Ok(true)
+    }
+
+    // PHP: Actions/Shuffle.php:40
     fn is_irreversible(&self, _g: &mut Game, _ctx: Ctx, _player: Option<PId>) -> R<bool> {
-        Err(PhpError::nt("Actions/Shuffle.php:40 isIrreversible"))
+        Ok(true)
     }
 
-    fn st(&self, _g: &mut Game, _ctx: Ctx) -> R<Option<Value>> {
-        Err(PhpError::nt("Actions/Shuffle.php:47 stShuffle"))
+    // PHP: Actions/Shuffle.php:47
+    fn st(&self, g: &mut Game, ctx: Ctx) -> R<Option<Value>> {
+        let player = players::get_active(g).ok_or_else(|| PhpError::new("Error: Call to a member function getId() on null"))?;
+        cards::reform_deck_from_discard(g, &format!("deck-{}", player))?;
+        resolve_action(self, g, ctx, Value::Null, json!(true))?;
+        Ok(None)
     }
 }
