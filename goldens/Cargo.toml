@@ -1,0 +1,11 @@
+[package]
+name = "goldens"
+description = "Replays the golden decision trees recorded with the PHP engine against the Rust translation"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+
+[dependencies]
+altered-rules = { path = "../rules" }
+serde_json = { version = "1", features = ["preserve_order"] }
+rayon = "1"

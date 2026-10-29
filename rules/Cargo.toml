@@ -1,0 +1,10 @@
+[package]
+name = "altered-rules"
+description = "Faithful translation of the AlteredBGA PHP rules engine"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["preserve_order"] }

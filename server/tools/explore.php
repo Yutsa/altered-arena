@@ -304,3 +304,11 @@ file_put_contents("$out/$board/$ref.json", json_encode([
   'tree' => $tree,
 ], JSON_PARTIAL_OUTPUT_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE));
 printf("%s %s: %d nodes, %.1fs (php game %d)\n", $ref, $board, $nodes, microtime(true) - $t, $g);
+
+// The game and its snapshots are not needed any more
+$db = \BgaDb::conn();
+foreach ($db->query("SHOW DATABASES LIKE 'arena_g{$g}%'")->fetch_all() as [$name]) {
+  if ($name === "arena_g$g" || str_starts_with($name, "arena_g{$g}_")) {
+    $db->query("DROP DATABASE `$name`");
+  }
+}
