@@ -230,6 +230,13 @@ class Arena
     }
   }
 
+  /** Runs $fn as a request of $playerId (tools that set up positions directly) */
+  public static function inRequest(int $gameId, ?int $playerId, callable $fn)
+  {
+    self::openGame($gameId);
+    return self::request($playerId, $fn);
+  }
+
   private static function storeNotifications(): void
   {
     if (empty(\Table::$notifications)) {
