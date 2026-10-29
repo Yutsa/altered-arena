@@ -1,0 +1,37 @@
+//! Actions/Ready.php
+//!
+//! Not translated yet: every method below returns `PhpError::nt` (the base-class defaults of
+//! Models/Action.php apply to the methods the PHP class does not define). PHP methods:
+//! getDescription (:20), isDoable (:29), getCard (:40), stReady (:57)
+
+#![allow(unused_imports)]
+use crate::framework::*;
+use crate::game::{Game, PId};
+use crate::models::action::{ActionClass, Ctx};
+use crate::{PhpError, R};
+use serde_json::{json, Value};
+
+pub struct Ready;
+
+impl ActionClass for Ready {
+    fn name(&self) -> &'static str {
+        "Ready"
+    }
+
+    // PHP: Actions/Ready.php:15
+    fn get_state(&self, _g: &mut Game, _ctx: Ctx) -> R<Value> {
+        Ok(json!(ST_READY))
+    }
+
+    fn get_description(&self, _g: &mut Game, _ctx: Ctx) -> R<Value> {
+        Err(PhpError::nt("Actions/Ready.php:20 getDescription"))
+    }
+
+    fn is_doable(&self, _g: &mut Game, _ctx: Ctx, _player: Option<PId>) -> R<bool> {
+        Err(PhpError::nt("Actions/Ready.php:29 isDoable"))
+    }
+
+    fn st(&self, _g: &mut Game, _ctx: Ctx) -> R<Option<Value>> {
+        Err(PhpError::nt("Actions/Ready.php:57 stReady"))
+    }
+}
