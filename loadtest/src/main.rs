@@ -176,6 +176,31 @@ fn cpu_seconds(pid: u32) -> f64 {
     s.split(':').fold(0.0, |acc, part| acc * 60.0 + part.parse::<f64>().unwrap_or(0.0))
 }
 
+/// A file of the server's container (cgroup v2 / network statistics)
+fn docker_cat(name: &str, file: &str) -> String {
+    std::process::Command::new("docker").args(["exec", name, "cat", file]).output().map(|o| String::from_utf8_lossy(&o.stdout).to_string()).unwrap_or_default()
+}
+
+fn stat_field(text: &str, key: &str) -> u64 {
+    text.lines().find_map(|l| l.strip_prefix(key).and_then(|v| v.trim().parse().ok())).unwrap_or(0)
+}
+
+/// CPU seconds used by the container
+fn docker_cpu_seconds(name: &str) -> f64 {
+    stat_field(&docker_cat(name, "/sys/fs/cgroup/cpu.stat"), "usage_usec ") as f64 / 1e6
+}
+
+/// Memory of the container in KB: (anonymous memory, as RSS; total charged to the cgroup)
+fn docker_mem_kb(name: &str) -> (u64, u64) {
+    let anon = stat_field(&docker_cat(name, "/sys/fs/cgroup/memory.stat"), "anon ") / 1024;
+    let current = docker_cat(name, "/sys/fs/cgroup/memory.current").trim().parse::<u64>().unwrap_or(0) / 1024;
+    (anon, current)
+}
+
+fn docker_tx_bytes(name: &str) -> u64 {
+    docker_cat(name, "/sys/class/net/eth0/statistics/tx_bytes").trim().parse().unwrap_or(0)
+}
+
 fn sample_process(pid: u32) -> Option<(u64, f64)> {
     let out = std::process::Command::new("ps").args(["-o", "rss=,%cpu=", "-p", &pid.to_string()]).output().ok()?;
     let s = String::from_utf8_lossy(&out.stdout);
@@ -191,6 +216,8 @@ async fn main() {
     let think: u64 = arg("--think-ms", 1500);
     let duration: u64 = arg("--duration", 60);
     let pid: u32 = arg("--pid", 0);
+    // The server runs in this docker container (CPU, memory and bytes sent read from its cgroup)
+    let docker: String = arg("--docker", String::new());
     let ramp: u64 = arg("--ramp", 10);
 
     let client = reqwest::Client::builder().pool_max_idle_per_host(4096).timeout(Duration::from_secs(30)).build().unwrap();
@@ -206,8 +233,10 @@ async fn main() {
     let decks: Vec<Value> = client.get(format!("{}/api/v1/decks", url)).send().await.unwrap().json().await.unwrap();
     let start = Instant::now();
     let until = start + Duration::from_secs(duration);
-    let base_rss = if pid > 0 { sample_process(pid).map(|s| s.0).unwrap_or(0) } else { 0 };
-    let cpu_start = if pid > 0 { cpu_seconds(pid) } else { 0.0 };
+    let base_rss = if pid > 0 { sample_process(pid).map(|s| s.0).unwrap_or(0) } else if !docker.is_empty() { docker_mem_kb(&docker).0 } else { 0 };
+    let cpu_start = if pid > 0 { cpu_seconds(pid) } else if !docker.is_empty() { docker_cpu_seconds(&docker) } else { 0.0 };
+    let tx_start = if docker.is_empty() { 0 } else { docker_tx_bytes(&docker) };
+    let max_mem_current = Arc::new(AtomicU64::new(0));
 
     // Sampler
     let samples = Arc::new(Mutex::new(Vec::<(f64, u64, f64)>::new()));
@@ -219,6 +248,21 @@ async fn main() {
                     samples.lock().await.push((start.elapsed().as_secs_f64(), rss, cpu));
                 }
                 tokio::time::sleep(Duration::from_secs(1)).await;
+            }
+        });
+    } else if !docker.is_empty() {
+        let (samples, docker, max_cur) = (samples.clone(), docker.clone(), max_mem_current.clone());
+        tokio::spawn(async move {
+            let mut last = (start.elapsed().as_secs_f64(), docker_cpu_seconds(&docker));
+            while Instant::now() < until {
+                tokio::time::sleep(Duration::from_secs(1)).await;
+                let d = docker.clone();
+                let Ok((cpu, (anon, cur))) = tokio::task::spawn_blocking(move || (docker_cpu_seconds(&d), docker_mem_kb(&d))).await else { continue };
+                let t = start.elapsed().as_secs_f64();
+                let pct = 100.0 * (cpu - last.1) / (t - last.0).max(0.001);
+                last = (t, cpu);
+                max_cur.fetch_max(cur, Ordering::Relaxed);
+                samples.lock().await.push((t, anon, pct));
             }
         });
     }
@@ -285,7 +329,8 @@ async fn main() {
     progress.abort();
 
     let elapsed = start.elapsed().as_secs_f64();
-    let cpu_used = if pid > 0 { cpu_seconds(pid) - cpu_start } else { 0.0 };
+    let cpu_used = if pid > 0 { cpu_seconds(pid) - cpu_start } else if !docker.is_empty() { docker_cpu_seconds(&docker) - cpu_start } else { 0.0 };
+    let tx = if docker.is_empty() { 0 } else { docker_tx_bytes(&docker) - tx_start };
     let mut lat = stats.latencies_us.lock().await.clone();
     lat.sort_unstable();
     let pct = |p: f64| if lat.is_empty() { 0.0 } else { lat[((lat.len() as f64 - 1.0) * p) as usize] as f64 / 1000.0 };
@@ -313,6 +358,10 @@ async fn main() {
         "serverCpuMsPerAnswer": if stats.answers.load(Ordering::Relaxed) > 0 { cpu_used * 1000.0 / stats.answers.load(Ordering::Relaxed) as f64 } else { 0.0 },
         "serverRssKBPerGame": (max_rss.saturating_sub(base_rss)) as f64 / games.max(1) as f64,
         "refusedReasons": stats.refused_reasons.lock().await.clone(),
+        "serverMemCurrentMBMax": max_mem_current.load(Ordering::Relaxed) as f64 / 1024.0,
+        "serverTxBytes": tx,
+        "serverTxBytesPerRequest": tx as f64 / (stats.answers.load(Ordering::Relaxed) + stats.polls.load(Ordering::Relaxed)).max(1) as f64,
+        "serverTxMbitPerSec": tx as f64 * 8.0 / 1e6 / elapsed,
     });
     println!("{}", serde_json::to_string_pretty(&result).unwrap());
 }

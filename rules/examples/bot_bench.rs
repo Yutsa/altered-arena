@@ -13,7 +13,7 @@ use std::time::Instant;
 
 fn main() {
     let games: usize = std::env::args().nth(1).and_then(|a| a.parse().ok()).unwrap_or(40);
-    std::thread::Builder::new().stack_size(256 << 20).spawn(move || run(games)).unwrap().join().unwrap();
+    std::thread::Builder::new().stack_size(std::env::var("STACK_KB").ok().and_then(|s| s.parse::<usize>().ok()).unwrap_or(256 << 10) << 10).spawn(move || run(games)).unwrap().join().unwrap();
 }
 
 fn run(games: usize) {

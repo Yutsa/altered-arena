@@ -113,7 +113,7 @@ fn pick(d: &Value, rng: &mut Lcg) -> Value {
 fn main() {
     let games: usize = std::env::args().nth(1).and_then(|a| a.parse().ok()).unwrap_or(100);
     let answers: usize = std::env::args().nth(2).and_then(|a| a.parse().ok()).unwrap_or(40);
-    std::thread::Builder::new().stack_size(256 << 20).spawn(move || run(games, answers)).unwrap().join().unwrap();
+    std::thread::Builder::new().stack_size(std::env::var("STACK_KB").ok().and_then(|s| s.parse::<usize>().ok()).unwrap_or(256 << 10) << 10).spawn(move || run(games, answers)).unwrap().join().unwrap();
 }
 
 fn run(games: usize, answers: usize) {

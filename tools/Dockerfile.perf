@@ -1,0 +1,21 @@
+# Server only (no client, no card art), for load tests in a container limited like a VPS:
+#   docker build -t arena-perf -f tools/Dockerfile.perf .
+#   docker run --rm -d --name arena-perf --cpus=2 --memory=4g -p 8097:8080 -e ARENA_ENGINE=rules arena-perf
+#   loadtest --url http://localhost:8097 --docker arena-perf ...
+FROM rust:1-slim AS server
+WORKDIR /src
+COPY Cargo.toml Cargo.lock ./
+COPY engine engine
+COPY rules rules
+COPY goldens goldens
+COPY arena-server arena-server
+COPY loadtest loadtest
+RUN cargo build --release -p arena-server
+
+FROM debian:bookworm-slim
+WORKDIR /app
+COPY --from=server /src/target/release/arena-server /app/arena-server
+COPY protocol/data /app/protocol
+ENV PORT=8080 CLIENT_DIR=/app/client ART_DIR=/app/art PROTOCOL_DIR=/app/protocol DATA_DIR=/data MIMALLOC_PURGE_DELAY=0
+EXPOSE 8080
+CMD ["/app/arena-server"]
