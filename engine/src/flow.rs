@@ -55,7 +55,11 @@ fn adjust_ctx(g: &Game, node: &Value, mut ctx: Ctx) -> Ctx {
 }
 
 pub fn run_node(g: &mut Game, node: &Value, ctx: Ctx) {
-    let ctx = adjust_ctx(g, node, ctx);
+    let mut ctx = adjust_ctx(g, node, ctx);
+    // Nodes built by the engine itself name the card they come from
+    if let Some(id) = node.get("sourceId").and_then(Value::as_u64) {
+        ctx.source = Some(id as CardId);
+    }
     if let Some(childs) = node.get("childs").and_then(Value::as_array) {
         let kind = node.get("type").and_then(Value::as_str).unwrap_or("seq");
         if childs.is_empty() {

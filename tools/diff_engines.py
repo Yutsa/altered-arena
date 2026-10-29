@@ -18,6 +18,7 @@ ap.add_argument('--rust', default='http://localhost:8090')
 ap.add_argument('--seed', type=int, default=1)
 ap.add_argument('--max', type=int, default=600, help='decisions per game')
 ap.add_argument('-v', action='store_true')
+ap.add_argument('--dice', help='die results to use in order, comma separated (e.g. 1,6), instead of random ones')
 ap.add_argument('--strict-order', dest='lenient_order', action='store_false',
                 help='report a difference when PHP asks to order abilities that Rust resolved without asking')
 opt = ap.parse_args()
@@ -89,6 +90,12 @@ def diff(php, rust):
             if not (only_a or only_b or changed): msg += 'order differs'
             problems.append(msg)
     return problems
+
+
+def label_words(t):
+    import re
+    syn = {'give': 'gain', 'put': 'send', 'inc': 'gain'}
+    return {syn.get(w, w) for w in re.findall(r'[a-z]+', t.lower())} - {'to', 'a', 'the', 'of', 'card', 's', 'up', 'it', 'in', 'choose', 'then', 'target', 'one', 'skip', 'pass'}
 
 
 def pick_answer(d):
@@ -167,7 +174,7 @@ def translate(ans, pd, rd):
 def play_game(n, decks):
     d0, d1 = rnd.choice(decks)['id'], rnd.choice(decks)['id']
     # Both engines take their die results from this list (the oracle and Rust read it from the snapshot)
-    dice = [rnd.randint(1, 6) for _ in range(64)]
+    dice = [int(x) for x in opt.dice.split(',')] if opt.dice else [rnd.randint(1, 6) for _ in range(64)]
     g = call(opt.php, 'POST', '/api/v1/games', {'players': [{'name': 'A', 'deck': d0}, {'name': 'B', 'deck': d1}], 'dice': dice})
     pid = g['gameId']
     snap = call(opt.php, 'GET', f'/api/oracle/games/{pid}/state')
@@ -216,8 +223,8 @@ def play_game(n, decks):
                     continue
             if d.get('kind') == 'choice' and len(opts) == 1 and opts[0]['id'] != 99:
                 rdec = call(opt.rust, 'GET', f'/api/v1/games/{rid}?{rq(w[0])}').get('decision')
-                # Rust resolved it on its own and now asks something else (not an ordering of effects)
-                if not rdec or rdec['kind'] != 'choice' or not rdec['prompt'].startswith('Choose which effect'):
+                # Rust resolved it on its own and now asks something else (no option like this one)
+                if not rdec or rdec['kind'] != 'choice' or not any(label_words(opts[0]['label']) & label_words(c['label']) for c in rdec['choices']):
                     call(opt.php, 'POST', f'/api/v1/games/{pid}/answer?player={w[0]}', {'decisionId': d['id'], 'type': 'choice', 'id': opts[0]['id']})
                     continue
             # PHP asks about effects that can't do anything (no valid target...), with Pass; Rust skips them

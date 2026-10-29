@@ -1186,7 +1186,7 @@ fn play_free(g: &mut Game, ctx: Ctx, c: CardId, effect_hand: bool) -> bool {
     if zone == Zone::Limbo || zone == Zone::Deck || (zone == Zone::Hand && g.card(c).controller != seat) {
         g.move_card(c, Zone::Hand, Some(seat));
     }
-    let bonus = BonusPlay { types: vec![], free: true, max_base_cost: None, mandatory: false };
+    let bonus = BonusPlay { types: vec![], free: true, max_base_cost: None, mandatory: false, card: None };
     let dests = g.playable(seat, Some(&bonus)).into_iter().find(|(x, _)| *x == c).map(|(_, d)| d).unwrap_or_default();
     if dests.is_empty() {
         if zone == Zone::Limbo || zone == Zone::Deck {

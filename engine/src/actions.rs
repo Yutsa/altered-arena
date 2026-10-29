@@ -80,7 +80,7 @@ pub fn is_doable(g: &Game, action: &str, a: &Map<String, Value>, ctx: &Ctx) -> b
                 "permanent" => Some(CardType::Permanent),
                 _ => None,
             }).collect();
-            let bonus = BonusPlay { types, free: b(a, "free"), max_base_cost: a.get("maxBaseCost").and_then(Value::as_i64).map(|v| v as i32), mandatory: false };
+            let bonus = BonusPlay { types, free: b(a, "free"), max_base_cost: a.get("maxBaseCost").and_then(Value::as_i64).map(|v| v as i32), mandatory: false, card: None };
             !g.playable(ctx.seat, Some(&bonus)).is_empty()
         }
         // Doable when its condition holds or it has an effect for the opposite case
@@ -225,39 +225,7 @@ pub fn run(g: &mut Game, action: &str, a: &Map<String, Value>, node: &Value, ctx
                 ctx,
             });
         }
-        "MoveExpedition" => {
-            let n = i(a, "n", 1);
-            let seat = match s(a, "pId") {
-                Some("opponent") => Game::other(ctx.seat),
-                _ => ctx.target_seat.unwrap_or(ctx.seat),
-            };
-            let side = s(a, "expedition")
-                .and_then(Zone::from_engine)
-                .and_then(Zone::side)
-                .or(ctx.side)
-                .or_else(|| ctx.source.and_then(|c| g.card(c).zone.side()));
-            match side {
-                Some(side) => {
-                    // "If it does, your other Expedition moves the other way" (Cable Car Station)
-                    if g.move_expedition(seat, side, n) && b(a, "moveOtherExpedition") {
-                        g.move_expedition(seat, side.other(), -n);
-                    }
-                }
-                None => {
-                    let options = vec![(seat, Side::Hero), (seat, Side::Companion)];
-                    let effect = serde_json::json!({"action": "MoveExpedition", "args": {"n": n}});
-                    g.ask(Pending {
-                        id: 0,
-                        seat: ctx.seat,
-                        prompt: format!("{}Choose the expedition that moves", source_prefix(g, ctx.source)),
-                        source: ctx.source,
-                        can_pass: false,
-                        kind: PendingKind::Expedition { options, min: 1, max: 1, effect: Some(effect) },
-                        ctx,
-                    });
-                }
-            }
-        }
+        "MoveExpedition" => move_expedition_action(g, a, ctx),
         "AfterYou" => {
             g.pay(ctx.seat, i(a, "pay", 0));
             g.stack.push(Task::PlayDone { turn_play: true });
@@ -296,17 +264,23 @@ pub fn run(g: &mut Game, action: &str, a: &Map<String, Value>, node: &Value, ctx
                 free: b(a, "free"),
                 max_base_cost: a.get("maxBaseCost").and_then(Value::as_i64).map(|v| v as i32),
                 mandatory: b(a, "mandatory"),
+                card: None,
             };
             g.mods.bonus_played = false;
             g.ask_turn(ctx.seat, Some(bonus));
         }
         "PlayCard" => {
+            // The player chooses where, unless the effect says (PlayCard::stPlayCard)
             if let Some(c) = card_arg(g, a, &ctx) {
-                let bonus = BonusPlay { types: vec![], free: b(a, "free"), max_base_cost: None, mandatory: false };
+                let bonus = BonusPlay { types: vec![], free: b(a, "free"), max_base_cost: None, mandatory: true, card: Some(c) };
                 let options = g.playable(ctx.seat, Some(&bonus));
                 if let Some((_, dests)) = options.into_iter().find(|(id, _)| *id == c) {
-                    let dest = s(a, "location").and_then(Zone::from_engine).and_then(|z| dests.iter().copied().find(|d| d.zone() == z)).unwrap_or(dests[0]);
-                    let _ = g.play_card(ctx.seat, c, dest, Some(&bonus));
+                    match s(a, "location").and_then(Zone::from_engine).and_then(|z| dests.iter().copied().find(|d| d.zone() == z)) {
+                        Some(dest) => {
+                            let _ = g.play_card(ctx.seat, c, dest, Some(&bonus));
+                        }
+                        None => g.ask_turn(ctx.seat, Some(bonus)),
+                    }
                 }
             }
         }
@@ -893,6 +867,80 @@ fn invoke_token(g: &mut Game, a: &Map<String, Value>, ctx: Ctx, optional: bool) 
         kind: PendingKind::Location { options, token: token.reference.clone(), n },
         ctx,
     });
+}
+
+/// MoveExpedition: a forced expedition (TargetExpedition, forceExpedition), else every expedition
+/// of the given sides and player that may move (Players::getBlockedExpeditions); the player chooses
+/// when several may
+fn move_expedition_action(g: &mut Game, a: &Map<String, Value>, ctx: Ctx) {
+    if g.tiebreaker {
+        g.log_line(None, "In tie-breaker this power has no effect.".into());
+        return;
+    }
+    let n = i(a, "n", 1);
+    let forced = a
+        .get("forceExpedition")
+        .and_then(Value::as_array)
+        .and_then(|f| Some((g.seat_of(f.first()?.as_u64()? as u32)?, Zone::from_engine(f.get(1)?.as_str()?)?.side()?)))
+        .or_else(|| ctx.side.map(|side| (ctx.side_seat.or(ctx.target_seat).unwrap_or(ctx.seat), side)));
+    let options: Vec<(Seat, Side)> = match forced {
+        Some(f) => vec![f],
+        None => {
+            let names: Vec<Value> = match a.get("expedition") {
+                Some(Value::String(x)) => vec![Value::String(x.clone())],
+                Some(Value::Array(l)) if !l.is_empty() => l.clone(),
+                _ => vec!["stormLeft".into(), "stormRight".into()],
+            };
+            let ev = ctx.event.as_deref();
+            let sides: Vec<Side> = names
+                .iter()
+                .filter_map(|x| match x.as_str()? {
+                    "EFFECT" | "effect" => ctx.source.and_then(|c| g.card(c).zone.side()),
+                    "fromEvent" => ev.and_then(|e| match e.trigger.as_str() {
+                        "LeaveExpedition" | "LeaveLandmark" => e.from.and_then(Zone::side),
+                        "MoveExpedition" => e.side,
+                        _ => None,
+                    }),
+                    other => Zone::from_engine(other).and_then(Zone::side),
+                })
+                .collect();
+            let only = match s(a, "pId") {
+                Some("opponent") => Some(Game::other(ctx.seat)),
+                Some("me") => Some(ctx.seat),
+                _ => None,
+            };
+            let mut out = vec![];
+            for seat in 0..2 {
+                if only.is_some_and(|o| o != seat) {
+                    continue;
+                }
+                for side in Side::BOTH {
+                    if sides.contains(&side) && (n < 0 || !g.expedition_blocked(seat, side)) {
+                        out.push((seat, side));
+                    }
+                }
+            }
+            out
+        }
+    };
+    match options.len() {
+        0 => {}
+        1 => g.move_expedition_by_effect(options[0].0, options[0].1, n, a, &ctx),
+        _ => {
+            let mut args = a.clone();
+            args.remove("expedition");
+            let effect = serde_json::json!({"action": "MoveExpedition", "args": args});
+            g.ask(Pending {
+                id: 0,
+                seat: ctx.seat,
+                prompt: format!("{}Choose the expedition that moves {}", source_prefix(g, ctx.source), if n < 0 { "backward" } else { "forward" }),
+                source: ctx.source,
+                can_pass: false,
+                kind: PendingKind::Expedition { options, min: 1, max: 1, effect: Some(effect) },
+                ctx,
+            });
+        }
+    }
 }
 
 pub fn zone_key(z: Zone) -> &'static str {

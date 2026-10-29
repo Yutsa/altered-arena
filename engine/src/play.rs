@@ -81,7 +81,12 @@ impl Game {
         let p = &self.players[seat];
         let mana = self.mana_available(seat);
         let mut out = vec![];
-        for &id in p.hand.iter().chain(p.reserve.iter()) {
+        let only = bonus.and_then(|b| b.card);
+        let cards: Vec<CardId> = match only {
+            Some(c) => vec![c],
+            None => p.hand.iter().chain(p.reserve.iter()).copied().collect(),
+        };
+        for id in cards {
             let c = self.card(id);
             let def = c.def();
             if c.zone == Zone::Reserve && c.exhausted {

@@ -122,6 +122,9 @@ pub struct BonusPlay {
     pub free: bool,
     pub max_base_cost: Option<i32>,
     pub mandatory: bool,
+    /// Only this card (PlayCard)
+    #[serde(default)]
+    pub card: Option<CardId>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -981,8 +984,8 @@ impl Game {
                 for p in self.players.iter_mut() {
                     p.records.storm_moves = Default::default();
                 }
-                self.dusk();
                 self.stack.push(Task::Step(Step::AfterDusk));
+                self.dusk();
             }
             Step::AfterDusk => {
                 self.stack.push(Task::Step(Step::Rest));
@@ -1125,13 +1128,153 @@ impl Game {
                 }
             }
         }
-        for (seat, side, biomes, from_ascension) in moves {
-            if self.move_expedition_ex(seat, side, 1, false) {
-                if let Some(m) = self.players[seat].records.storm_moves[side.index()].as_mut() {
-                    m.biomes = biomes;
-                    m.from_ascension = from_ascension;
+        // Per player: moves replaced by a card (Eris, Pegasus, Rune's Testament) resolve after the
+        // others, through the engine (Players::computeStorm)
+        let mut steps: Vec<(Seat, Vec<Value>)> = vec![];
+        for seat in 0..2 {
+            let mine: Vec<_> = moves.iter().filter(|m| m.0 == seat).cloned().collect();
+            let mut nodes = vec![];
+            for (_, side, biomes, from_ascension) in &mine {
+                let n = 1 + self.players[seat].expeditions[side.index()].iter().filter(|&&c| self.card(c).def().flag("advanceTwiceDusk")).count() as i32;
+                if let Some(node) = self.instead_of_advance(seat, *side, n, biomes, *from_ascension, Some(&mine.iter().map(|m| m.1).collect::<Vec<_>>())) {
+                    nodes.push(node);
+                    continue;
+                }
+                if self.move_expedition_ex(seat, *side, n, false) {
+                    if let Some(m) = self.players[seat].records.storm_moves[side.index()].as_mut() {
+                        m.biomes = biomes.clone();
+                        m.from_ascension = *from_ascension;
+                    }
                 }
             }
+            if !nodes.is_empty() {
+                steps.push((seat, nodes));
+            }
+        }
+        for (seat, nodes) in steps.into_iter().rev() {
+            let node = if nodes.len() == 1 { nodes.into_iter().next().unwrap() } else { serde_json::json!({"type": "seq", "childs": nodes}) };
+            self.stack.push(Task::Run { node, ctx: Ctx::of(seat, None) });
+        }
+    }
+
+    /// Players::getBlockedExpeditions: blocked by an effect, a Defender or an opposite Defender
+    pub fn expedition_blocked(&self, seat: Seat, side: Side) -> bool {
+        self.players[seat].blocked[side.index()] || self.defended(seat, side)
+    }
+
+    /// Cards that replace a forward move of this expedition (Players::getActionInsteadOfAdvance):
+    /// the node to resolve instead, or None to move normally. `dusk_moves`: at Dusk, the
+    /// expeditions of this player that move
+    pub fn instead_of_advance(&self, seat: Seat, side: Side, n: i32, biomes: &[Biome], from_ascension: bool, dusk_moves: Option<&[Side]>) -> Option<Value> {
+        let mut actions: Vec<(CardId, String)> = vec![];
+        for id in self.in_play(seat) {
+            let c = self.card(id);
+            let Some(act) = c.def().prop("actionInsteadAdvance").and_then(Value::as_str).filter(|x| !x.is_empty()) else { continue };
+            let Some(cside) = c.zone.side() else { continue };
+            if cside == side {
+                actions.push((id, act.to_string()));
+            } else if c.is_gigantic() && act.starts_with("Eris") {
+                actions.push((id, "blockMove".into()));
+            } else if c.is_gigantic() && act == "PegasusCommon" {
+                actions.push((id, act.to_string()));
+            }
+        }
+        if n <= 0 || actions.is_empty() {
+            return None;
+        }
+        actions.sort();
+        let pid = self.players[seat].id;
+        let loc = crate::actions::zone_key(side.zone());
+        let ascended = self.players[seat].ascended[side.index()];
+        let names: Vec<&str> = biomes.iter().map(|b| ["forest", "mountain", "ocean"][b.index()]).collect();
+        let forced = |n: i32| {
+            serde_json::json!({"action": "MoveExpedition", "pId": pid, "args": {
+                "n": n, "pId": pid, "expedition": [loc], "force": true, "forceExpedition": [pid, loc],
+                "winningBiomes": names, "ascended": ascended, "hasMovedFromAscension": from_ascension}})
+        };
+        let has = |a: &str| actions.iter().any(|(_, x)| x == a);
+        let mut nodes = vec![];
+        if !(has("ErisCommon") || has("ErisRare") || has("PegasusCommon") || (dusk_moves.is_some() && has("blockMove"))) {
+            nodes.push(forced(n));
+        }
+        let mut pegasus = 0;
+        for (id, act) in &actions {
+            let gigantic = self.card(*id).is_gigantic();
+            match act.as_str() {
+                "draw2" => nodes.push(serde_json::json!({"type": "seq", "childs": [
+                    {"action": "Discard", "sourceId": id, "args": {"cardId": id}},
+                    {"action": "Draw", "pId": pid, "sourceId": id, "args": {"players": "me", "n": 2}}]})),
+                "look4" => nodes.push(serde_json::json!({"type": "seq", "childs": [
+                    {"action": "Discard", "sourceId": id, "args": {"cardId": id}},
+                    {"action": "SpecialEffect", "pId": pid, "sourceId": id, "args": {"effect": "RunesTestamentLook4"}}]})),
+                "ErisCommon" | "ErisRare" => {
+                    let roll = match dusk_moves {
+                        Some(m) => !gigantic || m.len() == 2,
+                        None => !gigantic,
+                    };
+                    if roll {
+                        let low = if act == "ErisCommon" { "1-3" } else { "2-3" };
+                        nodes.push(serde_json::json!({"action": "RollDie", "pId": pid, "sourceId": id, "args": {"effect": {low: forced(n), "4+": forced(n + 1)}}}));
+                    } else {
+                        nodes.push(forced(n));
+                    }
+                }
+                "blockMove" => {
+                    if let Some(m) = dusk_moves {
+                        if !self.card(*id).zone.side().is_some_and(|s| m.contains(&s)) {
+                            nodes.push(forced(n));
+                        }
+                    }
+                }
+                "PegasusCommon" => pegasus += 1,
+                _ => {}
+            }
+        }
+        if pegasus > 0 {
+            let more = if dusk_moves.is_some() { from_ascension && ascended } else { biomes.is_empty() && ascended };
+            nodes.push(forced(if more { n + pegasus } else { n }));
+        }
+        match nodes.len() {
+            0 => Some(serde_json::json!({"type": "seq", "childs": []})),
+            1 => nodes.pop(),
+            _ => Some(serde_json::json!({"type": "xor", "pId": pid, "childs": nodes})),
+        }
+    }
+
+    /// MoveExpedition::actMoveExpedition on a chosen expedition
+    pub fn move_expedition_by_effect(&mut self, seat: Seat, side: Side, n: i32, a: &serde_json::Map<String, Value>, ctx: &Ctx) {
+        let biomes: Vec<Biome> = a.get("winningBiomes").and_then(Value::as_array).map(|l| l.iter().filter_map(|b| Biome::from_engine(b.as_str()?)).collect()).unwrap_or_default();
+        let from_ascension = a.get("hasMovedFromAscension").and_then(Value::as_bool).unwrap_or(false);
+        if !a.get("force").and_then(Value::as_bool).unwrap_or(false) {
+            if let Some(node) = self.instead_of_advance(seat, side, n, &biomes, from_ascension, None) {
+                self.stack.push(Task::Run { node, ctx: Ctx::of(seat, ctx.source) });
+                return;
+            }
+        }
+        let gigantic = ctx.source.is_some_and(|c| self.card(c).is_gigantic());
+        if !self.move_expedition(seat, side, n) {
+            return;
+        }
+        if let Some(m) = self.players[seat].records.storm_moves[side.index()].as_mut() {
+            m.biomes = biomes;
+            m.from_ascension = from_ascension;
+        }
+        if a.get("moveOtherExpedition").and_then(Value::as_bool).unwrap_or(false) {
+            let other = side.other();
+            if -n > 0 {
+                let opposite = (0..2).any(|s| self.players[s].expeditions[other.other().index()].iter().any(|&c| self.card(c).def().flag("oppositeDefender")));
+                if !opposite && !self.players[seat].blocked[other.index()] {
+                    let pid = self.players[seat].id;
+                    let node = serde_json::json!({"action": "MoveExpedition", "pId": pid, "args": {
+                        "n": -n, "pId": pid, "force": false, "forceExpedition": [pid, crate::actions::zone_key(other.zone())]}});
+                    self.stack.push(Task::Run { node, ctx: Ctx::of(seat, ctx.source) });
+                }
+            } else {
+                self.move_expedition(seat, other, -n);
+            }
+        }
+        if gigantic {
+            self.move_expedition(seat, side.other(), n);
         }
     }
 
@@ -1139,7 +1282,7 @@ impl Game {
     /// Defender: the expedition a Defender is in can't move forward (Players::getBlockedExpeditions),
     /// unless a card there ignores Defenders; an "opposite defender" blocks the other expedition
     /// of every player
-    fn defended(&self, seat: Seat, side: Side) -> bool {
+    pub fn defended(&self, seat: Seat, side: Side) -> bool {
         let p = &self.players[seat];
         let mine: Vec<CardId> = p.expeditions[side.index()]
             .iter()
