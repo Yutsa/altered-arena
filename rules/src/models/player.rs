@@ -619,6 +619,131 @@ pub fn get_opponent_minimum_cost(g: &mut Game, pid: PId, ty: &Value) -> R<i64> {
     Ok(cost)
 }
 
+/// `getCompletedFeatReserveCharacterTough()`: reserve-character Tough of the completed Feats
+// PHP: Models/Player.php:322
+pub fn get_completed_feat_reserve_character_tough(g: &mut Game, pid: PId) -> R<i64> {
+    let mut n = 0;
+    for c in get_landmarks(g, pid)? {
+        let completed = card::get(g, c, "effectCompleted")?;
+        if !php::is_arr(&completed) {
+            continue;
+        }
+        if !php::in_array(&json!("feat"), &card::get_subtypes(g, c)?) && !php::key_exists(&completed, "reserveCharacterTough") {
+            continue;
+        }
+        if meeples::count_meeples(g, &format!("card-{}", c), &json!("featCompleted"))? < 1 {
+            continue;
+        }
+        n += php::intval(php::coalesce(php::get(&completed, "reserveCharacterTough"), &json!(0)));
+    }
+    Ok(n)
+}
+
+/// `countUniversalCharacterTough($receiver)`: 2 per universalCharacter2 source, 1 per
+/// universalCharacter1 source
+// PHP: Models/Player.php:1158
+pub fn count_universal_character_tough(g: &mut Game, pid: PId, receiver: Option<CardId>) -> R<i64> {
+    let mut tier2 = 0;
+    for c in get_played_cards(g, pid, &Value::Null)? {
+        if played_card_grants_universal_character_tough(g, pid, c, 2, receiver)? {
+            tier2 += 1;
+        }
+    }
+    let mut tier1 = 0;
+    for c in get_played_cards(g, pid, &Value::Null)? {
+        if played_card_grants_universal_character_tough(g, pid, c, 1, receiver)? {
+            tier1 += 1;
+        }
+    }
+    Ok(tier2 * 2 + tier1)
+}
+
+/// `playedCardGrantsUniversalCharacterTough($source, $tier, $receiver)`
+// PHP: Models/Player.php:1189
+fn played_card_grants_universal_character_tough(g: &mut Game, pid: PId, source: CardId, tier: i64, receiver: Option<CardId>) -> R<bool> {
+    let want = json!(if tier == 2 { "universalCharacter2" } else { "universalCharacter1" });
+    let dt = card::get_dynamic_tough(g, source)?;
+    let mut matches = false;
+    if !php::is_arr(&dt) {
+        matches = php::loose_eq(&utils::check_attribute_condition(g, "tough", &dt, Some(pid), source, &Value::Null)?, &want);
+    } else {
+        for s in php::vals(&dt) {
+            if php::loose_eq(&utils::check_attribute_condition(g, "tough", s, Some(pid), source, &Value::Null)?, &want) {
+                matches = true;
+                break;
+            }
+        }
+    }
+    if !matches {
+        return Ok(false);
+    }
+    let Some(r) = receiver else { return Ok(true) };
+    let completed = card::get(g, source, "effectCompleted")?;
+    if !php::is_arr(&completed) || !php::isset(&completed, "universalToughScope") {
+        return Ok(true);
+    }
+    let scope = php::get(&completed, "universalToughScope").clone();
+    let in_storms = php::in_list(&json!(card::location(g, r)?), &["stormLeft", "stormRight"]);
+    if php::strict_eq(&scope, &json!("expedition")) {
+        return Ok(in_storms);
+    }
+    if php::strict_eq(&scope, &json!("expeditionAnchored")) {
+        return Ok(in_storms && card::has_token(g, r, "anchored")?);
+    }
+    Ok(true)
+}
+
+/// `countUniversalToughAnchoredAsleep()`
+// PHP: Models/Player.php:1224
+pub fn count_universal_tough_anchored_asleep(g: &mut Game, pid: PId) -> R<i64> {
+    let mut n = 0;
+    for c in get_played_cards(g, pid, &Value::Null)? {
+        let dt = card::get_dynamic_tough(g, c)?;
+        let keep = if !php::is_arr(&dt) {
+            let dt = card::get_dynamic_tough(g, c)?;
+            php::loose_eq(&utils::check_attribute_condition(g, "tough", &dt, Some(pid), c, &Value::Null)?, &json!("anchoredOrAsleep"))
+        } else {
+            let mut found = false;
+            for s in php::vals(&dt) {
+                if php::loose_eq(&utils::check_attribute_condition(g, "tough", s, Some(pid), c, &Value::Null)?, &json!("anchoredOrAsleep")) {
+                    found = true;
+                    break;
+                }
+            }
+            found
+        };
+        if keep {
+            n += 1;
+        }
+    }
+    Ok(n)
+}
+
+/// `countUniversalLandmarksToughFromCompletedFeat()`: the highest `universalLandmarks<N>`
+// PHP: Models/Player.php:1246
+pub fn count_universal_landmarks_tough_from_completed_feat(g: &mut Game, pid: PId) -> R<i64> {
+    let mut n = 0;
+    for c in get_landmarks(g, pid)? {
+        if !card::may_merge_completed_feat_dynamic_tough(g, c)? || meeples::count_meeples(g, &format!("card-{}", c), &json!("featCompleted"))? < 1 {
+            continue;
+        }
+        let completed = card::get(g, c, "effectCompleted")?;
+        if php::empty(&completed) || !php::is_arr(&completed) {
+            continue;
+        }
+        if php::isset(&completed, "dynamicTough") {
+            if let Value::String(dt) = php::get(&completed, "dynamicTough") {
+                if let Some(suffix) = dt.strip_prefix("universalLandmarks") {
+                    if !suffix.is_empty() {
+                        n = n.max(php::intval(&json!(suffix)));
+                    }
+                }
+            }
+        }
+    }
+    Ok(n)
+}
+
 /// `countUniversalTokenGigantic()`
 // PHP: Models/Player.php:1270
 pub fn count_universal_token_gigantic(g: &mut Game, pid: PId) -> R<usize> {

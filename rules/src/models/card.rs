@@ -1053,14 +1053,166 @@ pub fn has_biomes_equal_to_highest_self(g: &mut Game, id: CardId) -> R<bool> {
     Ok(false)
 }
 
-/// `getDynamicTough()` (Models/Card.php:1185) — not translated yet
-pub fn get_dynamic_tough(_g: &mut Game, _id: CardId) -> R<Value> {
-    Err(PhpError::nt("Models/Card.php:1185 getDynamicTough"))
+/// `mayMergeCompletedFeatDynamicTough()`: a Feat, or a Landmark with a non-empty completed
+/// `dynamicTough`
+// PHP: Models/Card.php:1159
+pub fn may_merge_completed_feat_dynamic_tough(g: &mut Game, id: CardId) -> R<bool> {
+    let st = get_subtypes(g, id)?;
+    if php::in_array(&json!("feat"), &st) {
+        return Ok(true);
+    }
+    if !php::in_array(&json!("landmark"), &st) {
+        return Ok(false);
+    }
+    let completed = php::coalesce(&get_property(g, id, "effectCompleted")?, &php::arr()).clone();
+    if !php::is_arr(&completed) {
+        return Ok(false);
+    }
+    let extra = php::get(&completed, "dynamicTough");
+    Ok(!extra.is_null() && !php::strict_eq(extra, &json!("")))
 }
 
-/// `getTough()` (Models/Card.php:1214) — not translated yet
-pub fn get_tough(_g: &mut Game, _id: CardId) -> R<i64> {
-    Err(PhpError::nt("Models/Card.php:1214 getTough"))
+/// `getDynamicTough()`: the printed value, merged with the completed Feat's `dynamicTough`
+// PHP: Models/Card.php:1179
+pub fn get_dynamic_tough(g: &mut Game, id: CardId) -> R<Value> {
+    let base = php::coalesce(&get_property(g, id, "dynamicTough")?, &json!("")).clone();
+    if !may_merge_completed_feat_dynamic_tough(g, id)? {
+        return Ok(base);
+    }
+    if meeples::count_meeples(g, &format!("card-{}", id), &json!("featCompleted"))? < 1 {
+        return Ok(base);
+    }
+    let completed = php::coalesce(&get_property(g, id, "effectCompleted")?, &php::arr()).clone();
+    if !php::is_arr(&completed) {
+        return Ok(base);
+    }
+    let extra = php::get(&completed, "dynamicTough").clone();
+    if extra.is_null() || php::strict_eq(&extra, &json!("")) {
+        return Ok(base);
+    }
+    let to_list = |v: &Value| -> Value {
+        if php::strict_eq(v, &json!("")) || v.is_null() {
+            return php::arr();
+        }
+        if php::is_arr(v) {
+            v.clone()
+        } else {
+            json!([v])
+        }
+    };
+    let merged = php::array_merge(&[&to_list(&base), &to_list(&extra)]);
+    if php::count(&merged) == 0 {
+        return Ok(json!(""));
+    }
+    if php::count(&merged) == 1 {
+        return Ok(php::geti(&merged, 0).clone());
+    }
+    Ok(merged)
+}
+
+/// `getTough()`: 0 outside the expeditions and landmarks; printed + dynamic + universal + global
+// PHP: Models/Card.php:1214
+pub fn get_tough(g: &mut Game, id: CardId) -> R<i64> {
+    let loc = location(g, id)?;
+    if !STORMS.contains(&loc.as_str()) && loc != "landmark" {
+        return Ok(0);
+    }
+    let mut tough = php::intval(php::coalesce(&get_property(g, id, "tough")?, &json!(0)));
+    let mut dynamic_tough = get_dynamic_tough(g, id)?;
+    if !php::is_arr(&dynamic_tough) && php::loose_ne(&dynamic_tough, &json!("")) {
+        dynamic_tough = json!([dynamic_tough]);
+    }
+    // `$singleTough` outlives the loop (read below); undefined (null) when the loop never ran
+    let mut single_tough = Value::Null;
+    if php::loose_ne(&dynamic_tough, &json!("")) {
+        for st in php::vals(&dynamic_tough) {
+            single_tough = st.clone();
+            let dyn_split = php::explode(":", &php::strval(&single_tough));
+            if dyn_split.len() > 1 {
+                let p = get_player(g, id)?;
+                if !utils::check_attribute_condition(g, "tough", &single_tough, p, id, &Value::Null)?.is_null() {
+                    single_tough = json!(dyn_split[0]);
+                }
+            }
+            let case = |s: &str| php::loose_eq(&single_tough, &json!(s));
+            if case("") {
+                // no dynamic
+            } else if case("region") {
+                if !globals::is(g, "tieBreakerMode")? {
+                    let p = player_req(g, id)?;
+                    let diff = player::get_region_difference(g, p)? - 1;
+                    if diff >= 1 {
+                        tough += diff;
+                    }
+                }
+            } else if case("controlledPlants") {
+                let p = player_req(g, id)?;
+                for c in player::get_played_cards(g, p, &Value::Null)? {
+                    if php::in_array(&json!("plant"), &get_subtypes(g, c)?) {
+                        tough += 1;
+                    }
+                }
+            } else if case("tough1") {
+                tough += 1;
+            } else if case("tough2") {
+                tough += 2;
+            } else if case("exhaustedReserve") {
+                for p in players::get_all(g) {
+                    for c in player::get_reserve_cards(g, p)? {
+                        if is_tapped(g, c)? {
+                            tough += 1;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    let ty = get(g, id, "type")?;
+    if php::in_list(&ty, &["character", "token"]) {
+        let p = player_req(g, id)?;
+        let mut universal = player::count_universal_character_tough(g, p, Some(id))?;
+        if is(g, id, "excludeUniversalTough")? && php::loose_eq(&single_tough, &json!("universalCharacter2")) {
+            universal -= 2;
+        }
+        if is(g, id, "excludeUniversalTough")? && php::loose_eq(&single_tough, &json!("universalCharacter1")) {
+            universal -= 1;
+        }
+        tough += universal;
+        // Rider's Mask
+        let other = if loc == "stormLeft" { "stormRight" } else { "stormLeft" };
+        if (player::has_expedition_tough_boosted(g, p, Some(&loc))? || (php::truthy(&is_gigantic(g, id, false)?) && player::has_expedition_tough_boosted(g, p, Some(other))?))
+            && has_token(g, id, "boost")?
+        {
+            tough += 1;
+        }
+        let anchored_asleep = player::count_universal_tough_anchored_asleep(g, p)?;
+        if anchored_asleep > 0 && (has_token(g, id, "anchored")? || has_token(g, id, "asleep")?) {
+            tough += 1;
+        }
+    }
+    if php::in_list(&ty, &["permanent"]) {
+        let p = player_req(g, id)?;
+        let mut universal = player::count_universal_landmarks_tough_from_completed_feat(g, p)?;
+        if is(g, id, "excludeUniversalTough")? {
+            let completed = get(g, id, "effectCompleted")?;
+            let dt = php::get(&completed, "dynamicTough").clone();
+            if !php::empty(&completed) && !dt.is_null() && php::strval(&dt).starts_with("universalLandmarks") {
+                universal -= php::intval(&json!(php::strval(&dt).replace("universalLandmarks", "")));
+            }
+        }
+        tough += universal;
+    }
+    // Global Tough
+    let global_tough = globals::get(g, "globalTough")?;
+    let pid = g.card(id)?.pid.to_string();
+    if php::isset(&global_tough, &pid) {
+        for gt in php::vals(php::get(&global_tough, &pid)) {
+            if php::loose_eq(&get(g, id, "type")?, php::get(gt, "type")) && php::le(php::get(gt, "minHandCost"), &get(g, id, "costHand")?) {
+                tough += php::intval(php::get(gt, "tough"));
+            }
+        }
+    }
+    Ok(tough)
 }
 
 /// `isSeasoned()`
