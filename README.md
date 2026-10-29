@@ -34,7 +34,10 @@ Client development with hot reload: `cd client && ARENA_API=http://localhost:808
 Server settings (environment): `PORT` (8080), `CLIENT_DIR` (client/dist), `ART_DIR`,
 `PROTOCOL_DIR` (protocol/data), `DATA_DIR` (data: games are saved there every `PERSIST_SECS` (10)
 and reloaded on demand), `ARENA_DEBUG=1` (enables `/api/debug/*`, for differential tests only —
-never in production), `MIMALLOC_PURGE_DELAY=0` (recommended: frees memory sooner).
+never in production), `MIMALLOC_PURGE_DELAY=0` (recommended: frees memory sooner),
+`ARENA_ENGINE` (`legacy`, the default: the first Rust engine, `engine/`; `rules`: the translation
+of the PHP engine, `rules/`, whose requests run on `ENGINE_THREADS` threads (default: one per CPU)
+with `ENGINE_STACK_MB` (256) stacks; each engine saves and reloads only its own games).
 
 Deployment: from the parent folder (it holds AlteredBGA, whose card art goes in the image),
 `docker build -t altered-arena -f altered-arena/Dockerfile .`, then

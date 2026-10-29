@@ -91,9 +91,25 @@ pub fn catalog() -> &'static Catalog {
     })
 }
 
+/// Objects with their keys in sorted order, recursively: serde_json's maps iterate in key order
+/// unless its `preserve_order` feature is on (as when the server also links the `rules` crate),
+/// and this engine's behaviour (card order, deck contents, listener order) was built on key order
+fn sorted(v: Value) -> Value {
+    match v {
+        Value::Object(m) => {
+            let mut entries: Vec<(String, Value)> = m.into_iter().collect();
+            entries.sort_by(|a, b| a.0.cmp(&b.0));
+            Value::Object(entries.into_iter().map(|(k, x)| (k, sorted(x))).collect())
+        }
+        Value::Array(a) => Value::Array(a.into_iter().map(sorted).collect()),
+        v => v,
+    }
+}
+
 impl Catalog {
     pub fn parse(cards_json: &str, starters_json: &str) -> Catalog {
-        let raw: Map<String, Value> = serde_json::from_str(cards_json).expect("cards.min.json");
+        let raw: Value = serde_json::from_str(cards_json).expect("cards.min.json");
+        let Value::Object(raw) = sorted(raw) else { panic!("cards.min.json is not an object") };
         let mut cards = Vec::with_capacity(raw.len());
         let mut by_ref = HashMap::new();
         for (i, (reference, v)) in raw.into_iter().enumerate() {
@@ -135,7 +151,8 @@ impl Catalog {
             by_ref.insert(reference, i as u16);
             cards.push(def);
         }
-        let raw: Map<String, Value> = serde_json::from_str(starters_json).expect("starters.min.json");
+        let raw: Value = serde_json::from_str(starters_json).expect("starters.min.json");
+        let Value::Object(raw) = sorted(raw) else { panic!("starters.min.json is not an object") };
         let starters = raw
             .into_iter()
             .map(|(id, list)| {

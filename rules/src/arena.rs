@@ -164,19 +164,47 @@ pub fn run_bots(g: &mut Game) -> R<()> {
                 break;
             }
         }
-        let Some((bot_id, Some((action, args)))) = decision else { return Ok(()) };
+        let Some((bot_id, call)) = decision else { return Ok(()) };
+        let Some((action, args)) = call else {
+            // Bot.php has nothing to answer: PHP stops here (the game waits for the bot)
+            if !last_resort(g, bot_id)? {
+                return Ok(());
+            }
+            continue;
+        };
         if let Err(e) = bot_act(g, bot_id, &action, &args) {
             // A bad bot choice must not block the game: try the fallback once, else stop
             eprintln!("bot {} {} {}: {}", bot_id, action, Value::Array(args.clone()), e);
             g.begin_request(None)?;
-            let Some((action, args)) = bot::fallback(g, bot_id)? else { return Ok(()) };
-            if let Err(e2) = bot_act(g, bot_id, &action, &args) {
-                eprintln!("bot {} fallback failed: {}", bot_id, e2);
+            let fallback = bot::fallback(g, bot_id)?;
+            let ok = match fallback {
+                Some((action, args)) => match bot_act(g, bot_id, &action, &args) {
+                    Ok(()) => true,
+                    Err(e2) => {
+                        eprintln!("bot {} fallback failed: {}", bot_id, e2);
+                        false
+                    }
+                },
+                None => false,
+            };
+            if !ok && !last_resort(g, bot_id)? {
                 return Ok(());
             }
         }
     }
     Ok(())
+}
+
+/// Not in Arena.php (whose runBots stops, leaving the game waiting for the bot): the answers of
+/// `bot::last_resort` until one is accepted. False when none is.
+fn last_resort(g: &mut Game, bot_id: PId) -> R<bool> {
+    for (action, args) in bot::last_resort(g, bot_id)? {
+        if bot_act(g, bot_id, &action, &args).is_ok() {
+            return Ok(true);
+        }
+    }
+    eprintln!("bot {}: no answer accepted", bot_id);
+    Ok(false)
 }
 
 /// The log as `V1::log` reads it: the latest 100 lines that `you` may see

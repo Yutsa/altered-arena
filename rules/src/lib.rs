@@ -103,6 +103,11 @@ impl Game {
         arena::run_bots(self)
     }
 
+    /// The game is over (state `gameEnd`)
+    pub fn is_over(&self) -> bool {
+        framework::state(self).is_some_and(|s| s.name == "gameEnd")
+    }
+
     /// The players the bot plays
     pub fn bots(&self) -> &[PId] {
         &self.bots

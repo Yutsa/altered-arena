@@ -242,6 +242,80 @@ pub fn fallback(g: &mut Game, _bot: PId) -> R<Option<Call>> {
     Ok(None)
 }
 
+/// Not in Bot.php: when both the decision and the fallback were refused, PHP's runBots stops and
+/// the game waits for the bot forever. The answers the bot then tries, in order, built from its
+/// protocol v1 decision: pass, each target alone (or none), end of turn, each option, undo.
+pub fn last_resort(g: &mut Game, bot: PId) -> R<Vec<Call>> {
+    let mut copy = g.clone();
+    let raw = crate::v1::view_state(&mut copy, bot)?;
+    let Some(d) = crate::v1::decision(&mut copy, &raw, bot)? else { return Ok(vec![]) };
+    let id = d["id"].clone();
+    let mut answers = vec![];
+    if d["canPass"] == json!(true) {
+        answers.push(json!({"type": "pass"}));
+    }
+    let ids = |k: &str| -> Vec<Value> { d[k].as_array().cloned().unwrap_or_default() };
+    let keys = |k: &str, f: &str| -> Vec<Value> { d[k].as_array().into_iter().flatten().map(|o| o[f].clone()).collect() };
+    match d["kind"].as_str().unwrap_or("") {
+        "select" => {
+            if php::intval(&d["min"]) <= 0 {
+                answers.push(json!({"type": "select", "cardIds": []}));
+            }
+            for c in ids("cardIds") {
+                answers.push(json!({"type": "select", "cardIds": [c]}));
+            }
+        }
+        "turn" => {
+            if d["canEndTurn"] == json!(true) {
+                answers.push(json!({"type": "endTurn"}));
+            }
+        }
+        "choice" => {
+            for c in d["choices"].as_array().into_iter().flatten().filter(|c| c["enabled"] == json!(true)) {
+                answers.push(json!({"type": "choice", "id": c["id"]}));
+            }
+        }
+        "expedition" => {
+            for k in keys("expeditions", "key") {
+                answers.push(json!({"type": "expedition", "keys": [k]}));
+            }
+        }
+        "player" => {
+            for p in ids("players") {
+                answers.push(json!({"type": "player", "player": p}));
+            }
+        }
+        "number" => {
+            for v in ids("values") {
+                answers.push(json!({"type": "number", "value": v}));
+            }
+        }
+        "location" => {
+            for k in keys("locations", "key") {
+                answers.push(json!({"type": "location", "key": k}));
+            }
+        }
+        "buttons" => {
+            for k in keys("buttons", "key") {
+                answers.push(json!({"type": "button", "key": k}));
+            }
+        }
+        "confirm" => answers.push(json!({"type": "confirm"})),
+        _ => {}
+    }
+    if d["canUndo"] == json!(true) {
+        answers.push(json!({"type": "undo"}));
+    }
+    let mut calls = vec![];
+    for mut a in answers {
+        a["decisionId"] = id.clone();
+        if let Ok((method, args)) = crate::v1::to_action(&raw, &a) {
+            calls.push((method, php::vals(&args).into_iter().cloned().collect()));
+        }
+    }
+    Ok(calls)
+}
+
 fn pass_or_null(args: &Value) -> Option<Call> {
     if opt(args, "optionalAction") {
         call("actPassOptionalAction", vec![])
