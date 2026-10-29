@@ -472,6 +472,30 @@ pub fn get_biome_in_storms(g: &mut Game, pid: PId) -> R<Value> {
     Ok(locations)
 }
 
+/// `hasBlockingPower($expedition, $isGigantic)`
+// PHP: Models/Player.php:822
+pub fn has_blocking_power(g: &mut Game, pid: PId, expedition: &str, is_gigantic: bool) -> R<bool> {
+    for c in played_and_infinity(g, pid)? {
+        if card::location(g, c)? != expedition && !php::truthy(&card::is_gigantic(g, c, false)?) && !is_gigantic {
+            continue;
+        }
+        if card::is_blocking_power(g, c)? {
+            return Ok(true);
+        }
+    }
+    Ok(false)
+}
+
+/// `isInBiome($storm, $biome, $excludeMove)`
+// PHP: Models/Player.php:555
+pub fn is_in_biome(g: &mut Game, pid: PId, storm: &str, biome: &str, exclude_move: bool) -> R<bool> {
+    let biomes = get_biomes(g, pid, storm, exclude_move)?;
+    if !php::is_arr(&biomes) {
+        return Err(PhpError::new("TypeError: in_array(): Argument #2 ($haystack) must be of type array, bool given"));
+    }
+    Ok(php::in_array(&json!(biome), &biomes))
+}
+
 /// `hasGigantic()`
 pub fn has_gigantic(g: &mut Game, pid: PId) -> R<bool> {
     for c in played_and_infinity(g, pid)? {
