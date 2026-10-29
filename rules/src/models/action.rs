@@ -157,7 +157,20 @@ pub fn get_ctx_args(g: &Game, ctx: Ctx) -> Value {
 
 /// `getCtxArg($v)`
 pub fn get_ctx_arg(g: &Game, ctx: Ctx, k: &str) -> Value {
-    php::get(&get_ctx_args(g, ctx), k).clone()
+    // getCtxArgs()[$k], read in place
+    match ctx.and_then(|n| g.tree.nodes[n].infos.get("args")) {
+        Some(a) if !a.is_null() => php::get(a, k).clone(),
+        _ => Value::Null,
+    }
+}
+
+thread_local! {
+    /// `default_args()` of each action class (constant data), built once per thread
+    static DEFAULT_ARGS: std::cell::RefCell<std::collections::HashMap<&'static str, std::rc::Rc<Value>>> = Default::default();
+}
+
+fn default_args_of(a: &dyn ActionClass) -> std::rc::Rc<Value> {
+    DEFAULT_ARGS.with(|m| m.borrow_mut().entry(a.name()).or_insert_with(|| std::rc::Rc::new(a.default_args())).clone())
 }
 
 /// `getArg($v)`: the ctx arg, else the class default, else an exception
@@ -167,9 +180,10 @@ pub fn get_arg(a: &dyn ActionClass, g: &Game, ctx: Ctx, k: &str) -> R<Value> {
     if !t.is_null() {
         return Ok(t);
     }
-    let d = a.default_args();
-    if php::key_exists(&d, k) {
-        return Ok(php::get(&d, k).clone());
+    let d = default_args_of(a);
+    let d = &*d;
+    if php::key_exists(d, k) {
+        return Ok(php::get(d, k).clone());
     }
     Err(PhpError::new(format!("Trying to get value of an undefined arg without any default value : {} action{}", k, a.name())))
 }
