@@ -13,10 +13,11 @@
  * Whole games: two starter decks (chosen from SEED), the position right after deck selection,
  * then random answers for both players until the game ends; each step is a node with one `next`.
  *
- *   php tools/explore.php game SEED [OUT_DIR] [--keep]
+ *   php tools/explore.php game SEED [OUT_DIR] [--keep] [--dump=STEP,...]
  *
  * Output in OUT_DIR/games/SEED.json (OUT_DIR defaults to server/goldens). --keep keeps the
- * game's database (to read its log with tools/php_log.py).
+ * game's database (to read its log with tools/php_log.py). --dump writes the tables before the given
+ * steps to /tmp/golden-dumps/SEED.stepN.json (in the container) (to compare globals with the other engine).
  */
 
 require dirname(__DIR__) . '/src/bootstrap.php';
@@ -354,10 +355,11 @@ function randomAnswer(\Random\Randomizer $r, array $d): array
       foreach ($d['tap'] ?? [] as $id) {
         $actions[] = ['type' => 'tap', 'cardId' => $id];
       }
-      if ($actions && (empty($d['canEndTurn']) || $r->getInt(1, 100) <= 80)) {
+      $stop = !empty($d['canEndTurn']) ? ['type' => 'endTurn'] : (!empty($d['canPass']) ? $pass : null);
+      if ($actions && ($stop === null || $r->getInt(1, 100) <= 80)) {
         return $actions[$r->getInt(0, count($actions) - 1)];
       }
-      return ['type' => 'endTurn'];
+      return $stop ?? ['type' => 'endTurn'];
     case 'select':
       $max = min($d['max'], count($d['cardIds']));
       $min = min($d['min'], $max);
@@ -392,7 +394,7 @@ function randomAnswer(\Random\Randomizer $r, array $d): array
 }
 
 /** Plays a whole game with random answers; writes OUT/games/SEED.json */
-function playGame(int $seed, string $out, bool $keep): void
+function playGame(int $seed, string $out, bool $keep, array $dumpSteps = []): void
 {
   $t = microtime(true);
   $r = new \Random\Randomizer(new \Random\Engine\Mt19937($seed));
@@ -429,6 +431,11 @@ function playGame(int $seed, string $out, bool $keep): void
   $steps = 0;
   $end = null;
   while (true) {
+    if (in_array($steps, $dumpSteps, true)) {
+      Arena::openGame($g);
+      @mkdir("/tmp/golden-dumps");
+      file_put_contents("/tmp/golden-dumps/$seed.step$steps.json", json_encode(dumpTables(), JSON_PARTIAL_OUTPUT_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE));
+    }
     $state = compactState(Arena::oracleState($g));
     $w = V1::view($g, Arena::PLAYER_IDS[0])['waitingFor'] ?? [];
     if (empty($w)) {
@@ -504,9 +511,15 @@ function playGame(int $seed, string $out, bool $keep): void
 }
 
 if (($argv[1] ?? '') === 'game') {
-  $seed = (int) ($argv[2] ?? exit("usage: explore.php game SEED [OUT_DIR] [--keep]\n"));
-  $rest = array_values(array_filter(array_slice($argv, 3), fn($a) => $a !== '--keep'));
-  playGame($seed, $rest[0] ?? dirname(__DIR__) . '/goldens', in_array('--keep', $argv, true));
+  $seed = (int) ($argv[2] ?? exit("usage: explore.php game SEED [OUT_DIR] [--keep] [--dump=STEP,...]\n"));
+  $rest = array_values(array_filter(array_slice($argv, 3), fn($a) => !str_starts_with($a, '--')));
+  $dump = [];
+  foreach ($argv as $a) {
+    if (str_starts_with($a, '--dump=')) {
+      $dump = array_map('intval', explode(',', substr($a, 7)));
+    }
+  }
+  playGame($seed, $rest[0] ?? dirname(__DIR__) . '/goldens', in_array('--keep', $argv, true), $dump);
   exit;
 }
 
