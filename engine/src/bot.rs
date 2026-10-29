@@ -38,7 +38,10 @@ impl Game {
                     _ => Answer::Pass,
                 }
             }
-            PendingKind::Order { .. } => Answer::Choice { id: 0 },
+            PendingKind::Order { options, .. } => match options.iter().position(|o| o.enabled) {
+                Some(id) => Answer::Choice { id },
+                None => Answer::Pass,
+            },
             PendingKind::Buttons { buttons } => match buttons.first() {
                 Some((k, _)) => Answer::Button { key: k.clone() },
                 None => Answer::Pass,
