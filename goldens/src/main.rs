@@ -163,6 +163,9 @@ fn compact_answer(a: &Value, i: usize) -> String {
 }
 
 fn main() {
+    // A request runs whole chains of states recursively (jumpToState is re-entrant, as in PHP):
+    // worker threads get large stacks
+    rayon::ThreadPoolBuilder::new().stack_size(256 << 20).build_global().expect("thread pool");
     let args: Vec<String> = std::env::args().skip(1).collect();
     let verbose = args.iter().any(|a| a == "-v");
     let only = args.iter().position(|a| a == "--only").and_then(|i| args.get(i + 1)).cloned();
