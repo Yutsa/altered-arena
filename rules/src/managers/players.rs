@@ -302,20 +302,6 @@ pub fn get_powers_blocked_expeditions(g: &mut Game) -> R<Value> {
     Ok(statuses)
 }
 
-/// `Players::hasOpponentBlockingPower($player, $expedition, $isGigantic)`
-// PHP: Managers/Players.php:156
-pub fn has_opponent_blocking_power(g: &mut Game, pid: PId, expedition: &str, is_gigantic: bool) -> R<bool> {
-    for p2 in get_all(g) {
-        if p2 == pid {
-            continue;
-        }
-        if player::has_blocking_power(g, p2, expedition, is_gigantic)? {
-            return Ok(true);
-        }
-    }
-    Ok(false)
-}
-
 /// `Players::hasOpponentBlockMoveExpedition($player, $expedition)`
 // PHP: Managers/Players.php:170
 pub fn has_opponent_block_move_expedition(g: &mut Game, pid: PId, expedition: &str) -> R<bool> {

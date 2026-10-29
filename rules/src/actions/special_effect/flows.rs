@@ -1,7 +1,7 @@
 //! SpecialEffect cases that insert flows: effects for every player, mass discards and
 //! statuses, token invocations, Man in the Maze, ascension, control changes.
 
-use super::{add, ctype, ext, gain, gigantic, has_subtype, player_of, req_player, type_in, Case, Out, Se, STORMS};
+use super::{add, ctype, gain, gigantic, has_subtype, player_of, req_player, type_in, Case, Out, Se, STORMS};
 use crate::core::globals;
 use crate::game::{CardId, Game, PId};
 use crate::helpers::{conditions, conditions_extra, ft, utils};
@@ -597,16 +597,16 @@ fn hunger(g: &mut Game, s: &mut Se) -> R<Out> {
     let mut floral: HashSet<(&str, PId, String)> = HashSet::new();
     let mut nodes = vec![];
     for t in players::get_all(g) {
-        if ext::has_protect_boosted_in_expedition(g, t, "stormLeft", false)? {
+        if player::has_protect_boosted_in_expedition(g, t, "stormLeft", false)? {
             floral.insert(("boosted", t, "stormLeft".to_string()));
         }
-        if ext::has_protect_boosted_in_expedition(g, t, "stormRight", false)? {
+        if player::has_protect_boosted_in_expedition(g, t, "stormRight", false)? {
             floral.insert(("boosted", t, "stormRight".to_string()));
         }
-        if ext::has_protect_anchored_in_expedition(g, t, "stormLeft", false)? {
+        if player::has_protect_anchored_in_expedition(g, t, "stormLeft", false)? {
             floral.insert(("anchored", t, "stormLeft".to_string()));
         }
-        if ext::has_protect_anchored_in_expedition(g, t, "stormRight", false)? {
+        if player::has_protect_anchored_in_expedition(g, t, "stormRight", false)? {
             floral.insert(("anchored", t, "stormRight".to_string()));
         }
     }
@@ -657,8 +657,8 @@ fn ascend(g: &mut Game, s: &mut Se) -> R<Out> {
     let mut expedition = s.ctx_arg(g, "expedition");
     let o = players::get_by_value(g, &pv);
     let op = req_player(o)?;
-    let resupply_if_ascended = ext::has_resupply_if_ascended(g, op)?;
-    let boost_if_ascended = ext::has_boost_if_ascended(g, op)?;
+    let resupply_if_ascended = player::has_resupply_if_ascended(g, op)?;
+    let boost_if_ascended = player::has_boost_if_ascended(g, op)?;
     // manage my expedition
     if php::loose_eq(&expedition, &json!("source")) {
         let c = s.card()?;

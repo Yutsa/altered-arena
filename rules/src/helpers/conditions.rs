@@ -452,72 +452,6 @@ fn filter_state(g: &mut Game, ids: Vec<CardId>, state: &Value) -> R<Vec<CardId>>
     Ok(out)
 }
 
-/// `Players::hasOpponentBlockingPower($player, $expedition, $isGigantic)`
-/// TEMPORARY: port-storm adds players::has_opponent_blocking_power; switch to it once merged
-// PHP: Managers/Players.php:156
-fn has_opponent_blocking_power(g: &mut Game, pid: PId, expedition: &str, is_gigantic: bool) -> R<bool> {
-    for p2 in players::get_all(g) {
-        if p2 == pid {
-            continue;
-        }
-        if has_blocking_power(g, p2, expedition, is_gigantic)? {
-            return Ok(true);
-        }
-    }
-    Ok(false)
-}
-
-/// `Player::hasBlockingPower($expedition, $isGigantic)`
-/// TEMPORARY: port-storm adds player::has_blocking_power; switch to it once merged
-// PHP: Models/Player.php:822
-fn has_blocking_power(g: &mut Game, pid: PId, expedition: &str, is_gigantic: bool) -> R<bool> {
-    for c in player::played_and_infinity(g, pid)? {
-        if card::location(g, c)? != expedition && !gigantic(g, c)? && !is_gigantic {
-            continue;
-        }
-        if card::is_blocking_power(g, c)? {
-            return Ok(true);
-        }
-    }
-    Ok(false)
-}
-
-/// `Players::getRegionsInfo()`
-/// TEMPORARY: port-storm adds players::get_regions_info; switch to it once merged
-// PHP: Managers/Players.php:876
-fn get_regions_info(g: &mut Game) -> R<Value> {
-    let mut visible = globals::get_visible_regions(g)?;
-    let tiebreak = globals::is(g, "tieBreakerMode")?;
-    for (vid, _) in php::entries(&visible.clone()) {
-        let markers = meeples::get_of_type(g, &format!("storm-{}", vid), &json!(["ocean", "forest", "mountain"]))?;
-        if !markers.is_empty() {
-            for m in markers {
-                let k = g.meeple(m)?.kind.clone();
-                php::set(&mut visible, &vid, json!([k]));
-            }
-        }
-    }
-    for side in ["hero", "companion"] {
-        for p in players::get_all(g) {
-            let token = player::get_storm_token(g, p, side)?.ok_or_else(|| PhpError::new("Error: Call to a member function getLocation() on null"))?;
-            let mut location = g.meeple(token)?.location.split('-').nth(1).unwrap_or("").to_string();
-            let expedition = if side == "hero" { STORM_LEFT } else { STORM_RIGHT };
-            if globals::is(g, "tieBreakerMode")? {
-                location = "4".into();
-            }
-            if php::isset(&visible, &location) {
-                let mut nb = php::arr();
-                for bm in php::vals(php::get(&visible, &location)) {
-                    php::set(&mut nb, &php::key_of(bm), bm.clone());
-                }
-                players::biomes_modifier(g, &mut nb, p, expedition, tiebreak, true)?;
-                php::set(&mut visible, &location, php::values(&nb));
-            }
-        }
-    }
-    Ok(visible)
-}
-
 /// `Player::isInBiome($storm, $biome, $excludeMove)`
 // PHP: Models/Player.php:555
 fn player_is_in_biome(g: &mut Game, pid: PId, storm: &str, biome: &Value, exclude_move: bool) -> R<bool> {
@@ -746,7 +680,7 @@ pub fn is_not_blocked_by_opponent_power(g: &mut Game, card: Option<CardId>, even
     let location = if ev(event, "to").is_null() { locv(g, c)? } else { ev(event, "to").clone() };
     let p = player_of(g, c)?;
     let gi = gigantic(g, c)?;
-    b(!has_opponent_blocking_power(g, p, &php::strval(&location), gi)?)
+    b(!players::has_opponent_blocking_power(g, p, &php::strval(&location), gi)?)
 }
 
 /// `isNotMe($card, $event)`
@@ -2674,7 +2608,7 @@ pub fn is_character_from_reserve_not_blocked(g: &mut Game, card: Option<CardId>,
     let c = card_req(card)?;
     let p = player_of(g, c)?;
     let gi = gigantic(g, c)?;
-    b(!has_opponent_blocking_power(g, p, &php::strval(ev(event, "to")), gi)?)
+    b(!players::has_opponent_blocking_power(g, p, &php::strval(ev(event, "to")), gi)?)
 }
 
 /// `isCharacterCostHigherThanCounter($card, $event)`
@@ -3472,7 +3406,7 @@ pub fn is_target_forest_less_or_equal_to_source(g: &mut Game, card: Option<CardI
 pub fn count_mono_visible_regions(g: &mut Game, _card: Option<CardId>, _event: &Value, args: &[Value]) -> R<Value> {
     let n = opt(args, 0, json!(1));
     let op = opt(args, 1, json!("GTE"));
-    let visible = get_regions_info(g)?;
+    let visible = players::get_regions_info(g)?;
     let mut count = 0;
     for r in php::vals(&visible) {
         if php::count(r) == 1 {
@@ -3491,7 +3425,7 @@ pub fn count_mono_visible_regions(g: &mut Game, _card: Option<CardId>, _event: &
 /// `cardInMonoRegion($card, $event)`: the region of the card's expedition token shows one biome
 // PHP: Helpers/Conditions.php:2545
 pub fn card_in_mono_region(g: &mut Game, card: Option<CardId>, _event: &Value, _args: &[Value]) -> R<Value> {
-    let visible = get_regions_info(g)?;
+    let visible = players::get_regions_info(g)?;
     let c = card_req(card)?;
     let gi = gigantic(g, c)?;
     let loc = card::location(g, c)?;

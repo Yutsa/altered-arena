@@ -144,6 +144,32 @@ $scenarios = [
     create($opp, 'OD_Rare_Galatea', STORM_LEFT, 25);
     Globals::setBlockedExpeditions([$opp => [STORM_RIGHT]]);
   },
+  // The moves replaced by Eris / Pegasus, the Magic Sleigh moving twice
+  'eris' => function (int $me, int $opp, array $ids) {
+    place($me, HERO, 2);
+    place($me, COMPANION, 5);
+    place($opp, HERO, 2);
+    place($opp, COMPANION, 5);
+    create($me, 'LY_Common_Eris', STORM_RIGHT, 20);
+    create($me, 'OD_Common_Pegasus', STORM_RIGHT, 21);
+    create($me, 'MU_Common_Hydracaena', STORM_RIGHT, 22);
+    create($me, 'LY_Common_TheMagicSleigh', STORM_LEFT, 23);
+    create($me, 'MU_Common_Hydracaena', STORM_LEFT, 24);
+    create($opp, 'LY_Common_Eris', STORM_LEFT, 25);
+    create($opp, 'AX_Common_LucanHungryLeviathan', STORM_LEFT, 26);
+  },
+  // Tie-breaker: every expedition in every biome, the terrain marker of region 4 decides
+  'tiebreak' => function (int $me, int $opp, array $ids) {
+    place($me, HERO, 4);
+    place($me, COMPANION, 4);
+    place($opp, HERO, 4);
+    place($opp, COMPANION, 4);
+    Globals::setTieBreakerMode(true);
+    create($me, 'MU_Common_MagicBeans', STORM_LEFT, 20);
+    create($opp, 'MU_Common_Hydracaena', STORM_RIGHT, 21);
+    \BgaDb::conn()->query("INSERT INTO meeples (meeple_location, meeple_state, type, player_id) VALUES ('storm-4', 3, 'mountain', $me)");
+    \BgaDb::conn()->query("INSERT INTO meeples (meeple_location, meeple_state, type, player_id) VALUES ('storm-4', 3, 'ocean', $me)");
+  },
 ];
 
 $out = [];
@@ -170,8 +196,10 @@ foreach ($scenarios as $name => $fn) {
   });
   Arena::openGame($g);
   $db = dbDump();
+  \BgaDb::saveSnapshot('storm');
 
   $values = Arena::inRequest($g, null, function () {
+    Globals::getDay(); // as in a real request, where the engine boot fetches the globals
     $isDefender = [];
     $biomes = [];
     $strength = [];
@@ -197,6 +225,7 @@ foreach ($scenarios as $name => $fn) {
   });
 
   $dusk = Arena::inRequest($g, null, function () {
+    Globals::getDay(); // as in a real request, where the engine boot fetches the globals
     Engine::setup(['type' => NODE_SEQ, 'childs' => []], ['order' => 'advancePhase']);
     $movements = Players::computeStorm(true);
     return ['movements' => $movements, 'stormMoves' => Globals::getStormMoves(), 'storm' => Globals::getStorm(), 'engine' => Globals::getEngine()];
@@ -204,6 +233,7 @@ foreach ($scenarios as $name => $fn) {
   $dusk += tables();
 
   $night = Arena::inRequest($g, null, function () {
+    Globals::getDay(); // as in a real request, where the engine boot fetches the globals
     Engine::setup(['type' => NODE_SEQ, 'childs' => []], ['order' => 'nightCleanup']);
     $returns = [];
     foreach (Players::getTurnOrder() as $pId) {
@@ -214,6 +244,23 @@ foreach ($scenarios as $name => $fn) {
   });
   $night += tables();
 
-  $out[$name] = ['me' => $me, 'db' => $db, 'values' => $values, 'dusk' => $dusk, 'night' => $night];
+  // stAdvanceDusk on the position (its tie-breaker branch decides the game)
+  \BgaDb::restoreSnapshot('storm');
+  Arena::openGame($g);
+  $error = null;
+  try {
+    Arena::inRequest($g, null, function () {
+      Globals::getDay();
+      \ALT\Core\Game::get()->stAdvanceDusk();
+    });
+  } catch (\Throwable $e) {
+    $error = $e->getMessage();
+  }
+  $advance = tables();
+  $advance['scores'] = array_column(rows('SELECT player_id, player_score FROM player ORDER BY 1'), 'player_score', 'player_id');
+  $advance['error'] = $error;
+  $advance['state'] = rows('SELECT global_value FROM `global` WHERE global_id = 1')[0]['global_value'];
+
+  $out[$name] = ['me' => $me, 'db' => $db, 'values' => $values, 'dusk' => $dusk, 'night' => $night, 'advance' => $advance];
 }
 echo json_encode($out, JSON_PARTIAL_OUTPUT_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE);
