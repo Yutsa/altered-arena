@@ -5,3 +5,4 @@ client/dist/
 *.log
 traces/
 server/goldens/
+.env
