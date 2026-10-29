@@ -490,6 +490,8 @@ pub fn act(g: &mut Game, pid: PId, action: &str, args: &Value) -> R<()> {
         }
         validate_alpha_num(&args[1])?;
     }
+    // Arena::request(..., act: true): mt_srand for this act
+    g.seed_rng();
     g.begin_request(Some(pid))?;
     if action != "actChangePreference" && !framework::is_player_active(g, pid) {
         return Err(PhpError::new("It is not your turn"));

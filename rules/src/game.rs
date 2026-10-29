@@ -4,6 +4,7 @@
 
 use crate::core::node::Tree;
 use crate::php;
+use crate::php_rand::{self, PhpArrayShape, PhpMt};
 use crate::{PhpError, R};
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
@@ -88,9 +89,10 @@ pub struct LogEntry {
 /// Where shuffles take their order from
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum ShuffleHook {
-    /// A seeded generator (normal games)
+    /// PHP's shuffle on the seeded Mersenne Twister (`Game::mt`)
     Seeded,
     /// The orders PHP produced, in call order (replays); each is the list of ids after shuffle
+    /// (when the ids differ, the shuffle draws from the seeded generator)
     Injected(VecDeque<Vec<i64>>),
 }
 
@@ -121,7 +123,14 @@ pub struct Game {
     /// Die results to use in order (the arena's per-game list) and how many were used
     pub dice: Vec<i64>,
     pub dice_used: usize,
-    pub rng_state: u64,
+    /// PHP's Mersenne Twister (mt_rand, shuffle, array_rand), seeded at every act from the game id
+    /// and the number of acts before it (Arena::seedRng, both kept in the `arena_rng` table)
+    #[serde(default)]
+    pub rng_game: i64,
+    #[serde(default)]
+    pub rng_acts: i64,
+    #[serde(default)]
+    pub mt: Option<PhpMt>,
     pub shuffle_hook: ShuffleHook,
     /// `Table::$environment`: 'prod' with a dice list, 'studio' otherwise
     pub environment: String,
@@ -156,7 +165,9 @@ impl Game {
             notif_seq: 0,
             dice: vec![],
             dice_used: 0,
-            rng_state: 0x9E37_79B9_7F4A_7C15,
+            rng_game: 0,
+            rng_acts: 0,
+            mt: None,
             shuffle_hook: ShuffleHook::Seeded,
             environment: "studio".into(),
             current_player: None,
@@ -242,21 +253,23 @@ impl Game {
     // Randomness
     // -----------------------------------------------------------------------
 
-    fn next_u64(&mut self) -> u64 {
-        // splitmix64
-        self.rng_state = self.rng_state.wrapping_add(0x9E37_79B9_7F4A_7C15);
-        let mut z = self.rng_state;
-        z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
-        z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
-        z ^ (z >> 31)
+    /// `Arena::seedRng()` at the start of an act: `mt_srand` with the seed of this act, then one
+    /// more act (rolled back with the request, as the `arena_rng` row is)
+    pub fn seed_rng(&mut self) {
+        self.mt = Some(PhpMt::new(php_rand::seed_of(self.rng_game, self.rng_acts)));
+        self.rng_acts += 1;
     }
 
-    fn rand_range(&mut self, min: i64, max: i64) -> i64 {
-        if max <= min {
-            return min;
-        }
-        let span = (max - min + 1) as u64;
-        min + (self.next_u64() % span) as i64
+    /// The generator; before any act (a position loaded and driven directly), as seeded by the
+    /// next act
+    pub fn mt(&mut self) -> &mut PhpMt {
+        let seed = php_rand::seed_of(self.rng_game, self.rng_acts);
+        self.mt.get_or_insert_with(|| PhpMt::new(seed))
+    }
+
+    /// `mt_rand($min, $max)`
+    pub fn mt_rand(&mut self, min: i64, max: i64) -> i64 {
+        self.mt().range(min, max)
     }
 
     /// `bga_rand($min, $max)` through Harness\Rng: dice come from the game's list (Arena::useDice)
@@ -266,7 +279,7 @@ impl Game {
             self.dice_used += 1;
             return v;
         }
-        self.rand_range(min, max)
+        self.mt_rand(min, max)
     }
 
     /// PHP `shuffle($ids)` through Harness\Rng::shuffle
@@ -283,10 +296,14 @@ impl Game {
                 }
             }
         }
-        for i in (1..ids.len()).rev() {
-            let j = self.rand_range(0, i as i64) as usize;
-            ids.swap(i, j);
-        }
+        self.mt().shuffle(ids);
+    }
+
+    /// `array_rand($array, 1)` on a new array of these distinct integer keys, inserted in this
+    /// order (array_filter, a Collection's copy): the position of the key drawn
+    pub fn php_array_rand_int_keys(&mut self, keys: &[i64]) -> usize {
+        let shape = PhpArrayShape::from_int_keys(keys);
+        self.mt().array_rand(&shape, 1)[0]
     }
 
     // -----------------------------------------------------------------------

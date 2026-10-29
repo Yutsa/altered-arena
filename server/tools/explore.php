@@ -287,7 +287,8 @@ function explore(int $g, int $depth, ?int $onlyCard): array
 /**
  * The original engine's own tables, for an engine that loads them as they are, and what the
  * framework keeps besides: the `global` table (1 = state, 2 = active player, 10 = logging), the
- * next ids of cards and meeples, the position in the dice list
+ * next ids of cards and meeples, and arena_rng: the position in the dice list and the seed of the
+ * next act (game id, acts so far: Arena::seedRng)
  */
 function dumpTables(): array
 {
@@ -398,8 +399,6 @@ function playGame(int $seed, string $out, bool $keep, array $dumpSteps = []): vo
 {
   $t = microtime(true);
   $r = new \Random\Randomizer(new \Random\Engine\Mt19937($seed));
-  // The engine's own randomness (deck shuffles at setup) follows the seed too
-  mt_srand($seed);
   $decks = array_column(V1::decks(), 'id');
   $pair = [$decks[$r->getInt(0, count($decks) - 1)], $decks[$r->getInt(0, count($decks) - 1)]];
   $dice = array_map(fn() => $r->getInt(1, 6), range(1, GAME_DICE));
@@ -410,8 +409,8 @@ function playGame(int $seed, string $out, bool $keep, array $dumpSteps = []): vo
   $initial = Arena::oracleState($g);
   $db = dumpTables();
 
-  // Random events other than dice (deck reshuffles, a random card of a hand) are not
-  // reproduced by the other engine yet: record where they happen
+  // Random events other than dice (deck reshuffles, a random card of a hand; seeded per act by
+  // Arena::seedRng): record where they happen, to tell such divergences apart
   $shuffles = [];
   $prev = \Harness\Rng::$shuffle;
   \Harness\Rng::$shuffle = function (array $a) use (&$shuffles, $prev): ?array {
