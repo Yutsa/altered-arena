@@ -93,3 +93,12 @@ tree of decisions PHP asks and the state after each answer. `goldens/` runs them
 load the `db` tables, then at each node compare `waiting_for`, the decision (without `id`) and the
 compact state, then apply each recorded answer to a clone. Everything is compared, `confirm` decisions
 included: they come from the engine's undo/confirmation rules (PHP_ENGINE.md §2.12), which are ported.
+
+Whole games: `explore.php game SEED` (run by `tools/goldens_games.sh N [FIRST_SEED]`, 6 processes,
+`KEEP=1` keeps the PHP game databases) picks two starter decks and a dice list from the seed, dumps
+the tables right after deck selection, then answers every decision of both players at random (on a
+turn: play/support/exhaust ~80 %, end the turn otherwise) until the game ends. Each step is a node
+with a single `next` in `server/goldens/games/SEED.json`; the runner replays them like the per-card
+trees (`--only games/`). `cargo run --release -p goldens --example game_step -- FILE` prints a game's
+first divergence in detail (last answers, decisions, zones with card refs); with
+`explore.php game SEED --dump=STEP` the PHP tables at that step can be compared (`--tables`).
