@@ -186,6 +186,10 @@ impl Pieces for CardsT {
     fn location_ref(g: &Game, id: i64) -> &str {
         &g.cards[&id].location
     }
+    fn ids_at(g: &Game, location: &str) -> Option<Vec<i64>> {
+        // An exact location: a string that is not numeric (loose == is then ===), without LIKE
+        (!location.contains('%') && !php::is_numeric_str(location)).then(|| g.cards.ids_at(location))
+    }
     fn state_value(g: &Game, id: i64) -> Value {
         json!(g.cards.get(&id).or_else(|| g.deleted_cards.get(&id)).map(|c| c.state).unwrap_or(0))
     }
@@ -214,7 +218,7 @@ impl Pieces for CardsT {
         let set: std::collections::HashSet<i64> = ids.iter().copied().collect();
         let mut removed: std::collections::HashMap<i64, CardRow> = Default::default();
         let old = std::mem::take(&mut g.cards);
-        for (k, c) in old {
+        for (k, c) in old.into_rows() {
             if set.contains(&k) {
                 removed.insert(k, c);
             } else {
@@ -307,6 +311,23 @@ pub fn get_top_of(g: &Game, location: &str, n: usize) -> R<Vec<CardId>> {
     pieces::get_top_of::<CardsT>(g, location, n)
 }
 
+/// `where_location(get_all(), $value)` through the location index, when the value only matches
+/// equal strings: a non-numeric string without `%`, or an array of such strings
+fn indexed_location(g: &Game, value: &Value) -> Option<Vec<CardId>> {
+    fn exact(v: &Value) -> Option<&str> {
+        match v {
+            Value::String(s) if !php::is_numeric_str(s) => Some(s.as_str()),
+            _ => None,
+        }
+    }
+    match value {
+        Value::String(s) if !s.contains('%') => exact(value).map(|l| g.cards.ids_at(l)),
+        Value::Array(a) => a.iter().map(exact).collect::<Option<Vec<&str>>>().map(|ls| g.cards.ids_at_any(&ls)),
+        Value::Object(o) => o.values().map(exact).collect::<Option<Vec<&str>>>().map(|ls| g.cards.ids_at_any(&ls)),
+        _ => None,
+    }
+}
+
 /// `Collection::where('location', $value)` on cards (array value = in_array, `%` = LIKE)
 pub fn where_location(g: &Game, ids: Vec<CardId>, value: &Value) -> Vec<CardId> {
     if value.is_null() {
@@ -394,7 +415,10 @@ pub fn where_type(g: &mut Game, ids: Vec<CardId>, field: &str, value: &Value, ad
 /// `Cards::getFiltered($pId, $location, $type, $additionalType)`
 // PHP: Managers/Cards.php:319
 pub fn get_filtered(g: &mut Game, pid: &Value, location: &Value, ty: &Value, additional: bool) -> R<Vec<CardId>> {
-    let ids = where_location(g, get_all(g), location);
+    let ids = match indexed_location(g, location) {
+        Some(ids) => ids,
+        None => where_location(g, get_all(g), location),
+    };
     // `where('pId', $pId)`: an array value is `in_array`
     let ids: Vec<CardId> = if pid.is_null() {
         ids

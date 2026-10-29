@@ -16,6 +16,10 @@ pub trait Pieces {
         Self::location_ref(g, id).to_string()
     }
     fn location_ref(g: &Game, id: i64) -> &str;
+    /// The ids at exactly this location in table order, when an index can answer
+    fn ids_at(_g: &Game, _location: &str) -> Option<Vec<i64>> {
+        None
+    }
     /// `getState()` as PHP has it (int for cards, string for meeples)
     fn state_value(g: &Game, id: i64) -> Value;
     fn set_location(g: &mut Game, id: i64, loc: &str) -> R<()>;
@@ -60,9 +64,12 @@ pub fn location_matches(loc: &str, filter: &str) -> bool {
 // PHP: Helpers/CachedPieces.php:187
 pub fn get_in_location<T: Pieces>(g: &Game, location: &str, state: Option<i64>) -> R<Vec<i64>> {
     check_location(location, true)?;
-    Ok(T::all_ids(g)
+    let ids = match T::ids_at(g, location) {
+        Some(ids) => ids,
+        None => T::all_ids(g).into_iter().filter(|id| location_matches(T::location_ref(g, *id), location)).collect(),
+    };
+    Ok(ids
         .into_iter()
-        .filter(|id| location_matches(T::location_ref(g, *id), location))
         .filter(|id| state.is_none_or(|s| php::loose_eq(&T::state_value(g, *id), &Value::from(s))))
         .collect())
 }

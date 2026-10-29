@@ -120,6 +120,66 @@ impl<'de> Deserialize<'de> for PropMap {
     }
 }
 
+/// The `cards` table: rows by id in table order, with an index of the rows by location built
+/// when a query needs it and dropped by any write (every mutable access goes through DerefMut)
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct CardTable {
+    rows: Rows<CardRow>,
+    #[serde(skip)]
+    index: std::sync::OnceLock<Arc<HashMap<String, Vec<u32>>>>,
+}
+
+impl std::ops::Deref for CardTable {
+    type Target = Rows<CardRow>;
+    fn deref(&self) -> &Rows<CardRow> {
+        &self.rows
+    }
+}
+
+impl std::ops::DerefMut for CardTable {
+    fn deref_mut(&mut self) -> &mut Rows<CardRow> {
+        self.index = std::sync::OnceLock::new();
+        &mut self.rows
+    }
+}
+
+impl CardTable {
+    pub fn into_rows(self) -> Rows<CardRow> {
+        self.rows
+    }
+
+    /// Positions of the rows of each location
+    fn index(&self) -> &HashMap<String, Vec<u32>> {
+        self.index.get_or_init(|| {
+            let mut m: HashMap<String, Vec<u32>> = HashMap::new();
+            for (pos, c) in self.rows.values().enumerate() {
+                match m.get_mut(c.location.as_str()) {
+                    Some(v) => v.push(pos as u32),
+                    None => {
+                        m.insert(c.location.clone(), vec![pos as u32]);
+                    }
+                }
+            }
+            Arc::new(m)
+        })
+    }
+
+    /// Ids of the rows whose location is exactly `loc`, in table order
+    pub fn ids_at(&self, loc: &str) -> Vec<CardId> {
+        self.index().get(loc).map(|ps| ps.iter().map(|p| *self.rows.get_index(*p as usize).unwrap().0).collect()).unwrap_or_default()
+    }
+
+    /// Ids of the rows whose location is exactly one of `locs`, in table order
+    pub fn ids_at_any(&self, locs: &[&str]) -> Vec<CardId> {
+        let index = self.index();
+        let mut ps: Vec<u32> = locs.iter().filter_map(|l| index.get(*l)).flatten().copied().collect();
+        ps.sort_unstable();
+        ps.dedup();
+        ps.into_iter().map(|p| *self.rows.get_index(p as usize).unwrap().0).collect()
+    }
+}
+
 /// A row of `cards` and its `Card` object (Models/Card.php)
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct CardRow {
@@ -177,7 +237,7 @@ pub type Globals = IndexMap<String, Arc<Value>>;
 /// and player; not user_preferences nor the framework tables)
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Tables {
-    pub cards: Rows<CardRow>,
+    pub cards: CardTable,
     pub meeples: Rows<Meeple>,
     pub players: Rows<PlayerRow>,
     pub globals: Arc<Globals>,
@@ -213,7 +273,7 @@ pub enum ShuffleHook {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Game {
-    pub cards: Rows<CardRow>,
+    pub cards: CardTable,
     /// Cards deleted during the current request: PHP objects outlive their rows
     pub deleted_cards: Rows<CardRow>,
     pub meeples: Rows<Meeple>,
@@ -285,7 +345,7 @@ pub struct LogLine {
 impl Game {
     pub fn empty() -> Game {
         Game {
-            cards: Rows::default(),
+            cards: CardTable::default(),
             deleted_cards: Rows::default(),
             meeples: Rows::default(),
             deleted_meeples: Rows::default(),
