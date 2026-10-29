@@ -4,6 +4,7 @@ use crate::game::Game;
 use crate::php;
 use crate::{PhpError, R};
 use serde_json::{json, Value};
+use crate::game::GlobalSlot;
 use std::sync::Arc;
 
 /// Core/Globals.php:13-98 `$variables`
@@ -132,7 +133,7 @@ pub fn fetch(g: &mut Game) {
         let m = Arc::make_mut(&mut g.globals);
         for (pos, v) in changes {
             if let Some((_, slot)) = m.get_index_mut(pos) {
-                *slot = Arc::new(v);
+                *slot = GlobalSlot::new(v);
             }
         }
     }
@@ -141,7 +142,7 @@ pub fn fetch(g: &mut Game) {
 /// `Globals::create($name)` (Core/Globals.php:132-150)
 fn create(g: &mut Game, name: &str) {
     if let Some(t) = var_type(name) {
-        Arc::make_mut(&mut g.globals).insert(name.to_string(), Arc::new(default_of(t)));
+        Arc::make_mut(&mut g.globals).insert(name.to_string(), GlobalSlot::new(default_of(t)));
     }
 }
 
@@ -177,7 +178,7 @@ pub fn set(g: &mut Game, name: &str, v: Value) -> R<Value> {
         "bool" => json!(php::truthy(&v)),
         _ => v,
     };
-    Arc::make_mut(&mut g.globals).insert(name.to_string(), Arc::new(v.clone()));
+    Arc::make_mut(&mut g.globals).insert(name.to_string(), GlobalSlot::new(v.clone()));
     g.globals_clean &= !clean_bit(name);
     Ok(v)
 }

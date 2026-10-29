@@ -43,7 +43,7 @@ pub fn from_bga_tables(tables: &Value, dice: &[i64]) -> R<Game> {
         let name = s(r, "name");
         let raw = s(r, "value");
         let v: Value = serde_json::from_str(&raw).map_err(|e| PhpError::new(format!("global {}: bad JSON: {}", name, e)))?;
-        std::sync::Arc::make_mut(&mut g.globals).insert(name, std::sync::Arc::new(v));
+        std::sync::Arc::make_mut(&mut g.globals).insert(name, crate::game::GlobalSlot::new(v));
     }
     globals::fetch(&mut g);
     for r in rows(tables, "player") {

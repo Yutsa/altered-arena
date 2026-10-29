@@ -7,5 +7,5 @@ license.workspace = true
 
 [dependencies]
 serde = { version = "1", features = ["derive", "rc"] }
-serde_json = { version = "1", features = ["preserve_order"] }
+serde_json = { version = "1", features = ["preserve_order", "raw_value"] }
 indexmap = { version = "2", features = ["serde"] }

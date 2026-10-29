@@ -231,7 +231,81 @@ pub struct PrefRow {
 }
 
 /// `global_variables`: each value shared between copies of the game until written
-pub type Globals = IndexMap<String, Arc<Value>>;
+pub type Globals = IndexMap<String, GlobalSlot>;
+
+/// A value of `global_variables`, shared between copies of the game. Large values are kept as
+/// their JSON text while the game waits (`Game::compact`) and decoded again when read: the
+/// decoded value is the same (JSON round trip of a normalized value).
+#[derive(Clone, Debug)]
+pub struct GlobalSlot {
+    json: Option<Arc<str>>,
+    tree: std::sync::OnceLock<Arc<Value>>,
+}
+
+impl GlobalSlot {
+    pub fn new(v: Value) -> GlobalSlot {
+        let tree = std::sync::OnceLock::new();
+        let _ = tree.set(Arc::new(v));
+        GlobalSlot { json: None, tree }
+    }
+
+    pub fn value(&self) -> &Value {
+        self.tree.get_or_init(|| Arc::new(serde_json::from_str(self.json.as_deref().unwrap_or("null")).expect("packed global")))
+    }
+
+    /// Keeps only the JSON text of a large value; false when nothing changes
+    fn pack(&mut self) -> bool {
+        if self.json.is_some() {
+            return self.tree.take().is_some();
+        }
+        let Some(v) = self.tree.get() else { return false };
+        if !is_large(v, 400) {
+            return false;
+        }
+        self.json = Some(Arc::from(serde_json::to_string(&**v).expect("global JSON")));
+        self.tree = std::sync::OnceLock::new();
+        true
+    }
+}
+
+/// More than `n` JSON nodes
+fn is_large(v: &Value, n: usize) -> bool {
+    fn count(v: &Value, left: &mut usize) -> bool {
+        if *left == 0 {
+            return true;
+        }
+        *left -= 1;
+        match v {
+            Value::Array(a) => a.iter().any(|x| count(x, left)),
+            Value::Object(o) => o.values().any(|x| count(x, left)),
+            _ => false,
+        }
+    }
+    let mut left = n;
+    count(v, &mut left)
+}
+
+impl std::ops::Deref for GlobalSlot {
+    type Target = Value;
+    fn deref(&self) -> &Value {
+        self.value()
+    }
+}
+
+impl Serialize for GlobalSlot {
+    fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+        match (self.tree.get(), &self.json) {
+            (None, Some(j)) => serde_json::from_str::<&serde_json::value::RawValue>(j).map_err(serde::ser::Error::custom)?.serialize(s),
+            _ => self.value().serialize(s),
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for GlobalSlot {
+    fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<GlobalSlot, D::Error> {
+        Ok(GlobalSlot::new(Value::deserialize(d)?))
+    }
+}
 
 /// The tables reverted by the undo log (Helpers/Log.php logs cards, meeples, global_variables
 /// and player; not user_preferences nor the framework tables)
@@ -571,6 +645,12 @@ impl Game {
         self.deleted_meeples = Rows::default();
         self.notifications = vec![];
         self.last_args = None;
+        // Large global values as JSON text until read again
+        if self.globals.values().any(|s| s.json.is_some() && s.tree.get().is_some() || s.json.is_none() && s.tree.get().is_some_and(|v| is_large(v, 400))) {
+            for s in Arc::make_mut(&mut self.globals).values_mut() {
+                s.pack();
+            }
+        }
         // A game holds 2400 cards during deck selection: the tables keep that capacity
         self.cards.shrink_to_fit();
         self.meeples.shrink_to_fit();
