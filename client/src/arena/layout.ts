@@ -37,6 +37,8 @@ const WIDE: ArenaLayout = {
     '--mana-w': '50px',
     '--mana-slot-h': '14px',
     '--mana-gap': '4px',
+    '--opp-card-w': '96px',
+    '--opp-hand-x': '300px',
   },
 };
 
@@ -59,6 +61,8 @@ const PHONE: ArenaLayout = {
     '--mana-w': '30px',
     '--mana-slot-h': '7px',
     '--mana-gap': '2px',
+    '--opp-card-w': '46px',
+    '--opp-hand-x': '170px',
   },
 };
 

@@ -18,8 +18,9 @@ export const phaseLabel = (p: Phase) =>
   p === 'setup' ? 'Setup' : p === 'tiebreaker' ? 'Tiebreaker' : p === 'ended' ? 'Game over' : (PHASES.find((x) => x.phase === p)?.label ?? p);
 
 /**
- * Mana of a player, as on BGA: a vertical gauge at the left edge of the screen, one slot per Mana
- * Orb, lit when it is ready. Anchor of the cards put in mana; a click lists them.
+ * Mana of a player, as on BGA: a vertical gauge on the mat, beside the totals of the player's
+ * expeditions, one slot per Mana Orb, lit when it is ready. Anchor of the cards put in mana; a
+ * click lists them.
  */
 export function ManaBar({ player, mine }: { player: PlayerView; mine: boolean }) {
   const { zoneCards } = useGameCtx();
@@ -50,7 +51,7 @@ export function ManaBar({ player, mine }: { player: PlayerView; mine: boolean })
   );
 }
 
-/** Name and state of a player; the opponent's hand is shown here as card backs. */
+/** Name and state of a player */
 export function PlayerChip({ player, mine, className }: { player: PlayerView; mine: boolean; className: string }) {
   const { view, decision, send, you } = useGameCtx();
   const waiting = view.waitingFor.includes(player.id);
@@ -68,14 +69,6 @@ export function PlayerChip({ player, mine, className }: { player: PlayerView; mi
         {player.name}
         {player.bot && <small> bot</small>}
       </span>
-      {!mine && (
-        <span className="pc-hand" data-pile={`hand-${player.id}`} title={`${player.handCount} cards in hand`}>
-          {Array.from({ length: Math.min(player.handCount, 7) }, (_, i) => (
-            <img key={i} src="/img/card-back.jpg" alt="" draggable={false} />
-          ))}
-          <b key={player.handCount}>{player.handCount}</b>
-        </span>
-      )}
       {mine && you === null && <span className="pc-tag">Hand {player.handCount}</span>}
       <span className="pc-gap" title="Regions between the two expeditions (0: they meet)">
         Gap <b key={g}>{g}</b>
@@ -184,6 +177,39 @@ export function ArenaHand() {
           </div>
         );
       })}
+    </div>
+  );
+}
+
+/** The opponent's hand, face down: a smaller fan hanging from the top edge, with its count. */
+export function OppHand({ player }: { player: PlayerView }) {
+  const n = player.handCount;
+  const shown = Math.min(n, 9);
+  const step = shown > 1 ? Math.min(0.42, 2.6 / (shown - 1)) : 0;
+  const spread = Math.min(5, 26 / Math.max(shown, 1));
+  return (
+    <div className="opp-hand" aria-label={`${player.name}: ${n} cards in hand`} title={`${n} cards in hand`}>
+      {Array.from({ length: shown }, (_, i) => {
+        const off = i - (shown - 1) / 2;
+        return (
+          <img
+            key={i}
+            className="oh-card"
+            src="/img/card-back.jpg"
+            alt=""
+            draggable={false}
+            style={{
+              ['--x' as string]: `calc(var(--opp-card-w) * ${off * step})`,
+              ['--rot' as string]: `${-off * spread}deg`,
+              ['--dy' as string]: `${-off * off * 2}px`,
+            }}
+          />
+        );
+      })}
+      <span className="oh-pile" data-pile={`hand-${player.id}`} />
+      <b key={n} className="oh-count">
+        {n}
+      </b>
     </div>
   );
 }

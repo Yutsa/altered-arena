@@ -1,4 +1,4 @@
-import { memo, useEffect, useRef, useState } from 'react';
+import { memo, useEffect, useRef, useState, type SyntheticEvent } from 'react';
 import type { Biome, CardView } from '@protocol';
 import { useGameCtx } from '../game/GameContext';
 import { useCardPointer } from '../game/useCardPointer';
@@ -7,6 +7,7 @@ import { hasActions } from '../game/decisions';
 import { STATUS_INFO } from '../game/keywords';
 import { artUrl } from '../api/catalog';
 import { BIOMES } from '../components/Card';
+import { Glyph } from '../components/Glyph';
 
 type Fx = { key: number; text: string; up: boolean };
 
@@ -16,7 +17,7 @@ type Fx = { key: number; text: string; up: boolean };
  * pop a short "+1" above the card.
  */
 export const MatCard = memo(function MatCard({ id, kind }: { id: number; kind: 'exp' | 'zone' | 'hero' }) {
-  const { byId, def, aff, ui } = useGameCtx();
+  const { byId, def, aff, ui, send } = useGameCtx();
   const { drag } = useDrag();
   const { draggable, handlers } = useCardPointer(id);
   const card = byId.get(id);
@@ -95,6 +96,9 @@ export const MatCard = memo(function MatCard({ id, kind }: { id: number; kind: '
         </span>
       )}
       {a?.extraCost ? <span className="mc-extra">+{a.extraCost}</span> : null}
+      {kind === 'zone' && card?.zone === 'reserve' && d?.support && (
+        <SupportIcon support={d.support} faction={d.faction} usable={!!a?.support} onUse={() => void send({ type: 'support', cardId: id })} />
+      )}
       {fx && (
         <span key={fx.key} className={`mc-fx ${fx.up ? 'up' : 'down'}`}>
           {fx.text}
@@ -103,6 +107,32 @@ export const MatCard = memo(function MatCard({ id, kind }: { id: number; kind: '
     </div>
   );
 });
+
+/**
+ * The support ability of a card in Reserve, as on BGA: a tag in its faction colour at the bottom
+ * right, {D} (discard me to use it) or {I} (always on). When it can be used now, it pulses and one
+ * click uses it.
+ */
+function SupportIcon({ support, faction, usable, onUse }: { support: string; faction: string; usable: boolean; onUse: () => void }) {
+  const discard = /^#?\{D\}/.test(support.trim());
+  const stop = (e: SyntheticEvent) => e.stopPropagation();
+  return (
+    <button
+      type="button"
+      className={`mc-support f-${faction} ${usable ? 'usable' : ''}`}
+      disabled={!usable}
+      title={usable ? 'Use its support ability' : discard ? 'Support ability: discard me from Reserve' : 'Support ability (in Reserve)'}
+      onPointerDown={stop}
+      onPointerUp={stop}
+      onClick={(e) => {
+        e.stopPropagation();
+        if (usable) onUse();
+      }}
+    >
+      <Glyph name={discard ? 'discard' : 'infinity'} />
+    </button>
+  );
+}
 
 /** A short effect when a card's boosts or statistics change (not when it first appears). */
 function useStatFx(card: CardView | undefined): Fx | null {

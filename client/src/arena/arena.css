@@ -319,6 +319,36 @@
   font: 700 calc(var(--mat-card-w) * 0.13) / 1.2 var(--font-title);
 }
 /* Exhausted: turned sideways and shrunk to the card's width, so the layout does not move */
+/* Support ability of a card in Reserve: a tag in the faction colour; it pulses when usable */
+.mc-support {
+  position: absolute;
+  right: -6%;
+  bottom: -5%;
+  z-index: 4;
+  width: 46%;
+  height: 26%;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid rgb(255 255 255 / 0.35);
+  border-radius: 999px;
+  color: #fff;
+  font-size: calc(var(--zone-card-w) * 0.24);
+  box-shadow: 0 0 5px 2px rgb(0 0 0 / 0.8);
+  transition: transform 0.15s;
+}
+.mc-support.f-AX { background: #774a32; --fc: #774a32; }
+.mc-support.f-BR { background: #5f1f16; --fc: #5f1f16; }
+.mc-support.f-LY { background: #a82249; --fc: #a82249; }
+.mc-support.f-MU { background: #2a7533; --fc: #2a7533; }
+.mc-support.f-OD { background: #2f6187; --fc: #2f6187; }
+.mc-support.f-YZ { background: #4a3f67; --fc: #4a3f67; }
+.mc-support.f-NE { background: #5b5b66; --fc: #5b5b66; }
+.mc-support .glyph-white { color: var(--fc); }
+.mc-support:disabled { cursor: default; }
+.mc-support.usable { cursor: pointer; border-color: #fff; animation: arena-support 1.2s ease-in-out infinite; }
+.mc-support.usable:hover { transform: scale(1.18); }
+.mc.is-exhausted .mc-support { filter: grayscale(0.8); }
 .mc.is-exhausted { rotate: 90deg; scale: calc(362 / 505); filter: brightness(0.8); }
 .mc.is-playable { box-shadow: 0 0 0 3px #69db7c, 0 0 16px #69db7c; }
 .mc.is-selectable { border-color: var(--cyan); box-shadow: 0 0 0 3px rgb(127 227 255 / 0.7), 0 0 22px 6px rgb(80 200 255 / 0.5); animation: arena-target 1.2s ease-in-out infinite; }
@@ -493,13 +523,10 @@
 .pc-tag.thinking { animation: blink 1.2s infinite; }
 .pc-gap { color: #d6deef; }
 .pc-gap b { font-family: var(--font-title); font-size: 1.15em; display: inline-block; animation: arena-num 0.3s ease-out; }
-.pc-hand { display: flex; align-items: center; }
-.pc-hand img { width: calc(var(--chip-font) * 1.4); height: calc(var(--chip-font) * 1.95); border-radius: 3px; border: 1px solid var(--gold); margin-right: calc(var(--chip-font) * -0.8); }
-.pc-hand b { margin-left: calc(var(--chip-font) * 1); display: inline-block; animation: arena-num 0.3s ease-out; }
-/* Mana gauges at the left edge (BGA): the opponent's in the top half, mine in the bottom half */
+/* Mana gauges on the mat (BGA), beside the totals of each player's expeditions */
+.totals-cell { display: flex; align-items: center; justify-content: center; gap: calc(var(--mana-w) * 0.22); }
 .mana-bar {
-  position: absolute;
-  left: 10px;
+  position: relative;
   z-index: 6;
   width: var(--mana-w);
   display: flex;
@@ -507,15 +534,14 @@
   align-items: center;
   gap: 4px;
   padding: 8px 6px;
-  border: 1px solid rgb(0 158 227 / 0.55);
+  border: 1px solid rgb(0 158 227 / 0.6);
   border-radius: 12px;
-  background: rgb(12 18 36 / 0.82);
-  box-shadow: 0 6px 16px rgb(0 0 0 / 0.5);
+  background: rgb(4 6 14 / 0.92);
+  box-shadow: 0 6px 16px rgb(0 0 0 / 0.6);
   color: #e6e4e4;
   cursor: pointer;
 }
-.mana-bar.theirs { top: 64px; }
-.mana-bar.mine { bottom: 240px; flex-direction: column-reverse; }
+.mana-bar.mine { flex-direction: column-reverse; }
 .mb-label { font: 700 calc(var(--chip-font) * 0.8) / 1 var(--font-title); letter-spacing: 0.08em; text-transform: uppercase; color: #8fd3f5; }
 .mb-count { font: 700 calc(var(--chip-font) * 1.5) / 1 var(--font-title); color: #fff; animation: arena-num 0.3s ease-out; }
 .mb-count small { font-size: 0.6em; color: #9fb3c8; }
@@ -526,15 +552,46 @@
   height: var(--mana-slot-h);
   border-radius: 999px;
   border: 1px solid #009ee3;
-  background: #153038;
+  background: #10242c;
   transition: background 0.25s, box-shadow 0.25s;
   animation: arena-pop 0.3s ease-out;
 }
 .mb-slot.on { background: linear-gradient(#5cc8ff, #009ee3); box-shadow: 0 0 8px rgb(0 158 227 / 0.8); }
 .mana-bar:hover { border-color: #5cc8ff; }
-.layout-phone .mana-bar { left: 4px; padding: 4px 3px; gap: 2px; border-radius: 8px; }
-.layout-phone .mana-bar.theirs { top: 40px; }
-.layout-phone .mana-bar.mine { bottom: 58px; }
+.layout-phone .mana-bar { padding: 4px 3px; gap: 2px; border-radius: 8px; }
+
+/* The opponent's hand, face down, hanging from the top edge */
+.opp-hand { position: absolute; left: var(--opp-hand-x); top: 0; width: 0; height: 0; z-index: 14; }
+.oh-card {
+  position: absolute;
+  left: var(--x);
+  top: calc(var(--opp-card-w) * -0.66);
+  width: var(--opp-card-w);
+  aspect-ratio: 324 / 450;
+  translate: -50% 0;
+  transform: translateY(var(--dy)) rotate(var(--rot));
+  transform-origin: 50% -40%;
+  border-radius: calc(var(--opp-card-w) * 0.06);
+  box-shadow: 0 4px 10px rgb(0 0 0 / 0.6);
+  transition: left 0.2s, transform 0.2s;
+  animation: arena-pop 0.25s ease-out;
+}
+.oh-pile { position: absolute; left: 0; top: 0; width: var(--opp-card-w); aspect-ratio: 324 / 450; translate: -50% -50%; opacity: 0; pointer-events: none; }
+.oh-count {
+  position: absolute;
+  left: 0;
+  top: calc(var(--opp-card-w) * 0.8);
+  translate: -50% 0;
+  min-width: calc(var(--chip-font) * 2);
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--gold);
+  background: rgb(10 12 28 / 0.92);
+  color: #fff;
+  font: 700 calc(var(--chip-font) * 1.1) / 1.2 var(--font-title);
+  text-align: center;
+  animation: arena-num 0.3s ease-out;
+}
 
 .info-chip { right: 12px; top: 10px; }
 .layout-phone .info-chip { right: 6px; top: 4px; }
@@ -561,13 +618,13 @@
 /* The prompt: DecisionBar restyled */
 .prompt {
   position: absolute;
-  left: 50%;
+  left: calc(50% + 24px);
   top: 8px;
   translate: -50% 0;
-  width: 600px;
+  width: 560px;
   z-index: 20;
 }
-.layout-phone .prompt { width: 330px; top: auto; bottom: 62px; }
+.layout-phone .prompt { left: 50%; width: 330px; top: auto; bottom: 62px; }
 .prompt .decision-bar {
   background: rgb(10 14 34 / 0.88);
   border: 2px solid var(--cyan);
@@ -694,6 +751,7 @@
 
 @keyframes arena-num { from { transform: scale(1.5); color: #ffd98a; } }
 @keyframes arena-pop { from { transform: scale(0.6); opacity: 0; } }
+@keyframes arena-support { 50% { box-shadow: 0 0 0 3px #fff, 0 0 16px 5px #fff; } }
 @keyframes arena-land { 50% { transform: scale(1.08); } }
 @keyframes arena-cast { 35% { box-shadow: 0 0 0 4px #ffd166, 0 0 34px 8px #ffd166; filter: brightness(1.3); } }
 @keyframes arena-reveal { from { transform: rotateY(90deg); filter: brightness(2); } }

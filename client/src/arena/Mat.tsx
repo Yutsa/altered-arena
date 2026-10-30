@@ -11,6 +11,7 @@ import { MatCard } from './MatCard';
 import { deckPatch, HERO_X, rowBackground, type ArenaLayout } from './layout';
 import { forecast, regionCenter, STORM_BACK, stormTiles, TRACK_UNITS, type StormTile } from './model';
 import { TrackButton } from './TrackButton';
+import { ManaBar } from './Hud';
 
 /** A location option of the current decision that designates this zone of this player, if any */
 function useLocation(player: PlayerView | undefined, zone: Zone) {
@@ -204,7 +205,10 @@ function MatBand({ l, row, player, mine }: { l: ArenaLayout; row: 1 | 3; player:
       {player && (
         <>
           <span />
-          <Totals player={player} side="hero" />
+          <div className="totals-cell">
+            <ManaBar player={player} mine={mine} />
+            <Totals player={player} side="hero" />
+          </div>
           <ExpCell player={player} side="hero" mine={mine} />
           <HeroCell player={player} />
           <ExpCell player={player} side="companion" mine={mine} />
