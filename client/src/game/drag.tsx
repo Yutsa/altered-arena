@@ -37,6 +37,8 @@ function dropAt(x: number, y: number, allowed: Destination[]): Destination | nul
 }
 
 const clamp = (v: number, m: number) => Math.max(-m, Math.min(m, v));
+/** Duration of the way back to the hand, when a card is dropped outside any destination */
+const RETURN_MS = 160;
 
 /** The ghost card: where it is, where it goes, how it leans */
 interface Motion {
@@ -51,6 +53,8 @@ interface Motion {
   rz: number;
   scale: number;
   frame: number;
+  /** going back: where it started from, and when */
+  back?: { x: number; y: number; rx: number; ry: number; rz: number; scale: number; at: number };
 }
 
 /**
@@ -87,26 +91,44 @@ export function DragProvider({ children }: { children: ReactNode }) {
     const k = m.current;
     if (!s) return;
     const returning = !!s.returning;
-    const ease = returning ? 0.22 : s.dropped ? 0.5 : 0.32;
+    if (returning && k.back) {
+      // Back to its place in a fixed short time, fast then slowing down
+      const b = k.back;
+      const p = Math.min(1, (performance.now() - b.at) / RETURN_MS);
+      const e = 1 - (1 - p) ** 3;
+      k.x = b.x + (k.tx - b.x) * e;
+      k.y = b.y + (k.ty - b.y) * e;
+      k.rx = b.rx * (1 - e);
+      k.ry = b.ry * (1 - e);
+      k.rz = b.rz * (1 - e);
+      k.scale = b.scale + (1 - b.scale) * e;
+      if (g)
+        g.style.transform =
+          `translate(${k.x}px, ${k.y}px) translate(-50%, -50%) perspective(700px) ` +
+          `rotateX(${k.rx}deg) rotateY(${k.ry}deg) rotate(${k.rz}deg) scale(${k.scale})`;
+      if (p >= 1) {
+        set(null);
+        return;
+      }
+      k.frame = requestAnimationFrame(step);
+      return;
+    }
+    const ease = s.dropped ? 0.5 : 0.32;
     const vx = (k.tx - k.x) * ease;
     const vy = (k.ty - k.y) * ease;
     k.x += vx;
     k.y += vy;
-    const lean = returning || s.dropped ? 0 : 1;
+    const lean = s.dropped ? 0 : 1;
     k.ry += (clamp(vx * 1.6, 28) * lean - k.ry) * 0.25;
     k.rx += (clamp(-vy * 1.3, 24) * lean - k.rx) * 0.25;
     k.rz += (clamp(vx * 0.7, 12) * lean - k.rz) * 0.25;
-    const scale = returning ? 1 : s.over ? 0.86 : 1.08;
+    const scale = s.over ? 0.86 : 1.08;
     k.scale += (scale - k.scale) * 0.25;
     if (g) {
       g.style.visibility = 'visible';
       g.style.transform =
         `translate(${k.x}px, ${k.y}px) translate(-50%, -50%) perspective(700px) ` +
         `rotateX(${k.rx}deg) rotateY(${k.ry}deg) rotate(${k.rz}deg) scale(${k.scale})`;
-    }
-    if (returning && Math.hypot(k.tx - k.x, k.ty - k.y) < 1.5) {
-      set(null);
-      return;
     }
     k.frame = requestAnimationFrame(step);
   }, []);
@@ -175,8 +197,10 @@ export function DragProvider({ children }: { children: ReactNode }) {
           set(null);
         });
       } else {
-        m.current.tx = home.current.x;
-        m.current.ty = home.current.y;
+        const k = m.current;
+        k.tx = home.current.x;
+        k.ty = home.current.y;
+        k.back = { x: k.x, y: k.y, rx: k.rx, ry: k.ry, rz: k.rz, scale: k.scale, at: performance.now() };
         set({ ...s, destinations: [], over: null, returning: true });
       }
     },

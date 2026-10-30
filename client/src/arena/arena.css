@@ -699,7 +699,7 @@
   translate: -50% 0;
   transform: translateY(var(--dy)) rotate(var(--rot));
   transform-origin: 50% 150%;
-  transition: transform 0.16s ease-out, bottom 0.16s ease-out, left 0.22s ease-out;
+  transition: transform 0.16s ease-out, bottom 0.16s ease-out, left 0.16s ease-out;
 }
 @media (hover: hover) {
   .ah-slot:hover { transform: translateY(calc(var(--card-hand-w) * -0.62)) scale(1.12) rotate(0deg); z-index: 50 !important; }
