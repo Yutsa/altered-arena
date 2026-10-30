@@ -1272,6 +1272,29 @@ pub fn is_seasoned_from_opposite_source_character(g: &mut Game, id: CardId) -> R
 /// dynamicGigantic value
 // PHP: Models/Card.php:1382
 pub fn is_gigantic(g: &mut Game, id: CardId, ignore_one: bool) -> R<Value> {
+    // A token's isGigantic can call itself without end in PHP (isGigantic ->
+    // countUniversalTokenGigantic -> checkAttributeCondition -> isGigantic of the same token), which
+    // there ends in a fatal error. Here: an error instead of a stack overflow that aborts the process.
+    thread_local!(static DEPTH: std::cell::Cell<u32> = const { std::cell::Cell::new(0) });
+    struct Depth;
+    impl Drop for Depth {
+        fn drop(&mut self) {
+            DEPTH.with(|d| d.set(d.get() - 1));
+        }
+    }
+    if DEPTH.with(|d| {
+        d.set(d.get() + 1);
+        d.get()
+    }) > 500
+    {
+        DEPTH.with(|d| d.set(d.get() - 1));
+        return Err(PhpError::new("isGigantic: endless recursion (a fatal error in PHP)"));
+    }
+    let _depth = Depth;
+    is_gigantic_inner(g, id, ignore_one)
+}
+
+fn is_gigantic_inner(g: &mut Game, id: CardId, ignore_one: bool) -> R<Value> {
     if php::loose_eq(g.card(id)?.props.get("gigantic").unwrap_or(&json!(false)), &json!(true)) {
         return Ok(json!(true));
     }
