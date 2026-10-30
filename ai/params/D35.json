@@ -1,0 +1,28 @@
+{
+  "weights": {
+    "progress": 16.831866602870832,
+    "dusk_win": 5.974047861237789,
+    "margin": 0.7143448547793821,
+    "margin_cap": 3.5267753403343844,
+    "board": 0.40734977036635284,
+    "hand": 0.5650399302081004,
+    "reserve": 0.39589022707270555,
+    "mana": 0.8927840875442019,
+    "mana_soft": 11.327180947138602,
+    "mana_late": 0.2528996568669138,
+    "mana_ready": 0.2840301680055642,
+    "landmark": 0.6296364637076388,
+    "empty_expedition": 0.9189169144190277
+  },
+  "copies": 1,
+  "max_candidates": 16,
+  "finish_steps": 12,
+  "end_turn_bias": -1.9079569270598224,
+  "play_prior": {},
+  "mana_prior": {},
+  "mana_target": 10.0,
+  "mana_cost": 0.1,
+  "rollouts": 3,
+  "rollout_steps": 80,
+  "cleanup_keep": 0.5
+}

@@ -1,27 +1,51 @@
 {
- "mana_prior": {
-  "LY_Common_Anansi": -0.041,
-  "LY_Common_LyraContortionist": -0.486,
-  "LY_Common_LyraSignet": 0.459,
-  "LY_Common_TwinkleTwinkle": 0.278,
-  "LY_Rare_MagicalTraining": -0.579,
-  "LY_Rare_OuroborosInkcaster": 0.345,
-  "LY_Rare_RekaRecycler": -0.151
- },
- "play_prior": {
-  "LY_Common_ACappellaTraining": 0.244,
-  "LY_Common_Anansi": -0.073,
-  "LY_Common_ClothCocoon": -0.065,
-  "LY_Common_Hathor": -0.185,
-  "LY_Common_LyraContortionist": -0.096,
-  "LY_Common_LyraSignet": -0.12,
-  "LY_Common_Martengale": -0.187,
-  "LY_Common_TwinkleTwinkle": -0.187,
-  "LY_Rare_MagicalTraining": 0.427,
-  "LY_Rare_OuroborosInkcaster": -0.106,
-  "LY_Rare_RekaRecycler": -0.031,
-  "LY_Rare_SneakySalamander": 0.026,
-  "Unique:Dansecorde Reka": 0.223,
-  "Unique:Guide Reka": 0.421
- }
+  "weights": {
+    "progress": 12.0,
+    "dusk_win": 5.0,
+    "margin": 0.6,
+    "margin_cap": 3.0,
+    "board": 0.25,
+    "hand": 0.6,
+    "reserve": 0.5,
+    "mana": 1.6,
+    "mana_soft": 7.0,
+    "mana_late": 0.3,
+    "mana_ready": 0.15,
+    "landmark": 0.6,
+    "empty_expedition": 1.0
+  },
+  "copies": 1,
+  "max_candidates": 16,
+  "finish_steps": 12,
+  "end_turn_bias": -1.0,
+  "play_prior": {
+    "LY_Common_ACappellaTraining": 0.244,
+    "LY_Common_Anansi": -0.073,
+    "LY_Common_ClothCocoon": -0.065,
+    "LY_Common_Hathor": -0.185,
+    "LY_Common_LyraContortionist": -0.096,
+    "LY_Common_LyraSignet": -0.12,
+    "LY_Common_Martengale": -0.187,
+    "LY_Common_TwinkleTwinkle": -0.187,
+    "LY_Rare_MagicalTraining": 0.427,
+    "LY_Rare_OuroborosInkcaster": -0.106,
+    "LY_Rare_RekaRecycler": -0.031,
+    "LY_Rare_SneakySalamander": 0.026,
+    "Unique:Dansecorde Reka": 0.223,
+    "Unique:Guide Reka": 0.421
+  },
+  "mana_prior": {
+    "LY_Common_Anansi": -0.041,
+    "LY_Common_LyraContortionist": -0.486,
+    "LY_Common_LyraSignet": 0.459,
+    "LY_Common_TwinkleTwinkle": 0.278,
+    "LY_Rare_MagicalTraining": -0.579,
+    "LY_Rare_OuroborosInkcaster": 0.345,
+    "LY_Rare_RekaRecycler": -0.151
+  },
+  "mana_target": 10.0,
+  "mana_cost": 0.1,
+  "rollouts": 3,
+  "rollout_steps": 80,
+  "cleanup_keep": 0.5
 }

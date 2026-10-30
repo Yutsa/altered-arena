@@ -106,7 +106,7 @@ impl Agent for RandomAgent {
     }
 }
 
-#[derive(Clone, Debug, Default, Serialize)]
+#[derive(Clone, Debug, Default, Serialize, serde::Deserialize)]
 pub struct GameResult {
     pub seed: u64,
     /// Seat index of the winner (None: a draw or an error)
@@ -251,7 +251,23 @@ pub fn run_parallel<J: Sync, T: Send>(jobs: &[J], threads: usize, f: impl Fn(&J)
                     if i >= jobs.len() {
                         break;
                     }
+                    // AI_JOBLOG: which jobs were running when the process died (stack overflow aborts)
+                    let log = std::env::var_os("AI_JOBLOG").is_some();
+                    // AI_ONLY=i,j: run only these jobs (the others are recorded as skipped)
+                    if let Ok(only) = std::env::var("AI_ONLY") {
+                        if !only.split(',').any(|x| x.trim().parse() == Ok(i)) {
+                            let r = on_panic(&jobs[i], "skipped".into());
+                            out.lock().unwrap()[i] = Some(r);
+                            continue;
+                        }
+                    }
+                    if log {
+                        eprintln!("job {} start", i);
+                    }
                     let r = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| f(&jobs[i])));
+                    if log {
+                        eprintln!("job {} end", i);
+                    }
                     let r = match r {
                         Ok(r) => r,
                         Err(e) => {

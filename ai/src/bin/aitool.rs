@@ -49,10 +49,49 @@ fn pass(n: u64, agent_name: &str, games: u64, threads: usize, params_dir: &str, 
     let jobs: Vec<(usize, u64)> = (0..pairings.len()).flat_map(|p| (0..games).map(move |g| (p, g))).collect();
     let t = std::time::Instant::now();
     let done = std::sync::atomic::AtomicUsize::new(0);
+    // Journal: a stack overflow aborts the process, so every game is logged as it starts and ends;
+    // a rerun resumes, and a game that started twice without ending is recorded as an error.
+    let journal_path = format!("{}/passes/PASS_{}.journal", PRIVATE, n);
+    let mut finished: std::collections::HashMap<usize, (usize, bool, GameResult)> = Default::default();
+    let mut starts: std::collections::HashMap<usize, usize> = Default::default();
+    if let Ok(s) = std::fs::read_to_string(&journal_path) {
+        for line in s.lines() {
+            let Ok(v) = serde_json::from_str::<Value>(line) else { continue };
+            let i = v["i"].as_u64().unwrap_or(0) as usize;
+            match v.get("r") {
+                Some(r) => {
+                    if let Ok(r) = serde_json::from_value::<GameResult>(r.clone()) {
+                        finished.insert(i, (v["p"].as_u64().unwrap() as usize, v["swap"].as_bool().unwrap(), r));
+                    }
+                }
+                None => *starts.entry(i).or_default() += 1,
+            }
+        }
+    }
+    for (&i, &k) in &starts {
+        if k >= 2 && !finished.contains_key(&i) {
+            let (p, g) = jobs[i];
+            let r = GameResult { seed: 10_000 + p as u64 * 1000 + g, error: Some("process aborted (stack overflow)".into()), ..Default::default() };
+            finished.insert(i, (p, g % 2 == 1, r));
+        }
+    }
+    let journal = std::sync::Mutex::new(std::fs::OpenOptions::new().create(true).append(true).open(&journal_path).unwrap());
+    let write_line = |v: Value| {
+        use std::io::Write;
+        let mut f = journal.lock().unwrap();
+        writeln!(f, "{}", v).unwrap();
+        f.flush().unwrap();
+    };
+    let index: std::collections::HashMap<(usize, u64), usize> = jobs.iter().enumerate().map(|(i, j)| (*j, i)).collect();
     let results = play::run_parallel(
         &jobs,
         threads,
         |&(p, g)| {
+            let i = index[&(p, g)];
+            if let Some(x) = finished.get(&i) {
+                return x.clone();
+            }
+            write_line(serde_json::json!({"i": i}));
             let (a, b) = (pairings[p]["a"].as_str().unwrap(), pairings[p]["b"].as_str().unwrap());
             let swap = g % 2 == 1;
             let (d0, d1) = if swap { (b, a) } else { (a, b) };
@@ -66,6 +105,7 @@ fn pass(n: u64, agent_name: &str, games: u64, threads: usize, params_dir: &str, 
                 r.refused.swap(0, 1);
                 r.end.reverse();
             }
+            write_line(serde_json::json!({"i": i, "p": p, "swap": swap, "r": r}));
             let k = done.fetch_add(1, std::sync::atomic::Ordering::SeqCst) + 1;
             if k % 500 == 0 {
                 eprintln!("{} / {} games, {:.0}s", k, jobs.len(), t.elapsed().as_secs_f64());
@@ -92,6 +132,7 @@ fn pass(n: u64, agent_name: &str, games: u64, threads: usize, params_dir: &str, 
     std::fs::create_dir_all(format!("{}/passes", PRIVATE)).unwrap();
     let doc = serde_json::json!({"pass": n, "agent": agent_name, "games": games, "threads": threads, "wallSeconds": t.elapsed().as_secs_f64(), "pairings": out});
     std::fs::write(&file, serde_json::to_string_pretty(&doc).unwrap()).unwrap();
+    let _ = std::fs::remove_file(&journal_path);
     let errors = results.iter().filter(|(_, _, r)| r.error.is_some()).count();
     println!("pass {}: {} games, {} errors, {:.0}s wall -> {}", n, results.len(), errors, t.elapsed().as_secs_f64(), file);
 }

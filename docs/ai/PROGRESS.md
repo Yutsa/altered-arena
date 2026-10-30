@@ -5,7 +5,7 @@ Plan: `docs/plans/AI_TOURNAMENT.md`. Private data (replays, decklists, player na
 
 ## Current phase
 
-F after pass 1 (A/B of shared-code variants, then per-deck evolution), then pass 2.
+Pass 2 running (`private/run_pass.sh 2`), with the parameters of phase F after pass 1.
 
 ## Done
 
@@ -55,6 +55,18 @@ F after pass 1 (A/B of shared-code variants, then per-deck evolution), then pass
   Wall time is meaningless (the Mac slept, then background priority). Worst fits: the two Matz OD
   decks (permanent-heavy) lose 87-98 % of their games here but won theirs in the tournament.
 
+- Phase F after pass 1 (A/B, 8 games per pairing, ~592 games each, against the pass-1 parameters):
+  - Reserve keep-value at cleanup (`cleanup_keep` 0.5): 52.5 % [48.4, 56.5], kept.
+  - End-of-turn bias -1: 50.7 % [46.7, 54.7], kept (passes the rule; evolution tunes it per deck).
+  - 2 determinisations per decision: 52.6 % [48.6, 56.6] but +47 % CPU per game: rejected for the
+    time budget.
+  - 5 rollouts instead of 3: the A/B aborted twice on a stack overflow (job 433, pairing 54,
+    seed 754000) in the engine; not measured. Since then a pass logs each game in
+    `PASS_N.journal`, resumes after an abort, and records a game that aborted twice as an error.
+  - Per-deck evolution (2 candidates x 30 held-out games per deck, keep at +10 points): 9 of 37
+    decks changed. The whole set (both kept variants + evolution) against the pass-1 parameters:
+    **57.6 % [53.6, 61.5]** of 592 games: kept (`ai/params`).
+
 ## Decisions
 
 - Forfeited matches (no game played) are not pairings to replay: 74 pairings.
@@ -85,8 +97,8 @@ F after pass 1 (A/B of shared-code variants, then per-deck evolution), then pass
 
 ## Next steps
 
-1. A/B `private/v_cleanup`, `v_endturn`, `v_copies`, `v_rollouts` against `v_base`
-   (`private/ab1.log`); keep the winners in `ai/params` (or the defaults in `search.rs`).
-2. `aitool evolve 1 --params ai/params --out private/params_e1 --cands 2 --games 30 --margin 0.1`,
-   measure against `ai/params`, keep if it passes, commit, pass 2.
-3. Same loop for passes 3..5, then `docs/ai/REPORT.md` (`tools/ai/report_tables.py`).
+1. When pass 2 ends: `aitool agree 2 ai`, `report_pass.py 2 NOTES`, commit.
+2. Find the stack overflow of seed 754000 (lldb backtrace in `private/so_bt.txt`); phase F: new
+   variants (A/B), `aitool evolve 2 --params ai/params --out private/params_e2 --cands 2 --games 30
+   --margin 0.1`, measure against `ai/params` (snapshot `private/params_p2`), pass 3.
+3. Same loop for passes 4..5, then `docs/ai/REPORT.md` (`tools/ai/report_tables.py`).
