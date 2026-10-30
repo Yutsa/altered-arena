@@ -79,7 +79,7 @@ export function rowBackground(l: ArenaLayout, i: number): CSSProperties {
 export function deckPatch(l: ArenaLayout, i: 0 | 4): CSSProperties {
   const [f0, f1] = SLICES[i];
   const imgH = l.rows[i] / (f1 - f0);
-  const [t0, t1] = i === 0 ? [0.42, 0.97] : [0.02, 0.47];
+  const [t0, t1] = i === 0 ? [0.4, 1] : [0, 0.58];
   const top = t0 * l.rows[i];
   const left = 0.165 * l.plane.w;
   return {
@@ -91,6 +91,13 @@ export function deckPatch(l: ArenaLayout, i: 0 | 4): CSSProperties {
     backgroundPosition: `${-(left + 0.14 * l.plane.w)}px ${-f0 * imgH - top}px`,
   };
 }
+
+/**
+ * Centre of the hero cards, as a fraction of the mat width: the band columns (arena.css,
+ * .mat-band) are 19.75% wide on the left and 15% on the right, around two equal expedition
+ * columns, following the board image. The Tumult track puts its button there.
+ */
+export const HERO_X = 0.1975 + (1 - 0.1975 - 0.15) / 2;
 
 function pick(): { layout: ArenaLayout; scale: number; portrait: boolean } {
   const vw = window.innerWidth;

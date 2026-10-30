@@ -8,7 +8,7 @@ import { BiomeGlyph } from '../components/Glyph';
 import { BIOMES } from '../components/Card';
 import { artUrl } from '../api/catalog';
 import { MatCard } from './MatCard';
-import { deckPatch, rowBackground, type ArenaLayout } from './layout';
+import { deckPatch, HERO_X, rowBackground, type ArenaLayout } from './layout';
 import { forecast, regionCenter, STORM_BACK, stormTiles, TRACK_UNITS, type StormTile } from './model';
 import { TrackButton } from './TrackButton';
 
@@ -185,6 +185,19 @@ function ExpCell({ player, side, mine }: { player: PlayerView; side: Side; mine:
   );
 }
 
+/** The hero card, with the first player token on it as on BGA */
+function HeroCell({ player }: { player: PlayerView }) {
+  const { view } = useGameCtx();
+  return (
+    <div className="hero-cell">
+      {player.heroCardId !== null && <MatCard id={player.heroCardId} kind="hero" />}
+      {view.firstPlayer === player.id && (
+        <img key={`${view.day}-${player.id}`} className="first-token" src="/img/icons/first-player.png" alt="First player" title="First player" draggable={false} />
+      )}
+    </div>
+  );
+}
+
 function MatBand({ l, row, player, mine }: { l: ArenaLayout; row: 1 | 3; player: PlayerView | undefined; mine: boolean }) {
   return (
     <div className={`mat-row mat-band ${mine ? 'band-mine' : 'band-theirs'}`} style={rowBackground(l, row)}>
@@ -193,7 +206,7 @@ function MatBand({ l, row, player, mine }: { l: ArenaLayout; row: 1 | 3; player:
           <span />
           <Totals player={player} side="hero" />
           <ExpCell player={player} side="hero" mine={mine} />
-          <div className="hero-cell">{player.heroCardId !== null && <MatCard id={player.heroCardId} kind="hero" />}</div>
+          <HeroCell player={player} />
           <ExpCell player={player} side="companion" mine={mine} />
           <Totals player={player} side="companion" />
           <span />
@@ -277,7 +290,7 @@ function MatTrack({ l }: { l: ArenaLayout }) {
   const players = [opp, me].filter((p): p is PlayerView => !!p);
   return (
     <div className="mat-row mat-trackrow" style={rowBackground(l, 2)}>
-      <div className="track" style={{ width: trackW, height: h }}>
+      <div className="track" style={{ width: trackW, height: h, left: HERO_X * l.plane.w - (TRACK_UNITS / 2) * u }}>
         <DropZone destination="spell" className="track-drop" label="Cast">
           <Tile key={`0-${t[0].id}`} t={t[0]} u={u} h={h} part="full" at={0} />
           <Tile key={`1-${t[1].id}`} t={t[1]} u={u} h={h} part="full" at={2} />
@@ -285,11 +298,6 @@ function MatTrack({ l }: { l: ArenaLayout }) {
           <Tile key={`2r-${t[2].id}`} t={t[2]} u={u} h={h} part="right" at={6} />
           <Tile key={`3-${t[3].id}`} t={t[3]} u={u} h={h} part="full" at={7} />
           <Tile key={`4-${t[4].id}`} t={t[4]} u={u} h={h} part="full" at={9} />
-          {regions.map((r) => (
-            <span key={r.index} className="region-chips" style={{ left: (regionCenter(r.index) - 0.5) * u }}>
-              {r.biomes?.map((b) => <i key={b} className={`chip-${b}`} title={b} />)}
-            </span>
-          ))}
           {players.map((p) => {
             const mine = p.id === (you ?? me?.id);
             const same = p.expeditions.hero.position === p.expeditions.companion.position;
@@ -303,6 +311,17 @@ function MatTrack({ l }: { l: ArenaLayout }) {
             );
           })}
         </DropZone>
+        {regions.map((r) => (
+          <span key={r.index} className="region-chips" style={{ left: regionCenter(r.index) * u }}>
+            {r.biomes?.map((b) => (
+              <span key={b} className={`tot-${b}`}>
+                <span className="tot-icon">
+                  <BiomeGlyph biome={b} />
+                </span>
+              </span>
+            ))}
+          </span>
+        ))}
         <div className="track-center" style={{ left: 5 * u, width: u }}>
           <TrackButton />
         </div>

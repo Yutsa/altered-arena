@@ -61,7 +61,6 @@ export function PlayerChip({ player, mine, className }: { player: PlayerView; mi
         {player.name}
         {player.bot && <small> bot</small>}
       </span>
-      {view.firstPlayer === player.id && <img className="pc-first" src="/img/icons/first-player.png" alt="First player" title="First player" />}
       <Mana player={player} />
       {!mine && (
         <span className="pc-hand" data-pile={`hand-${player.id}`} title={`${player.handCount} cards in hand`}>

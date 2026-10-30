@@ -138,7 +138,17 @@
   grid-template-columns: 9.5% 10.25% minmax(0, 1fr) var(--hero-w) minmax(0, 1fr) 10% 5%;
   align-items: center;
 }
-.hero-cell { display: grid; place-items: center; }
+.hero-cell { position: relative; display: grid; place-items: center; }
+.first-token {
+  position: absolute;
+  right: -18%;
+  bottom: 4%;
+  width: calc(var(--hero-w) * 0.5);
+  filter: drop-shadow(0 3px 4px rgb(0 0 0 / 0.7));
+  pointer-events: none;
+  z-index: 3;
+  animation: arena-pop 0.35s ease-out;
+}
 .exp-cell {
   position: relative;
   height: 90%;
@@ -217,7 +227,7 @@
   background: #1a1830;
   box-shadow: 0 6px 12px rgb(20 10 40 / 0.6);
   cursor: pointer;
-  transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s, filter 0.2s;
+  transition: transform 0.15s, rotate 0.25s, scale 0.25s, box-shadow 0.15s, border-color 0.15s, filter 0.2s;
   -webkit-tap-highlight-color: transparent;
 }
 .mc-zone { width: var(--zone-card-w); border-radius: 7px; }
@@ -285,6 +295,7 @@
 .mc-status img { width: calc(var(--mat-card-w) * 0.2); height: calc(var(--mat-card-w) * 0.2); filter: drop-shadow(0 1px 2px #000); }
 .mc-status b { font-size: 10px; background: rgb(0 0 0 / 0.7); border-radius: 4px; padding: 0 3px; }
 .mc-counters { position: absolute; right: 5%; bottom: 5%; display: flex; gap: 3px; }
+.mc-hero .mc-counters { right: auto; left: 5%; }
 .mc-counter {
   min-width: 1.9em;
   padding: 1px 6px;
@@ -305,7 +316,8 @@
   border: 2px solid #fff;
   font: 700 calc(var(--mat-card-w) * 0.13) / 1.2 var(--font-title);
 }
-.mc.is-exhausted { filter: grayscale(0.7) brightness(0.65); }
+/* Exhausted: turned sideways and shrunk to the card's width, so the layout does not move */
+.mc.is-exhausted { rotate: 90deg; scale: calc(362 / 505); filter: brightness(0.8); }
 .mc.is-playable { box-shadow: 0 0 0 3px #69db7c, 0 0 16px #69db7c; }
 .mc.is-selectable { border-color: var(--cyan); box-shadow: 0 0 0 3px rgb(127 227 255 / 0.7), 0 0 22px 6px rgb(80 200 255 / 0.5); animation: arena-target 1.2s ease-in-out infinite; }
 .mc.is-picked { border-color: var(--cyan); transform: translateY(-6%) scale(1.06); box-shadow: 0 0 0 5px var(--cyan), 0 0 36px 12px rgb(80 200 255 / 0.85); animation: none; }
@@ -354,7 +366,7 @@
 .arena .drop-label { color: var(--cyan); font-size: calc(var(--chip-font) * 1.2); }
 
 /* ---------------------------------------------------------------- Tumult track */
-.mat-trackrow { display: grid; place-items: center; }
+.mat-trackrow { display: flex; align-items: center; }
 .track {
   position: relative;
   border-radius: 12px;
@@ -369,17 +381,18 @@
   background-repeat: no-repeat;
 }
 .storm-tile.reveal { animation: arena-reveal 0.45s ease-out; }
-.region-chips { position: absolute; top: 6%; display: flex; gap: 2px; padding-left: 6px; pointer-events: none; }
-.region-chips i {
-  display: block;
-  width: calc(var(--marker-size) * 0.36);
-  height: calc(var(--marker-size) * 0.36);
-  border-radius: 50%;
-  border: 1.5px solid #fff;
+/* Biomes of each revealed region, on the track's top edge as printed on the Tumult cards */
+.region-chips {
+  --tot-icon: calc(var(--marker-size) * 0.5);
+  position: absolute;
+  top: 0;
+  translate: -50% -55%;
+  display: flex;
+  gap: 2px;
+  pointer-events: none;
+  z-index: 3;
 }
-.chip-forest { background: var(--b-forest); }
-.chip-mountain { background: var(--b-mountain); }
-.chip-ocean { background: var(--b-ocean); }
+.region-chips .tot-icon { border-width: 1.5px; box-shadow: 0 1px 3px rgb(0 0 0 / 0.6); }
 .track-lane { position: absolute; left: 0; right: 0; height: 50%; pointer-events: none; }
 .lane-theirs { top: 0; }
 .lane-mine { bottom: 0; }
@@ -472,7 +485,6 @@
 .mine .pc-name { color: #9ff0cf; }
 .theirs .pc-name { color: #ffb3a3; }
 .pc-name small { font-family: var(--font-text); font-size: 0.7em; opacity: 0.7; }
-.pc-first { width: 1.5em; height: 1.5em; }
 .pc-tag { padding: 2px 6px; border-radius: 6px; background: rgb(255 255 255 / 0.12); font-size: 0.85em; }
 .pc-tag.thinking { animation: blink 1.2s infinite; }
 .pc-gap { color: #d6deef; }
