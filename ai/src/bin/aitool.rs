@@ -64,6 +64,7 @@ fn pass(n: u64, agent_name: &str, games: u64, threads: usize, params_dir: &str, 
                 r.winner = r.winner.map(|w| 1 - w);
                 r.decisions.swap(0, 1);
                 r.refused.swap(0, 1);
+                r.end.reverse();
             }
             let k = done.fetch_add(1, std::sync::atomic::Ordering::SeqCst) + 1;
             if k % 500 == 0 {
@@ -80,7 +81,7 @@ fn pass(n: u64, agent_name: &str, games: u64, threads: usize, params_dir: &str, 
             .filter(|(p, _, _)| *p == i)
             .map(|(_, swap, r)| {
                 serde_json::json!({"seed": r.seed, "first": if *swap { "b" } else { "a" }, "winner": r.winner.map(|w| if w == 0 { "a" } else { "b" }),
-                    "error": r.error, "day": r.day, "ms": r.millis, "decisions": r.decisions, "refused": r.refused})
+                    "error": r.error, "day": r.day, "ms": r.millis, "decisions": r.decisions, "refused": r.refused, "end": r.end})
             })
             .collect();
         let mut x = pr.clone();

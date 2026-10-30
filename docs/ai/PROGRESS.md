@@ -5,7 +5,7 @@ Plan: `docs/plans/AI_TOURNAMENT.md`. Private data (replays, decklists, player na
 
 ## Current phase
 
-D (priors from the replays) and E (AI) before pass 1. Pass 0 (simple bot baseline) done.
+F after pass 1 (A/B of shared-code variants, then per-deck evolution), then pass 2.
 
 ## Done
 
@@ -50,6 +50,11 @@ D (priors from the replays) and E (AI) before pass 1. Pass 0 (simple bot baselin
   Mana choices by priors (else the most expensive cards) until 10 orbs. Mirror against the simple
   bot (12 decks x 10 games): 82.5 % [74.7, 88.3], 1.55 s CPU per AI per game.
 
+- Pass 1 (AI v1 with priors): 7400 games, 1 error (`too many steps`), favourite = real winner in
+  42/72 pairings (pass 0: 34), Spearman 0.56 (0.49), agreement 42.2 % (simple bot 35.5 %).
+  Wall time is meaningless (the Mac slept, then background priority). Worst fits: the two Matz OD
+  decks (permanent-heavy) lose 87-98 % of their games here but won theirs in the tournament.
+
 ## Decisions
 
 - Forfeited matches (no game played) are not pairings to replay: 74 pairings.
@@ -58,12 +63,30 @@ D (priors from the replays) and E (AI) before pass 1. Pass 0 (simple bot baselin
 - Pass seeds are the same at every pass (10000 + 1000 x pairing + game): passes differ only by the
   AI. Optimisation (phase F) uses other seeds (500000+).
 - Every player used one deck all tournament: 37 decks (the 38th player only had a forfeit).
+- 2026-10-29 21:30, at the user's request (fan noise): runs limited. The running pass 1 was put
+  on background priority (`taskpolicy -b`, efficiency cores only); later runs use `--threads 4`
+  under `taskpolicy -b`. A pass then takes ~1.5 h instead of 40 min: following the plan's
+  fallbacks, the phase F budget (evolution games, A/B sizes) is lowered first, never the 100 games
+  per pairing. The Mac slept from ~18:10 to ~21:25 (pass 1 paused, no harm).
+- 2026-10-30 02:15: background priority alone makes a pass ~8.6 h (efficiency cores only, 4.2 s
+  of wall time per game). Runs from now on: `nice -n 10 ... --threads 4` at normal priority
+  (~40 % of the machine, ~1.5-2 h per pass). Phase F per pass: A/B of the variants on 8 games per
+  pairing (592 games), evolution with 2 candidates x 30 games per deck, the new parameters measured
+  against the old on 8 games per pairing. The AI's simulation budget is unchanged so passes stay
+  comparable.
+- Shared-code acceptance rule (plan: not worse with 95 % confidence and better on average): the new
+  version's win rate over the A/B > 50 % and the lower bound of its 95 % interval > 46 % (with ~600
+  games the interval is +-4 points, so "not worse" means not below 50 % by more than the noise).
+  Per-deck evolution: a candidate replaces the current parameters when it wins >= 10 points more
+  of the same held-out games; the whole new set is then kept only if it passes the same rule
+  against the old set.
 - Agreement counts decisions with at least 2 candidates, real `undo` answers excluded; an answer
   agrees when it equals the real one or leads to the same state.
 
 ## Next steps
 
-1. When the tournament replays are recorded: full golden run, `aitool agree 0 ai`, priors
-   (`tools/ai/build_priors.py`), A/B priors on vs off.
-2. Pass 1 (`aitool pass 1 ai`, ~40 min), report, analysis.
-3. Phase F loop (shared code A/B, per-deck evolution strategy) for passes 2..5.
+1. A/B `private/v_cleanup`, `v_endturn`, `v_copies`, `v_rollouts` against `v_base`
+   (`private/ab1.log`); keep the winners in `ai/params` (or the defaults in `search.rs`).
+2. `aitool evolve 1 --params ai/params --out private/params_e1 --cands 2 --games 30 --margin 0.1`,
+   measure against `ai/params`, keep if it passes, commit, pass 2.
+3. Same loop for passes 3..5, then `docs/ai/REPORT.md` (`tools/ai/report_tables.py`).

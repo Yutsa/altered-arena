@@ -105,6 +105,33 @@ for d in real_order:
     lines.append(f'| {st[d]["rank"]} | {label[d]} | {real_wins[d]} | {exp_wins[d]:.2f} | {sim_rank[d]} | {pct(w / t) if t else "-"} % | {pct(lo)}-{pct(hi)} |')
 lines.append('')
 
+# End of game, per deck (passes that record it)
+ends = {d: [] for d in decks}
+for pr in p['pairings']:
+    for g in pr['games']:
+        e = g.get('end') or []
+        if len(e) == 2 and g['winner']:
+            # end[0] is deck a's seat
+            ends[pr['a']].append((e[0], g['winner'] == 'a'))
+            ends[pr['b']].append((e[1], g['winner'] == 'b'))
+if any(ends.values()):
+    lines += ['## End of game', '', 'Averages at the end of the deck\'s games: Mana Orbs, cards in hand and in Reserve, regions covered (progress), in its losses.', '',
+              '| Deck | Days | Mana | Hand | Reserve | Progress | Progress in losses |', '| --- | --- | --- | --- | --- | --- | --- |']
+    days = {d: [] for d in decks}
+    for pr in p['pairings']:
+        for g in pr['games']:
+            days[pr['a']].append(g['day'])
+            days[pr['b']].append(g['day'])
+    avg = lambda xs: sum(xs) / len(xs) if xs else 0
+    for d in sorted(decks):
+        e = ends[d]
+        if not e:
+            continue
+        lost = [x for x, w in e if not w]
+        lines.append(f'| {label[d]} | {avg(days[d]):.1f} | {avg([x["mana"] for x, _ in e]):.1f} | {avg([x["hand"] for x, _ in e]):.1f} | '
+                     f'{avg([x["reserve"] for x, _ in e]):.1f} | {avg([x["progress"] for x, _ in e]):.1f} | {avg([x["progress"] for x in lost]):.1f} |')
+    lines.append('')
+
 if far:
     lines += ['## Pairings far from the real result', '', 'The real winner won less than 35 % of the pass\'s games:', '']
     for rate, pr in sorted(far, key=lambda x: x[0]):

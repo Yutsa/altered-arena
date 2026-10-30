@@ -118,6 +118,8 @@ pub struct GameResult {
     pub refused: [usize; 2],
     pub error: Option<String>,
     pub millis: u64,
+    /// Each seat at the end: Mana Orbs, hand, Reserve, progress (regions covered)
+    pub end: Vec<Value>,
 }
 
 /// The dice of a game (the arena's per-game list)
@@ -222,6 +224,14 @@ pub fn play_game(decks: &[Value; 2], agents: &mut [Box<dyn Agent>; 2], seed: u64
     }
     if res.error.is_none() {
         res.winner = winner(&g);
+    }
+    let mut spectator = g.clone();
+    if let Ok(v) = spectator.view(None, "") {
+        for p in v["players"].as_array().into_iter().flatten() {
+            let reserve = v["cards"].as_array().map(|c| c.iter().filter(|c| c["owner"] == p["id"] && c["zone"] == "reserve").count()).unwrap_or(0);
+            let progress = p["expeditions"]["hero"]["position"].as_i64().unwrap_or(0) + 7 - p["expeditions"]["companion"]["position"].as_i64().unwrap_or(7);
+            res.end.push(serde_json::json!({"mana": p["manaTotal"], "hand": p["handCount"], "reserve": reserve, "progress": progress}));
+        }
     }
     res.day = day(&g);
     res.millis = t.elapsed().as_millis() as u64;

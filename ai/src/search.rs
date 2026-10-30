@@ -36,6 +36,8 @@ pub struct Params {
     /// are played on to the end of the day by the fast policy (0: no rollout)
     pub rollouts: usize,
     pub rollout_steps: usize,
+    /// Night cleanup: weight of the discarded cards' keep value (0: none)
+    pub cleanup_keep: f64,
 }
 
 impl Default for Params {
@@ -52,6 +54,7 @@ impl Default for Params {
             mana_cost: 0.1,
             rollouts: 3,
             rollout_steps: 80,
+            cleanup_keep: 0.0,
         }
     }
 }
@@ -169,8 +172,20 @@ impl Ai {
             (Some("select"), Some("select")) if d["prompt"].as_str().unwrap_or("").to_lowercase().contains("mana") => {
                 a["cardIds"].as_array().into_iter().flatten().map(|id| card_ref(g, id).and_then(|r| p.mana_prior.get(&r).copied()).unwrap_or(0.0)).sum()
             }
+            (Some("cleanup"), Some("cleanup")) if p.cleanup_keep != 0.0 => {
+                let ids = a["reserve"].as_array().into_iter().flatten().chain(a["landmarks"].as_array().into_iter().flatten());
+                -p.cleanup_keep * ids.map(|id| self.keep_value(g, id)).sum::<f64>()
+            }
             _ => 0.0,
         }
+    }
+
+    /// What a card in Reserve or Landmarks is worth keeping: its play prior, statistics and cost
+    fn keep_value(&self, g: &Game, id: &Value) -> f64 {
+        let Some(c) = id.as_i64().and_then(|i| g.cards.get(&i)) else { return 0.0 };
+        let num = |k: &str| c.props.get(k).and_then(|v| v.as_f64()).unwrap_or(0.0);
+        let prior = card_ref(g, id).and_then(|r| self.params.play_prior.get(&r).copied()).unwrap_or(0.0);
+        prior + 0.2 * (num("forest") + num("mountain") + num("ocean")) + 0.15 * num("costHand")
     }
 
     pub fn choose(&mut self, obs: &Observation, d: &Value, rng: &mut ChaCha8Rng) -> Value {
