@@ -43,16 +43,27 @@
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
-.board-card > .card { transition: box-shadow 0.2s, transform 0.2s, filter 0.2s; }
-.board-card.is-playable > .card { box-shadow: 0 0 0 2px #69db7c, 0 0 14px #69db7c; }
-.board-card.is-selectable > .card { box-shadow: 0 0 0 2px var(--accent), 0 0 14px var(--accent); animation: glow 1.4s ease-in-out infinite; }
-.board-card.is-picked > .card { box-shadow: 0 0 0 4px #fff, 0 0 22px var(--accent); transform: translateY(-6%); animation: none; }
-.board-card.is-source > .card { box-shadow: 0 0 0 3px var(--accent-2), 0 0 22px var(--accent-2); }
-.board-card.is-selected > .card { box-shadow: 0 0 0 4px #fff, 0 0 24px #69db7c; }
+.board-card .card { transition: box-shadow 0.2s, transform 0.2s, filter 0.2s; }
+.board-card.is-playable .card { box-shadow: 0 0 0 2px #69db7c, 0 0 14px #69db7c; }
+.board-card.is-selectable .card { box-shadow: 0 0 0 2px var(--accent), 0 0 14px var(--accent); animation: glow 1.4s ease-in-out infinite; }
+.board-card.is-picked .card { box-shadow: 0 0 0 4px #fff, 0 0 22px var(--accent); animation: none; }
+.board-card.is-picked .flip { translate: 0 -6%; }
+.board-card.is-source .card { box-shadow: 0 0 0 3px var(--accent-2), 0 0 22px var(--accent-2); }
+.board-card.is-selected .card { box-shadow: 0 0 0 4px #fff, 0 0 24px #69db7c; }
 .board-card.is-dragged { opacity: 0.35; }
-.board-card.is-exhausted > .card { transform: rotate(90deg) scale(0.72); }
+.board-card.is-exhausted .flip { rotate: 90deg; scale: 0.72; }
+/* Turning face down (cards picked for the Mana zone) */
+.flip {
+  position: relative;
+  transform-style: preserve-3d;
+  transition: transform 0.38s cubic-bezier(0.3, 0.9, 0.3, 1.15), translate 0.2s;
+}
+.flip.flipped { transform: rotateY(180deg); }
+.flip-front,
+.flip-back { backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+.flip-back { position: absolute; inset: 0; transform: rotateY(180deg); }
 @media (hover: hover) {
-  .board-card:hover > .card { filter: brightness(1.12); }
+  .board-card:hover .card { filter: brightness(1.12); }
 }
 .ability-flags {
   position: absolute;

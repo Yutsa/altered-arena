@@ -139,7 +139,7 @@ pub fn decision(g: &mut Game, raw: &RawState, you: PId) -> R<Option<Value>> {
                 return Ok(None);
             }
             let n = php::intval(php::coalesce(php::get(&private, "n"), &json!(3)));
-            with(&base, json!({"kind": "select", "cardIds": php::coalesce(php::get(&private, "cards"), &php::arr()), "min": n, "max": n, "prompt": format!("Choose {} cards to put in your Mana", n)}))
+            with(&base, json!({"kind": "select", "cardIds": php::coalesce(php::get(&private, "cards"), &php::arr()), "min": n, "max": n, "toMana": true, "prompt": format!("Choose {} cards to put in your Mana", n)}))
         }
         "chooseAssignment" => {
             let mut play = vec![];
@@ -205,7 +205,11 @@ pub fn decision(g: &mut Game, raw: &RawState, you: PId) -> R<Option<Value>> {
             let n = if php::is_numeric(php::get(args, "n")) { php::intval(php::get(args, "n")) } else { php::count(&ids) as i64 };
             let max = n.min(php::count(&ids) as i64);
             let up_to = php::truthy(php::coalesce(php::get(args, "upTo"), &json!(false)));
-            with(&base, json!({"kind": "select", "cardIds": ids, "min": if up_to { 0 } else { max }, "max": max, "showInPicker": php::get(args, "source") == &json!("mana")}))
+            let mut d = json!({"kind": "select", "cardIds": ids, "min": if up_to { 0 } else { max }, "max": max, "showInPicker": php::get(args, "source") == &json!("mana")});
+            if php::get(args, "destination") == &json!("mana") {
+                d["toMana"] = json!(true);
+            }
+            with(&base, d)
         }
         "nightCleanup" => with(
             &base,

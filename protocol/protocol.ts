@@ -244,6 +244,8 @@ export interface SelectDecision extends DecisionBase {
   costs?: Record<number, number>;
   /** Cards not on the board (mana, deck, discard...) are shown in a picker */
   showInPicker?: boolean;
+  /** The picked cards go to the Mana zone (face down) */
+  toMana?: boolean;
 }
 
 export interface ChoiceDecision extends DecisionBase {

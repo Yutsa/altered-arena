@@ -4,18 +4,20 @@ import { useGameCtx } from '../game/GameContext';
 import { useCardPointer } from '../game/useCardPointer';
 import { useDrag } from '../game/drag';
 import { hasActions } from '../game/decisions';
-import { Card, type CardSize } from './Card';
+import { Card, CardBack, type CardSize } from './Card';
 import './BoardCard.css';
 
 export const cardTransition = { type: 'spring', stiffness: 420, damping: 36, mass: 0.9 } as const;
 
 /** A card of the game: animated between zones (shared layoutId), interactive. */
 export const BoardCard = memo(function BoardCard({ id, size, className }: { id: number; size: CardSize; className?: string }) {
-  const { byId, def, aff, ui } = useGameCtx();
+  const { byId, def, aff, ui, decision } = useGameCtx();
   const { drag } = useDrag();
   const { draggable, handlers } = useCardPointer(id);
   const card = byId.get(id);
   const a = aff.get(id);
+  // A card picked for the Mana zone turns face down, as it will be there
+  const faceDown = !!a?.picked && decision?.kind === 'select' && !!decision.toMana;
   const cls = [
     'board-card',
     hasActions(a) ? 'is-playable' : '',
@@ -39,7 +41,10 @@ export const BoardCard = memo(function BoardCard({ id, size, className }: { id: 
       style={{ touchAction: draggable ? 'none' : undefined }}
       {...handlers}
     >
-      <Card def={def(card)} card={card} size={size} extraCost={a?.extraCost} />
+      <div className={`flip ${faceDown ? 'flipped' : ''}`}>
+        <Card def={def(card)} card={card} size={size} extraCost={a?.extraCost} className="flip-front" />
+        <CardBack size={size} className="flip-back" />
+      </div>
       {(a?.support || a?.tap) && (
         <span className="ability-flags">
           {a.support && <span title="Support ability available">S</span>}
