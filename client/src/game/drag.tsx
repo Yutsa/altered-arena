@@ -16,7 +16,7 @@ interface DragState {
 
 interface DragCtxValue {
   drag: DragState | null;
-  begin: (cardId: number, destinations: Destination[], x: number, y: number, from: DOMRect) => void;
+  begin: (cardId: number, destinations: Destination[], x: number, y: number, from: HTMLElement) => void;
   move: (x: number, y: number) => void;
   end: (drop: boolean) => void;
 }
@@ -37,6 +37,23 @@ function dropAt(x: number, y: number, allowed: Destination[]): Destination | nul
 }
 
 const clamp = (v: number, m: number) => Math.max(-m, Math.min(m, v));
+
+/**
+ * Where a card is drawn on the table: its centre, its width (without the rotation of the fan, and
+ * with the scale of the stage), and its angle in the fan of the hand.
+ */
+function homeOf(el: HTMLElement | null): { x: number; y: number; width: number; rot: number } | null {
+  if (!el || !el.isConnected) return null;
+  const r = el.getBoundingClientRect();
+  const stage = el.closest<HTMLElement>('.arena-stage');
+  const slot = el.closest<HTMLElement>('.ah-slot');
+  const card = el.querySelector<HTMLElement>('.card') ?? el;
+  const scale = stage && stage.offsetWidth ? stage.getBoundingClientRect().width / stage.offsetWidth : 1;
+  // Cards of the fan: their layout width; cards lying on the tilted mat: what is seen of them
+  const width = slot ? card.offsetWidth * scale : Math.min(r.width, r.height * (324 / 450));
+  const rot = slot ? parseFloat(slot.style.getPropertyValue('--rot')) || 0 : 0;
+  return { x: r.left + r.width / 2, y: r.top + r.height / 2, width, rot };
+}
 /** Duration of the way back to the hand, when a card is dropped outside any destination */
 const RETURN_MS = 160;
 
@@ -75,7 +92,8 @@ export function DragProvider({ children }: { children: ReactNode }) {
   const dragRef = useRef<DragState | null>(null);
   const ghostRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState(0);
-  const home = useRef({ x: 0, y: 0 });
+  /** the card on the table, hidden during the drag: the way back ends exactly on it */
+  const source = useRef<HTMLElement | null>(null);
   const m = useRef<Motion>({ x: 0, y: 0, tx: 0, ty: 0, ry: 0, rx: 0, rz: 0, scale: 1, frame: 0 });
   const unlisten = useRef<(() => void) | null>(null);
 
@@ -96,11 +114,17 @@ export function DragProvider({ children }: { children: ReactNode }) {
       const b = k.back;
       const p = Math.min(1, (performance.now() - b.at) / RETURN_MS);
       const e = 1 - (1 - p) ** 3;
+      // The place is followed every frame: the hand opens again meanwhile
+      const home = homeOf(source.current);
+      if (home) {
+        k.tx = home.x;
+        k.ty = home.y;
+      }
       k.x = b.x + (k.tx - b.x) * e;
       k.y = b.y + (k.ty - b.y) * e;
       k.rx = b.rx * (1 - e);
       k.ry = b.ry * (1 - e);
-      k.rz = b.rz * (1 - e);
+      k.rz = b.rz + ((home?.rot ?? 0) - b.rz) * e;
       k.scale = b.scale + (1 - b.scale) * e;
       if (g)
         g.style.transform =
@@ -134,12 +158,13 @@ export function DragProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const begin = useCallback(
-    (cardId: number, destinations: Destination[], x: number, y: number, from: DOMRect) => {
+    (cardId: number, destinations: Destination[], x: number, y: number, from: HTMLElement) => {
       cancelAnimationFrame(m.current.frame);
-      home.current = { x: from.left + from.width / 2, y: from.top + from.height / 2 };
-      // The ghost starts on the card, the size it is drawn at on the table
-      m.current = { x: home.current.x, y: home.current.y, tx: x, ty: y, ry: 0, rx: 0, rz: 0, scale: 1, frame: 0 };
-      setSize(Math.min(from.width, from.height * (324 / 450)));
+      source.current = from;
+      const home = homeOf(from)!;
+      // The ghost starts on the card, as it is drawn on the table
+      m.current = { x: home.x, y: home.y, tx: x, ty: y, ry: 0, rx: 0, rz: home.rot, scale: 1, frame: 0 };
+      setSize(home.width);
       set({ cardId, destinations, over: null });
       m.current.frame = requestAnimationFrame(step);
       document.body.classList.add('is-dragging');
@@ -198,8 +223,6 @@ export function DragProvider({ children }: { children: ReactNode }) {
         });
       } else {
         const k = m.current;
-        k.tx = home.current.x;
-        k.ty = home.current.y;
         k.back = { x: k.x, y: k.y, rx: k.rx, ry: k.ry, rz: k.rz, scale: k.scale, at: performance.now() };
         set({ ...s, destinations: [], over: null, returning: true });
       }
