@@ -205,9 +205,10 @@ pub fn play_game(decks: &[Value; 2], agents: &mut [Box<dyn Agent>; 2], seed: u64
             agents[seat].decide(&obs, &d, &mut rng)
         };
         res.decisions[seat] += 1;
-        if g.answer(p, &legal::with_id(&d, &a)).is_ok() {
-            continue;
-        }
+        let first_err = match g.answer(p, &legal::with_id(&d, &a)) {
+            Ok(_) => continue,
+            Err(e) => e.to_string(),
+        };
         // Refused: the other candidates in order, then the end of the turn / a pass
         res.refused[seat] += 1;
         let mut ok = false;
@@ -218,7 +219,7 @@ pub fn play_game(decks: &[Value; 2], agents: &mut [Box<dyn Agent>; 2], seed: u64
             }
         }
         if !ok {
-            res.error = Some(format!("no answer accepted ({})", d["kind"]));
+            res.error = Some(format!("no answer accepted ({}): {}", d["kind"], first_err));
             break;
         }
     }

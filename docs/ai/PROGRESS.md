@@ -5,7 +5,7 @@ Plan: `docs/plans/AI_TOURNAMENT.md`. Private data (replays, decklists, player na
 
 ## Current phase
 
-Pass 3 running (`private/run_pass.sh 3`).
+Phase F after pass 3 (A/B variants, evolution round 3, measure against `private/params_p3`).
 
 ## Done
 
@@ -81,6 +81,13 @@ Pass 3 running (`private/run_pass.sh 3`).
   Reserve weight x1.6 47.8 % rejected, 4 rollouts 51.5 % [47.5, 55.5] kept (+5 % CPU). The
   package (hand x0.5, 4 rollouts) against the pass-2 parameters: 50.3 % [46.3, 54.4] (seed
   820000): kept by the rule, but indistinguishable from no change. Pass 3 uses it.
+- Pass 3: 7400 games in 91 min, 12 errors, favourite = real winner 42/74, Spearman 0.55, agreement
+  42.1 %. Cards left in hand at the end 2.4 -> 1.7. 11 errors were `too many steps`: at Night
+  both players are asked in turn which pending effect resolves first, and each AI picked the
+  other's, which sends the question back. The AI now takes the first answer when the same choice
+  comes back a third time among its last 8 decisions (the three traced seeds end normally). The
+  last error (Mana Flare, a method missing in PHP too) is the engine's, as in pass 2.
+  `no answer accepted` errors now carry the engine's first refusal message.
 
 ## Decisions
 
@@ -112,7 +119,6 @@ Pass 3 running (`private/run_pass.sh 3`).
 
 ## Next steps
 
-1. When pass 3 ends: `aitool agree 3 ai`, report with notes (`private/notes_3.md`), commit.
-2. Phase F3: snapshot `private/params_p3`, variants + `aitool evolve 3`, measure (seed 830000).
-3. Pass 4, phase F4, pass 5, `docs/ai/REPORT.md`.
-3. Same loop for passes 4..5, then `docs/ai/REPORT.md` (`tools/ai/report_tables.py`).
+1. Phase F3: snapshot `private/params_p3`, variants (`rollout_copies` 2) + `aitool evolve 3`,
+   measure (seed 830000).
+2. Pass 4, phase F4, pass 5, then `docs/ai/REPORT.md` (`tools/ai/report_tables.py`).

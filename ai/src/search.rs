@@ -36,6 +36,9 @@ pub struct Params {
     /// are played on to the end of the day by the fast policy (0: no rollout)
     pub rollouts: usize,
     pub rollout_steps: usize,
+    /// Determinisations of the rollouts (0: the same `copies` as the 1-ply evaluation; more: the
+    /// first `copies` plus new ones)
+    pub rollout_copies: usize,
     /// Night cleanup: weight of the discarded cards' keep value (0: none)
     pub cleanup_keep: f64,
 }
@@ -54,6 +57,7 @@ impl Default for Params {
             mana_cost: 0.1,
             rollouts: 3,
             rollout_steps: 80,
+            rollout_copies: 0,
             cleanup_keep: 0.0,
         }
     }
@@ -64,11 +68,13 @@ pub struct Ai {
     pub params: Params,
     /// Engine answers spent in simulations
     pub sim_steps: usize,
+    /// The last decisions answered (kind, prompt, choices), to notice a loop
+    recent: Vec<String>,
 }
 
 impl Ai {
     pub fn new(label: &str, params: Params) -> Ai {
-        Ai { label: label.into(), params, sim_steps: 0 }
+        Ai { label: label.into(), params, sim_steps: 0, recent: vec![] }
     }
 }
 
@@ -196,6 +202,18 @@ impl Ai {
         if cands.len() == 1 {
             return cands.remove(0);
         }
+        // Both players can be asked in turn which pending effect resolves first: when each picks
+        // the other's, the question goes back and forth without end. The same question a third
+        // time among the last 8: the first answer (the simple bot's).
+        let sig = format!("{}|{}|{}", d["kind"], d["prompt"], d["choices"]);
+        let repeats = self.recent.iter().filter(|s| **s == sig).count();
+        self.recent.push(sig);
+        if self.recent.len() > 8 {
+            self.recent.remove(0);
+        }
+        if repeats >= 2 && d["kind"] == "choice" {
+            return cands.remove(0);
+        }
         let me = obs.me;
         if is_mana_choice(d) {
             return self.choose_mana(obs, d);
@@ -210,6 +228,9 @@ impl Ai {
         let trace = std::env::var("AI_TRACE").is_ok();
         if trace {
             eprintln!("--- {} {} day/phase {:?}: {}", me, d["kind"], obs.view().get("phase"), d["prompt"]);
+            if std::env::var("AI_TRACE").as_deref() == Ok("2") {
+                eprintln!("   {}", d);
+            }
         }
         let mut evaluated: Vec<(f64, Value)> = vec![];
         for (prior, a) in scored {
@@ -248,12 +269,16 @@ impl Ai {
                     chosen.push(e);
                 }
             }
+            let mut rcopies = copies.clone();
+            while rcopies.len() < self.params.rollout_copies {
+                rcopies.push(obs.determinize(rng));
+            }
             let mut best: Option<(f64, usize)> = None;
             for &k in &chosen {
                 let a = &evaluated[k].1;
                 let mut total = 0.0;
                 let mut ok = 0;
-                for base in &copies {
+                for base in &rcopies {
                     let mut s = base.clone();
                     if s.answer(me as u32, &legal::with_id(d, a)).is_err() {
                         continue;
