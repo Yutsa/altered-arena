@@ -34,6 +34,9 @@ const WIDE: ArenaLayout = {
     '--tot-icon': '32px',
     '--tot-num': '22px',
     '--chip-font': '14px',
+    '--mana-w': '50px',
+    '--mana-slot-h': '14px',
+    '--mana-gap': '4px',
   },
 };
 
@@ -53,6 +56,9 @@ const PHONE: ArenaLayout = {
     '--tot-icon': '18px',
     '--tot-num': '13px',
     '--chip-font': '11px',
+    '--mana-w': '30px',
+    '--mana-slot-h': '7px',
+    '--mana-gap': '2px',
   },
 };
 

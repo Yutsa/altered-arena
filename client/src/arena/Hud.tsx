@@ -17,8 +17,11 @@ const PHASES: { phase: Phase; label: string; icon: string }[] = [
 export const phaseLabel = (p: Phase) =>
   p === 'setup' ? 'Setup' : p === 'tiebreaker' ? 'Tiebreaker' : p === 'ended' ? 'Game over' : (PHASES.find((x) => x.phase === p)?.label ?? p);
 
-/** Mana orbs: lit ones are available, dark ones are exhausted. Anchor of the cards put in mana. */
-function Mana({ player }: { player: PlayerView }) {
+/**
+ * Mana of a player, as on BGA: a vertical gauge at the left edge of the screen, one slot per Mana
+ * Orb, lit when it is ready. Anchor of the cards put in mana; a click lists them.
+ */
+export function ManaBar({ player, mine }: { player: PlayerView; mine: boolean }) {
   const { zoneCards } = useGameCtx();
   const [open, setOpen] = useState(false);
   const mana = zoneCards(player.id, 'mana');
@@ -26,24 +29,28 @@ function Mana({ player }: { player: PlayerView }) {
     <>
       <button
         type="button"
-        className="mana"
+        className={`mana-bar ${mine ? 'mine' : 'theirs'}`}
         data-pile={`mana-${player.id}`}
-        title={`Mana: ${player.manaAvailable} available / ${player.manaTotal}`}
+        title={`${player.name}: ${player.manaAvailable} Mana available out of ${player.manaTotal}`}
         onClick={() => mana.length && setOpen(true)}
       >
-        {Array.from({ length: player.manaTotal }, (_, i) => (
-          <span key={i} className={`gem ${i < player.manaAvailable ? 'on' : ''}`} />
-        ))}
-        <b key={`${player.manaAvailable}/${player.manaTotal}`}>
-          {player.manaAvailable}/{player.manaTotal}
+        <span className="mb-label">Mana</span>
+        <b key={`${player.manaAvailable}/${player.manaTotal}`} className="mb-count">
+          {player.manaAvailable}
+          <small>/{player.manaTotal}</small>
         </b>
+        <span className="mb-gauge">
+          {Array.from({ length: player.manaTotal }, (_, i) => (
+            <span key={i} className={`mb-slot ${i < player.manaAvailable ? 'on' : ''}`} />
+          ))}
+        </span>
       </button>
       {open && <CardListModal title={`${player.name}: mana`} cardIds={mana.map((c) => c.id)} onClose={() => setOpen(false)} />}
     </>
   );
 }
 
-/** Name, mana and state of a player; the opponent's hand is shown here as card backs. */
+/** Name and state of a player; the opponent's hand is shown here as card backs. */
 export function PlayerChip({ player, mine, className }: { player: PlayerView; mine: boolean; className: string }) {
   const { view, decision, send, you } = useGameCtx();
   const waiting = view.waitingFor.includes(player.id);
@@ -61,7 +68,6 @@ export function PlayerChip({ player, mine, className }: { player: PlayerView; mi
         {player.name}
         {player.bot && <small> bot</small>}
       </span>
-      <Mana player={player} />
       {!mine && (
         <span className="pc-hand" data-pile={`hand-${player.id}`} title={`${player.handCount} cards in hand`}>
           {Array.from({ length: Math.min(player.handCount, 7) }, (_, i) => (

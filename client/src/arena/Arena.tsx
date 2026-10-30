@@ -4,7 +4,7 @@ import { Log } from '../components/Log';
 import { EndScreen } from '../components/EndScreen';
 import { useArenaLayout } from './layout';
 import { Mat } from './Mat';
-import { ArenaHand, InfoChip, PhaseBanner, PlayerChip, Prompt, RotateHint } from './Hud';
+import { ArenaHand, InfoChip, ManaBar, PhaseBanner, PlayerChip, Prompt, RotateHint } from './Hud';
 import { fly, snapshot, type Snapshot } from './flights';
 import './arena.css';
 
@@ -68,6 +68,8 @@ export function Arena({ onLeave, connected, extraTop }: { onLeave: () => void; c
         </div>
         {opp && <PlayerChip player={opp} mine={false} className="chip-opp" />}
         {me && <PlayerChip player={me} mine={you !== null} className="chip-me" />}
+        {opp && <ManaBar player={opp} mine={false} />}
+        {me && <ManaBar player={me} mine />}
         <InfoChip onLeave={onLeave} connected={connected} onLog={() => setLogOpen((o) => !o)} unread={unread} />
         <Prompt />
         <ArenaHand />

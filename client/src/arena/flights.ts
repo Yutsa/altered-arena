@@ -4,6 +4,10 @@
  * opponent's hand -> board...). Hidden places (deck, discard, mana, the opponent's hand) are
  * "piles": elements with data-pile="kind-player". The real card stays hidden until its clone lands.
  *
+ * A card just played lands first; what its effects did (tokens created, cards moved or drawn)
+ * follows, so cause and consequence read one after the other. A token comes out of the card that
+ * was just played.
+ *
  * Plain DOM and the Web Animations API: no React state, nothing re-renders during a flight.
  */
 import type { CardCatalog, CardDef, CardView, GameView, PlayerId, Zone } from '@protocol';
@@ -13,6 +17,10 @@ import { lastDrop } from '../game/drag';
 const DURATION = 320;
 const STAGGER = 55;
 const MAX_FLIGHTS = 10;
+/** Delay of the effects of a card just played: after it has landed */
+const EFFECTS_DELAY = DURATION + 140;
+/** Zones a card is played into, from a hand */
+const PLAYED_INTO: Zone[] = ['heroExpedition', 'companionExpedition', 'landmark', 'limbo', 'reserve', 'discard'];
 
 interface CardSnap {
   zone: Zone;
@@ -28,6 +36,8 @@ export interface Snapshot {
   piles: Map<string, DOMRect>;
   hand: Map<PlayerId, number>;
   deck: Map<PlayerId, number>;
+  /** the card whose effect the decision on screen belongs to */
+  source?: number;
 }
 
 const ownerOf = (c: CardView) => c.controller ?? c.owner;
@@ -55,6 +65,7 @@ export function snapshot(root: HTMLElement, view: GameView): Snapshot {
     piles,
     hand: new Map(view.players.map((p) => [p.id, p.handCount])),
     deck: new Map(view.players.map((p) => [p.id, p.deckCount])),
+    source: view.decision?.sourceCardId,
   };
 }
 
@@ -75,6 +86,11 @@ interface Flight {
   hide: HTMLElement | null;
   /** fade out on arrival (the card disappears into a pile) */
   intoPile: boolean;
+  /** a card just played (it flies first), and its player */
+  played?: boolean;
+  owner?: PlayerId;
+  /** a token appearing out of the card just played */
+  spawn?: boolean;
 }
 
 /** Starts the flights from the previous snapshot to the new view. Call before paint. */
@@ -86,10 +102,16 @@ export function fly(prev: Snapshot, next: Snapshot, view: GameView, root: HTMLEl
     return d ? artUrl(d) : null;
   };
 
+  const created: { el: HTMLElement; c: CardView }[] = [];
   for (const c of view.cards) {
     const now = next.cards.get(c.id)!;
     const before = prev.cards.get(c.id);
     if (before && before.zone === now.zone && before.owner === now.owner) continue;
+    // A card played: from a hand (or the opponent's hand, unseen until now), or from a Reserve to the table
+    const played = before
+      ? (before.zone === 'hand' && PLAYED_INTO.includes(c.zone)) ||
+        (before.zone === 'reserve' && ['heroExpedition', 'companionExpedition', 'landmark', 'limbo'].includes(c.zone))
+      : !c.token && now.owner !== you && c.zone !== 'hand' && c.zone !== 'reserve';
     // Where it comes from
     let from: DOMRect | undefined;
     if (lastDrop.cardId === c.id && performance.now() - lastDrop.at < 4000) {
@@ -100,7 +122,7 @@ export function fly(prev: Snapshot, next: Snapshot, view: GameView, root: HTMLEl
       lastDrop.cardId = null;
     } else if (before) {
       from = visible(before.rect) ? before.rect : pileOf(prev, before.zone, before.owner, you);
-    } else {
+    } else if (!c.token) {
       // New to this view: from the deck to my hand, from the opponent's hand to the table
       if (c.zone === 'hand' || c.zone === 'reserve') from = prev.piles.get(`deck-${now.owner}`);
       else if (now.owner !== you) from = prev.piles.get(`hand-${now.owner}`);
@@ -108,11 +130,27 @@ export function fly(prev: Snapshot, next: Snapshot, view: GameView, root: HTMLEl
     // Where it goes
     const el = visible(now.rect) ? cardEl(root, c.id) : null;
     const to = el ? now.rect! : pileOf(next, now.zone, now.owner, you);
-    if (!visible(from) || !visible(to)) {
-      if (el && !before) mark(el, 'arena-pop');
+    if (!before && el && !visible(from)) {
+      created.push({ el, c });
       continue;
     }
-    flights.push({ from, to, face: face(c.ref ? c : before), hide: el, intoPile: !el });
+    if (!visible(from) || !visible(to)) continue;
+    flights.push({ from, to, face: face(c.ref ? c : before), hide: el, intoPile: !el, played, owner: now.owner });
+  }
+
+  // Tokens and other new cards: out of the card their player just played, once it has landed, else
+  // right away out of the card whose effect was being resolved
+  const resolving = prev.source !== undefined ? cardEl(root, prev.source) : null;
+  const casts: { el: HTMLElement; now: boolean }[] = [];
+  for (const { el, c } of created) {
+    const by = flights.find((f) => f.played && !f.spawn && f.hide && f.owner === ownerOf(c));
+    const source = by ? { el: by.hide!, rect: by.to, now: false } : resolving ? { el: resolving, rect: resolving.getBoundingClientRect(), now: true } : null;
+    if (!source || !visible(source.rect)) {
+      mark(el, 'arena-pop');
+      continue;
+    }
+    flights.push({ from: source.rect, to: el.getBoundingClientRect(), face: face(c), hide: el, intoPile: false, spawn: true, played: source.now });
+    if (!casts.some((x) => x.el === source.el)) casts.push(source);
   }
 
   // Cards that left the view (back into a hidden hand or deck)
@@ -133,9 +171,15 @@ export function fly(prev: Snapshot, next: Snapshot, view: GameView, root: HTMLEl
       for (let i = 0; i < drawn; i++) flights.push({ from, to, face: null, hide: null, intoPile: true });
   }
 
-  flights.slice(0, MAX_FLIGHTS).forEach((f, i) => launch(f, layer, i * STAGGER));
+  // The cards played first, their effects once they have landed (the source card glows then)
+  const first = flights.filter((f) => f.played);
+  const then = flights.filter((f) => !f.played);
+  const wait = first.length ? EFFECTS_DELAY + (first.length - 1) * STAGGER : 0;
+  const ordered = [...first.map((f, i) => [f, i * STAGGER] as const), ...then.map((f, i) => [f, wait + i * STAGGER] as const)];
+  ordered.slice(0, MAX_FLIGHTS).forEach(([f, delay]) => launch(f, layer, delay));
+  for (const x of casts) setTimeout(() => mark(x.el, 'arena-cast', 600), x.now ? 0 : wait);
   // Beyond the limit, cards simply appear
-  for (const f of flights.slice(MAX_FLIGHTS)) if (f.hide) mark(f.hide, 'arena-pop');
+  for (const [f] of ordered.slice(MAX_FLIGHTS)) if (f.hide) mark(f.hide, 'arena-pop');
 }
 
 /** Plays a one-shot CSS animation class on an element */
@@ -162,12 +206,19 @@ function launch(f: Flight, layer: HTMLElement, delay: number) {
   const s = f.from.width / w;
   layer.appendChild(card);
   if (f.hide) f.hide.style.visibility = 'hidden';
-  const frames: Keyframe[] = [
-    { transform: `translate(${dx}px, ${dy}px) scale(${s}) rotate(-4deg)`, opacity: 1 },
-    { transform: `translate(${dx * 0.45}px, ${dy * 0.45 - 18}px) scale(${(s + 1) / 2 + 0.06}) rotate(2deg)`, opacity: 1, offset: 0.5 },
-    f.intoPile ? { transform: 'scale(0.9)', opacity: 0 } : { transform: 'none', opacity: 1 },
-  ];
-  const anim = card.animate(frames, { duration: DURATION, delay, easing: 'cubic-bezier(.3,.7,.3,1)', fill: 'both' });
+  const frames: Keyframe[] = f.spawn
+    ? [
+        // Out of the card that created it: small and transparent, growing on its way
+        { transform: `translate(${dx}px, ${dy}px) scale(${s * 0.35})`, opacity: 0 },
+        { transform: `translate(${dx * 0.8}px, ${dy * 0.8 - 24}px) scale(${s * 0.8})`, opacity: 1, offset: 0.35 },
+        { transform: 'none', opacity: 1 },
+      ]
+    : [
+        { transform: `translate(${dx}px, ${dy}px) scale(${s}) rotate(-4deg)`, opacity: 1 },
+        { transform: `translate(${dx * 0.45}px, ${dy * 0.45 - 18}px) scale(${(s + 1) / 2 + 0.06}) rotate(2deg)`, opacity: 1, offset: 0.5 },
+        f.intoPile ? { transform: 'scale(0.9)', opacity: 0 } : { transform: 'none', opacity: 1 },
+      ];
+  const anim = card.animate(frames, { duration: f.spawn ? DURATION + 120 : DURATION, delay, easing: 'cubic-bezier(.3,.7,.3,1)', fill: 'both' });
   const done = () => {
     if (f.hide) {
       f.hide.style.visibility = '';

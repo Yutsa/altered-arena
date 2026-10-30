@@ -349,6 +349,8 @@
 /* Cards that land or appear */
 .arena-pop { animation: arena-pop 0.28s ease-out; }
 .arena-land { animation: arena-land 0.24s ease-out; }
+/* The card whose effect is now resolving */
+.arena-cast { animation: arena-cast 0.6s ease-out; }
 
 /* Picking an expedition or a zone */
 .pick-overlay {
@@ -494,10 +496,45 @@
 .pc-hand { display: flex; align-items: center; }
 .pc-hand img { width: calc(var(--chip-font) * 1.4); height: calc(var(--chip-font) * 1.95); border-radius: 3px; border: 1px solid var(--gold); margin-right: calc(var(--chip-font) * -0.8); }
 .pc-hand b { margin-left: calc(var(--chip-font) * 1); display: inline-block; animation: arena-num 0.3s ease-out; }
-.mana { display: flex; align-items: center; gap: 0.45em; background: none; border: none; padding: 0; color: #bdf0ff; }
-.gem { width: 0.85em; height: 0.85em; rotate: 45deg; border-radius: 2px; background: #34405a; border: 1px solid #5a6a8a; transition: background 0.2s, box-shadow 0.2s; }
-.gem.on { background: linear-gradient(135deg, #bdf0ff, #2a8fe0); border-color: #bdf0ff; box-shadow: 0 0 8px rgb(110 200 255 / 0.9); }
-.mana b { font: 700 1.15em/1 var(--font-title); margin-left: 0.3em; display: inline-block; animation: arena-num 0.3s ease-out; }
+/* Mana gauges at the left edge (BGA): the opponent's in the top half, mine in the bottom half */
+.mana-bar {
+  position: absolute;
+  left: 10px;
+  z-index: 6;
+  width: var(--mana-w);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 6px;
+  border: 1px solid rgb(0 158 227 / 0.55);
+  border-radius: 12px;
+  background: rgb(12 18 36 / 0.82);
+  box-shadow: 0 6px 16px rgb(0 0 0 / 0.5);
+  color: #e6e4e4;
+  cursor: pointer;
+}
+.mana-bar.theirs { top: 64px; }
+.mana-bar.mine { bottom: 240px; flex-direction: column-reverse; }
+.mb-label { font: 700 calc(var(--chip-font) * 0.8) / 1 var(--font-title); letter-spacing: 0.08em; text-transform: uppercase; color: #8fd3f5; }
+.mb-count { font: 700 calc(var(--chip-font) * 1.5) / 1 var(--font-title); color: #fff; animation: arena-num 0.3s ease-out; }
+.mb-count small { font-size: 0.6em; color: #9fb3c8; }
+.mb-gauge { display: flex; flex-direction: column; gap: var(--mana-gap); }
+.mine .mb-gauge { flex-direction: column-reverse; }
+.mb-slot {
+  width: calc(var(--mana-w) - 14px);
+  height: var(--mana-slot-h);
+  border-radius: 999px;
+  border: 1px solid #009ee3;
+  background: #153038;
+  transition: background 0.25s, box-shadow 0.25s;
+  animation: arena-pop 0.3s ease-out;
+}
+.mb-slot.on { background: linear-gradient(#5cc8ff, #009ee3); box-shadow: 0 0 8px rgb(0 158 227 / 0.8); }
+.mana-bar:hover { border-color: #5cc8ff; }
+.layout-phone .mana-bar { left: 4px; padding: 4px 3px; gap: 2px; border-radius: 8px; }
+.layout-phone .mana-bar.theirs { top: 40px; }
+.layout-phone .mana-bar.mine { bottom: 58px; }
 
 .info-chip { right: 12px; top: 10px; }
 .layout-phone .info-chip { right: 6px; top: 4px; }
@@ -658,6 +695,7 @@
 @keyframes arena-num { from { transform: scale(1.5); color: #ffd98a; } }
 @keyframes arena-pop { from { transform: scale(0.6); opacity: 0; } }
 @keyframes arena-land { 50% { transform: scale(1.08); } }
+@keyframes arena-cast { 35% { box-shadow: 0 0 0 4px #ffd166, 0 0 34px 8px #ffd166; filter: brightness(1.3); } }
 @keyframes arena-reveal { from { transform: rotateY(90deg); filter: brightness(2); } }
 @keyframes arena-target {
   0%, 100% { box-shadow: 0 0 0 3px rgb(127 227 255 / 0.6), 0 0 14px 4px rgb(80 200 255 / 0.4); }
