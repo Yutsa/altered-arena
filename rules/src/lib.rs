@@ -103,6 +103,11 @@ impl Game {
         arena::run_bots(self)
     }
 
+    /// One decision of a bot player (false: none to take, or none accepted)
+    pub fn run_bot_step(&mut self) -> Result<bool, PhpError> {
+        arena::bot_step(self)
+    }
+
     /// The game is over (state `gameEnd`)
     pub fn is_over(&self) -> bool {
         framework::state(self).is_some_and(|s| s.name == "gameEnd")

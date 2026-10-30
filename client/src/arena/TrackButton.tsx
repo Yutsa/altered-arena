@@ -1,4 +1,3 @@
-import { useEffect, useState } from 'react';
 import { useGameCtx } from '../game/GameContext';
 import { confirmAnswer, primaryAction } from '../game/decisions';
 
@@ -8,17 +7,10 @@ import { confirmAnswer, primaryAction } from '../game/decisions';
  */
 export function TrackButton() {
   const { view, decision, ui, send, sending, you, auto } = useGameCtx();
-  const [armed, setArmed] = useState(false);
-  const decisionId = decision?.id;
-  useEffect(() => setArmed(false), [decisionId]);
-  useEffect(() => {
-    if (!armed) return;
-    const t = setTimeout(() => setArmed(false), 2500);
-    return () => clearTimeout(t);
-  }, [armed]);
 
   if (view.phase === 'ended') return <span className="track-btn idle">End</span>;
-  if (!decision || auto) {
+  // Answered for the player; the end of a turn keeps its button (confirm now)
+  if (!decision || (auto && !auto.countdown)) {
     const waitingOnOther = view.waitingFor.some((p) => p !== you);
     return (
       <span className="track-btn idle" aria-live="polite">
@@ -33,12 +25,9 @@ export function TrackButton() {
   let hot = false;
   if (p?.kind === 'endTurn' && decision.kind === 'turn') {
     const canAct = decision.play.length + decision.support.length + decision.tap.length > 0;
-    label = armed ? 'Sure?' : 'End turn';
+    label = 'End turn';
     hot = !canAct;
-    run = () => {
-      if (canAct && !armed) setArmed(true);
-      else void send({ type: 'endTurn' });
-    };
+    run = () => void send({ type: 'endTurn' });
   } else if (p?.kind === 'confirm') {
     const a = confirmAnswer(decision, ui);
     label = p.label;
@@ -51,7 +40,7 @@ export function TrackButton() {
   return (
     <button
       type="button"
-      className={`track-btn ${hot ? 'hot' : ''} ${armed ? 'armed' : ''} ${decision.kind === 'turn' ? 'your-turn' : ''}`}
+      className={`track-btn ${hot ? 'hot' : ''} ${decision.kind === 'turn' ? 'your-turn' : ''}`}
       disabled={!run || sending}
       onClick={run ?? undefined}
     >

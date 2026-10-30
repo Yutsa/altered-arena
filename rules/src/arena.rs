@@ -160,49 +160,55 @@ fn bot_act(g: &mut Game, bot: PId, action: &str, args: &[Value]) -> R<()> {
 /// decision (at most 200)
 // PHP: server/src/Arena.php:362
 pub fn run_bots(g: &mut Game) -> R<()> {
-    if g.bots.is_empty() {
-        return Ok(());
-    }
-    let bots = g.bots.clone();
     for _ in 0..200 {
-        // request(null): which bot decides what (the draws of the bot continue the generator)
-        g.begin_request(None)?;
-        let mut decision = None;
-        for b in &bots {
-            if framework::is_player_active(g, *b) {
-                decision = Some((*b, bot::decide(g, *b)?));
-                break;
-            }
-        }
-        let Some((bot_id, call)) = decision else { return Ok(()) };
-        let Some((action, args)) = call else {
-            // Bot.php has nothing to answer: PHP stops here (the game waits for the bot)
-            if !last_resort(g, bot_id)? {
-                return Ok(());
-            }
-            continue;
-        };
-        if let Err(e) = bot_act(g, bot_id, &action, &args) {
-            // A bad bot choice must not block the game: try the fallback once, else stop
-            eprintln!("bot {} {} {}: {}", bot_id, action, Value::Array(args.clone()), e);
-            g.begin_request(None)?;
-            let fallback = bot::fallback(g, bot_id)?;
-            let ok = match fallback {
-                Some((action, args)) => match bot_act(g, bot_id, &action, &args) {
-                    Ok(()) => true,
-                    Err(e2) => {
-                        eprintln!("bot {} fallback failed: {}", bot_id, e2);
-                        false
-                    }
-                },
-                None => false,
-            };
-            if !ok && !last_resort(g, bot_id)? {
-                return Ok(());
-            }
+        if !bot_step(g)? {
+            return Ok(());
         }
     }
     Ok(())
+}
+
+/// One decision of a bot player, as `run_bots` takes it (the server paces them). False: no bot
+/// has a decision, or none of its answers was accepted (the game waits for the bot).
+pub fn bot_step(g: &mut Game) -> R<bool> {
+    if g.bots.is_empty() {
+        return Ok(false);
+    }
+    let bots = g.bots.clone();
+    // request(null): which bot decides what (the draws of the bot continue the generator)
+    g.begin_request(None)?;
+    let mut decision = None;
+    for b in &bots {
+        if framework::is_player_active(g, *b) {
+            decision = Some((*b, bot::decide(g, *b)?));
+            break;
+        }
+    }
+    let Some((bot_id, call)) = decision else { return Ok(false) };
+    let Some((action, args)) = call else {
+        // Bot.php has nothing to answer: PHP stops here (the game waits for the bot)
+        return last_resort(g, bot_id);
+    };
+    if let Err(e) = bot_act(g, bot_id, &action, &args) {
+        // A bad bot choice must not block the game: try the fallback once, else stop
+        eprintln!("bot {} {} {}: {}", bot_id, action, Value::Array(args.clone()), e);
+        g.begin_request(None)?;
+        let fallback = bot::fallback(g, bot_id)?;
+        let ok = match fallback {
+            Some((action, args)) => match bot_act(g, bot_id, &action, &args) {
+                Ok(()) => true,
+                Err(e2) => {
+                    eprintln!("bot {} fallback failed: {}", bot_id, e2);
+                    false
+                }
+            },
+            None => false,
+        };
+        if !ok {
+            return last_resort(g, bot_id);
+        }
+    }
+    Ok(true)
 }
 
 /// Not in Arena.php (whose runBots stops, leaving the game waiting for the bot): the answers of

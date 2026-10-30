@@ -10,6 +10,21 @@
   transition: box-shadow 0.4s, opacity 0.2s;
   min-width: 0;
 }
+.decision-bar:has(.db-countdown) { position: relative; overflow: hidden; }
+/* The end of the turn, confirmed when the bar runs out */
+.db-countdown {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 3px;
+  width: 100%;
+  background: var(--accent);
+  transform-origin: left;
+  animation: db-countdown linear forwards;
+}
+@keyframes db-countdown {
+  to { transform: scaleX(0); }
+}
 .decision-bar.flash { box-shadow: 0 0 0 3px var(--accent), 0 0 30px var(--accent); }
 .decision-bar.sending { opacity: 0.75; }
 .decision-bar.waiting {

@@ -126,6 +126,8 @@ export interface ExpeditionView {
   blocked: boolean;
   /** Ascended (Soar...): until Rest, it moves forward even when the opposing expedition matches it */
   ascended?: boolean;
+  /** At Dusk, as things stand, it moves forward: it wins a biome of its region */
+  advances?: boolean;
 }
 
 export interface PlayerView {

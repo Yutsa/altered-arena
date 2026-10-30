@@ -108,7 +108,6 @@ function SelectedCardActions({ d }: { d: TurnDecision }) {
 
 function TurnControls({ d, hide }: { d: TurnDecision; hide?: PrimaryAction['kind'] }) {
   const { send, ui } = useGameCtx();
-  const [confirmEnd, setConfirmEnd] = useState(false);
   const canAct = d.play.length + d.support.length + d.tap.length > 0;
   if (ui.selected !== null) return <SelectedCardActions d={d} />;
   return (
@@ -119,17 +118,10 @@ function TurnControls({ d, hide }: { d: TurnDecision; hide?: PrimaryAction['kind
         {d.canEndTurn && hide !== 'endTurn' && (
           <Btn
             kind={canAct ? '' : 'primary'}
-            onClick={() => {
-              if (canAct && !confirmEnd) {
-                setConfirmEnd(true);
-                setTimeout(() => setConfirmEnd(false), 2500);
-                return;
-              }
-              void send({ type: 'endTurn' });
-            }}
+            onClick={() => void send({ type: 'endTurn' })}
             title="Pass for the rest of the Afternoon"
           >
-            {confirmEnd ? 'Sure? Tap again' : 'End turn'}
+            End turn
           </Btn>
         )}
       </div>
@@ -383,7 +375,7 @@ export function DecisionBar({ primaryOnTrack = false, before }: { primaryOnTrack
   const source = decision.sourceCardId !== undefined ? byId.get(decision.sourceCardId) : undefined;
   const sourceDef = def(source);
   // Answered for the player (no real choice): nothing to click
-  if (auto)
+  if (auto && !auto.countdown)
     return (
       <div className="decision-bar waiting" aria-live="polite">
         <span className="spinner" />
@@ -393,6 +385,8 @@ export function DecisionBar({ primaryOnTrack = false, before }: { primaryOnTrack
     );
   return (
     <div className={`decision-bar kind-${decision.kind} ${flash ? 'flash' : ''} ${sending ? 'sending' : ''}`} aria-live="polite">
+      {/* Sent when the bar runs out, unless the player undoes first */}
+      {auto?.countdown && !sending && <span key={decision.id} className="db-countdown" style={{ animationDuration: `${auto.delay}ms` }} />}
       <div className="db-prompt">
         {before}
         {sourceDef && (
@@ -400,7 +394,7 @@ export function DecisionBar({ primaryOnTrack = false, before }: { primaryOnTrack
             {sourceDef.name}
           </button>
         )}
-        <RichText text={decision.prompt} />
+        <RichText text={auto?.countdown ? 'Your turn ends… Undo to take it back' : decision.prompt} />
       </div>
       <div className="db-controls">
         <Controls d={decision} hide={primaryOnTrack ? primaryAction(decision)?.kind : undefined} />

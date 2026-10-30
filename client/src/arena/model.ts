@@ -59,7 +59,8 @@ export interface Forecast {
 /**
  * Dusk forecast: an expedition moves forward when, in at least one biome of its region, its
  * statistic is greater than the opposing expedition's (same side), or equal to it (and not 0) when
- * it is Ascended. Blocked expeditions stay.
+ * it is Ascended. Blocked expeditions stay. The server's answer (`advances`, the engine's own
+ * computation, card effects included) wins over this one.
  */
 export function forecast(view: GameView, player: PlayerView, side: Side): Forecast {
   const exp = player.expeditions[side];
@@ -72,7 +73,7 @@ export function forecast(view: GameView, player: PlayerView, side: Side): Foreca
     const theirs = other?.stats[b] ?? 0;
     return mine > theirs || (!!exp.ascended && mine === theirs && mine >= 1);
   });
-  const advances = !exp.blocked && winning.length > 0 && view.phase !== 'ended';
+  const advances = (exp.advances ?? (!exp.blocked && winning.length > 0)) && view.phase !== 'ended';
   return { advances, winning, region, next: exp.position + (side === 'hero' ? 1 : -1) };
 }
 

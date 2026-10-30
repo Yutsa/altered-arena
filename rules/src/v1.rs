@@ -1057,6 +1057,8 @@ fn build_view(g: &mut Game, you: Option<PId>, game_id: &str) -> R<Value> {
     // Players
     let biomes = players::get_biome_totals(g)?;
     let blocked = players::get_blocked_expeditions(g)?;
+    // Who wins each biome now (as BGA shows it on the tokens): on a copy, a view changes nothing
+    let movements = players::compute_storm(&mut g.clone(), false).unwrap_or_else(|_| php::arr());
     let reserve_slots = players::get_reserve_slots(g)?;
     let landmark_slots = players::get_landmark_slots(g)?;
     let passed = if globals::is(g, "dayPhase")? { globals::get(g, "skippedPlayers")? } else { php::arr() };
@@ -1074,6 +1076,7 @@ fn build_view(g: &mut Game, you: Option<PId>, game_id: &str) -> R<Value> {
                     "stats": {"forest": stat("forest"), "mountain": stat("mountain"), "ocean": stat("ocean")},
                     "blocked": php::truthy(php::get(php::get(&blocked, &pid.to_string()), loc)),
                     "ascended": crate::models::player::is_ascended(g, pid, loc)?,
+                    "advances": php::vals(php::get(php::get(&movements, &pid.to_string()), side)).iter().any(|v| php::intval(v) == 2),
                 }),
             );
         }

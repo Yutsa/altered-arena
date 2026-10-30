@@ -252,13 +252,17 @@ export const choiceKey = (c: ChoiceOption) => `${c.sourceCardId ?? ''}|${c.label
 /** How long a target picked for the player is shown (focus and arrow) before it is sent */
 export const AUTO_TARGET_MS = 600;
 
+/** How long the end of a turn waits before it is confirmed, while the player may still Undo */
+export const CONFIRM_TURN_MS = 2000;
+
 /**
  * The answer sent for the player when a decision leaves no real choice: one effect to resolve
  * (maybe several times), a "you may" effect that can still be passed after it is chosen, the only
  * possible targets of a mandatory effect, nothing to pick... `repeat`: the choice key the player
- * asked to resolve every time it comes back ("all" on a group of identical effects).
+ * asked to resolve every time it comes back ("all" on a group of identical effects). `countdown`:
+ * the player still has the decision's buttons (Undo) until it is sent.
  */
-export function autoAnswer(d: Decision | null, repeat: string | null = null): { answer: AnswerBody; delay: number } | null {
+export function autoAnswer(d: Decision | null, repeat: string | null = null): { answer: AnswerBody; delay: number; countdown?: boolean } | null {
   if (!d) return null;
   const now = (answer: AnswerBody) => ({ answer, delay: 0 });
   const shown = (answer: AnswerBody) => ({ answer, delay: AUTO_TARGET_MS });
@@ -285,6 +289,9 @@ export function autoAnswer(d: Decision | null, repeat: string | null = null): { 
     case 'expedition':
       if (d.canPass || d.min === 0 || d.expeditions.length > d.min) return null;
       return shown({ type: 'expedition', keys: d.expeditions.map((o) => o.key) });
+    case 'confirm':
+      // The end of the turn (the switch of player): confirmed after a moment, unless the player undoes
+      return { answer: { type: 'confirm' }, delay: CONFIRM_TURN_MS, countdown: true };
     case 'player':
       return !d.canPass && d.players.length === 1 ? now({ type: 'player', player: d.players[0] }) : null;
     case 'location':

@@ -298,9 +298,12 @@ function Marker({ player, side, mine, other }: { player: PlayerView; side: Side;
   const { view } = useGameCtx();
   const pick = useExpeditionPick(player, side);
   const exp = player.expeditions[side];
-  // Both expeditions of a player in the same region: side by side; a terrain marker: on its right
+  // Both expeditions of a player in the same region: side by side, each on its way (the hero one
+  // goes right); a terrain marker: on its right
   const marked = view.regions.some((r) => r.index === exp.position && r.marker);
-  const dx = (other ? (side === 'hero' ? -0.22 : 0.22) : 0) + (marked ? MARKED_SHIFT : 0);
+  const dx = (other ? (side === 'hero' ? 0.22 : -0.22) : 0) + (marked ? MARKED_SHIFT : 0);
+  // As on BGA: an arrow on the side it would move to, at Dusk as things stand
+  const moving = forecast(view, player, side).advances && view.phase !== 'night' && view.phase !== 'setup';
   const style: CSSProperties = { left: `${((regionCenter(exp.position) + dx) / TRACK_UNITS) * 100}%` };
   return (
     <button
@@ -309,9 +312,10 @@ function Marker({ player, side, mine, other }: { player: PlayerView; side: Side;
       style={style}
       onClick={pick?.pick}
       disabled={!pick}
-      title={`${player.name}: ${side} expedition, region ${exp.position}${exp.blocked ? ' (blocked)' : ''}${exp.ascended ? ' (Ascended)' : ''}`}
+      title={`${player.name}: ${side} expedition, region ${exp.position}${exp.blocked ? ' (blocked)' : ''}${exp.ascended ? ' (Ascended)' : ''}${moving ? ', moves forward at Dusk' : ''}`}
     >
       {player.faction ? <img src={`/img/tokens/${player.faction}-${side}.png`} alt="" draggable={false} /> : <span>{side[0].toUpperCase()}</span>}
+      {moving && <span className={`marker-arrow ${side}`} aria-hidden="true" />}
     </button>
   );
 }

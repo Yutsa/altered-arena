@@ -573,6 +573,25 @@ body:has(.marker-ghost) { cursor: grabbing; }
   z-index: 2;
 }
 .marker img { width: 100%; height: 100%; border-radius: 50%; display: block; }
+/* The expedition moves forward at Dusk, as things stand: a white arrow on its side of travel (BGA) */
+.marker-arrow {
+  position: absolute;
+  top: 50%;
+  width: calc(var(--marker-size) * 0.4);
+  height: calc(var(--marker-size) * 0.56);
+  translate: 0 -50%;
+  filter: drop-shadow(0 0 2px #000) drop-shadow(0 0 3px rgb(0 0 0 / 0.7));
+  pointer-events: none;
+  animation: marker-arrow 1.4s ease-in-out infinite;
+}
+.marker-arrow::before { content: ''; position: absolute; inset: 0; background: #fff; clip-path: polygon(0 0, 100% 50%, 0 100%); }
+.marker-arrow.hero { left: calc(100% + 3px); --nudge: 3px; }
+.marker-arrow.companion { right: calc(100% + 3px); --nudge: -3px; }
+.marker-arrow.companion::before { scale: -1 1; }
+@keyframes marker-arrow {
+  50% { transform: translateX(var(--nudge)); }
+}
+@media (prefers-reduced-motion: reduce) { .marker-arrow { animation: none; } }
 .marker.mine { box-shadow: 0 0 0 3px var(--me), 0 4px 8px rgb(0 0 0 / 0.6); }
 .marker.theirs { box-shadow: 0 0 0 3px var(--opp), 0 4px 8px rgb(0 0 0 / 0.6); }
 .marker:disabled { cursor: default; }
@@ -603,7 +622,6 @@ body:has(.marker-ghost) { cursor: grabbing; }
 .track-btn:not(:disabled):active { transform: scale(0.95); }
 .track-btn:disabled { filter: grayscale(0.5) brightness(0.8); cursor: default; }
 .track-btn.hot { animation: arena-hot 1.4s ease-in-out infinite; }
-.track-btn.armed { background: radial-gradient(circle at 40% 35%, #ffb35c 0%, #d9480f 70%); }
 .track-btn.idle { background: radial-gradient(circle at 40% 35%, #4a4f74 0%, #22253f 70%); box-shadow: 0 0 0 4px rgb(20 16 50 / 0.55); position: relative; }
 .tb-label { font: 700 calc(var(--marker-size) * 0.36) / 1 var(--font-title); text-transform: uppercase; letter-spacing: 0.03em; text-align: center; }
 .tb-small { font: 600 calc(var(--marker-size) * 0.22) / 1 var(--font-text); letter-spacing: 0.08em; text-transform: uppercase; color: #9ff0cf; }
