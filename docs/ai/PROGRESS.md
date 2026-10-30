@@ -5,7 +5,7 @@ Plan: `docs/plans/AI_TOURNAMENT.md`. Private data (replays, decklists, player na
 
 ## Current phase
 
-Pass 2 running (`private/run_pass.sh 2`), with the parameters of phase F after pass 1.
+F after pass 2 (A/B of `private/v2_landmark`, `v2_board`, `v2_mana8` against `private/params_p2`).
 
 ## Done
 
@@ -51,7 +51,7 @@ Pass 2 running (`private/run_pass.sh 2`), with the parameters of phase F after p
   bot (12 decks x 10 games): 82.5 % [74.7, 88.3], 1.55 s CPU per AI per game.
 
 - Pass 1 (AI v1 with priors): 7400 games, 1 error (`too many steps`), favourite = real winner in
-  42/72 pairings (pass 0: 34), Spearman 0.56 (0.49), agreement 42.2 % (simple bot 35.5 %).
+  43/74 pairings (pass 0: 36), Spearman 0.56 (0.49), agreement 42.2 % (simple bot 35.5 %).
   Wall time is meaningless (the Mac slept, then background priority). Worst fits: the two Matz OD
   decks (permanent-heavy) lose 87-98 % of their games here but won theirs in the tournament.
 
@@ -66,6 +66,12 @@ Pass 2 running (`private/run_pass.sh 2`), with the parameters of phase F after p
   - Per-deck evolution (2 candidates x 30 held-out games per deck, keep at +10 points): 9 of 37
     decks changed. The whole set (both kept variants + evolution) against the pass-1 parameters:
     **57.6 % [53.6, 61.5]** of 592 games: kept (`ai/params`).
+- Stack overflow of seed 754000: `isGigantic` of a token recursing without end
+  (isGigantic -> countUniversalTokenGigantic -> checkAttributeCondition -> isGigantic), the same
+  in PHP (a fatal error there). The Rust engine now stops at depth 500 with an error (ee5777b,
+  goldens 6526/6526).
+- Pass 2: 7400 games in 77 min on 4 threads, 1 error, favourite = real winner 41/74, Spearman
+  0.57, agreement 42.7 % (cleanup decisions 20 % -> 38 %). Matz OD still last.
 
 ## Decisions
 
@@ -97,8 +103,8 @@ Pass 2 running (`private/run_pass.sh 2`), with the parameters of phase F after p
 
 ## Next steps
 
-1. When pass 2 ends: `aitool agree 2 ai`, `report_pass.py 2 NOTES`, commit.
-2. Find the stack overflow of seed 754000 (lldb backtrace in `private/so_bt.txt`); phase F: new
-   variants (A/B), `aitool evolve 2 --params ai/params --out private/params_e2 --cands 2 --games 30
-   --margin 0.1`, measure against `ai/params` (snapshot `private/params_p2`), pass 3.
+1. Keep the F2 variants that pass the rule; `aitool evolve 2 --params <kept> --out
+   private/params_e2 --cands 2 --games 30 --margin 0.1`; measure against `private/params_p2`
+   (seed 810000); copy to `ai/params` if kept; commit.
+2. Pass 3 (`private/run_pass.sh 3`), agree, report with notes (`private/notes_N.md`).
 3. Same loop for passes 4..5, then `docs/ai/REPORT.md` (`tools/ai/report_tables.py`).

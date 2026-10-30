@@ -171,3 +171,25 @@ Share of the real players' decisions (tournament replays, both players) where th
 ## Errors
 
 - 1 x `too many steps` (seeds 47027)
+
+## Analysis
+
+Agent: AI v1 with the per-deck priors built from the replays (`ai/params`). Compared with pass 0
+(simple bot): the pass's favourite won the real game in 43 pairings instead of 36, Spearman 0.56
+instead of 0.49, agreement with the real players 42.2 % instead of 35.5 %.
+
+Wall time and CPU per game are not meaningful for this pass: the Mac slept for ~3 h during it,
+then it ran at background priority. Measured before that: 2.7 s of CPU per game (median).
+
+- The decks that move most from pass 0 are those whose simple-bot result came from bad play by the
+  opponent: the Lindiwe YZ decks (3 % and 14 % in pass 0, 32 % and 52 % here) and D21 Kauri MU.
+  Five decks lose 20-40 points (D07 Atsadi BR, D01 Sierra AX, D35 Sam YZ, D12 Sol BR, D23 Teija
+  MU); three of them have no priors (D01, D35 and D29 among the 5 decks without replays).
+- The worst fits are the two Matz OD decks (2 % and 13 % of their games): permanent-heavy decks
+  (The Consulate, The Reunion, The Lectern, Delay the Collapse, Brassbug Nursery, about 14
+  characters out of 39). The AI plays landmarks without seeing what they bring later, then has
+  few characters to send out; their expeditions cover 2.6-3.6 regions on average.
+- Cleanup (which Reserve cards to keep) is the only kind of decision where the AI agrees less with
+  the players than the simple bot (20 % against 31 %): it keeps the cards the 1-ply search scores
+  highest, the players keep cheap characters. Phase F adds a keep-value term.
+- 1 error: a game that hit the step limit (seed 47027).
