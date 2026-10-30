@@ -3,6 +3,7 @@ import type { CardCatalog, CardDef, CardView, Decision, Destination, GameView, L
 import { affordances, emptyUI, hasActions, togglePick, type Affordance, type UIState } from './decisions';
 import type { AnswerBody } from './useGame';
 import { useInspect } from './inspect';
+import { cardDef } from '../api/catalog';
 
 export interface GameCtxValue {
   view: GameView;
@@ -85,7 +86,7 @@ export function GameProvider({
     return m;
   }, [view.cards]);
   const zoneCards = useCallback((owner: PlayerId, zone: Zone) => zones.get(`${owner}:${zone}`) ?? [], [zones]);
-  const def = useCallback((c: CardView | undefined | null) => (c?.ref ? (catalog[c.ref] ?? null) : null), [catalog]);
+  const def = useCallback((c: CardView | undefined | null) => cardDef(catalog, c), [catalog]);
   const aff = useMemo(() => affordances(decision, current), [decision, current]);
 
   const you = view.you;

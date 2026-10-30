@@ -112,6 +112,9 @@ export interface CardView {
   statuses: string[];
   /** Token cards are created by effects and disappear when they leave play */
   token?: boolean;
+  /** Unique cards only: their printed data. Uniques are not in the catalog (their ref is "Card");
+   * effect and support are their generated texts, ref is their unique id (e.g. "ALT_EOLE_B_AX_107_U_1908"). */
+  unique?: CardDef;
 }
 
 export interface ExpeditionView {

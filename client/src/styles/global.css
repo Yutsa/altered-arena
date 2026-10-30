@@ -24,6 +24,26 @@
   font-display: swap;
 }
 @font-face {
+  font-family: 'HapticPro';
+  src: url('/fonts/HapticPro-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-display: swap;
+}
+/* Rules text of the printed cards */
+@font-face {
+  font-family: 'Jali Greek';
+  src: url('/fonts/JaliGreekVariable-Regular.woff2') format('woff2');
+  font-weight: 100 900;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Jali Greek';
+  src: url('/fonts/JaliGreekVariable-Italic.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
   font-family: 'icomoon';
   src: url('/fonts/icomoon.woff') format('woff');
   font-display: block;
@@ -60,7 +80,6 @@
 
   --gutter: 12px;
   --card-tiny-w: 20px;
-  --card-mini-w: clamp(44px, 5.6vw, 76px);
   --card-small-w: clamp(96px, 12vw, 150px);
   --card-hand-w: clamp(84px, 9.5vw, 136px);
   --card-zoom-w: min(400px, 80vw, 55dvh);
@@ -72,7 +91,7 @@
   :root { --gutter: 8px; }
 }
 @media (max-height: 760px) and (min-width: 900px) {
-  :root { --card-mini-w: clamp(44px, 4.6vw, 64px); --card-hand-w: clamp(84px, 8vw, 116px); }
+  :root { --card-hand-w: clamp(84px, 8vw, 116px); }
 }
 
 *,

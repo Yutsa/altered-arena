@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { CardCatalog, CardDef, DeckSummary, Faction } from '@protocol';
+import type { CardCatalog, CardDef, CardView, DeckSummary, Faction } from '@protocol';
 import { api } from './client';
 
 let catalogPromise: Promise<CardCatalog> | null = null;
@@ -53,6 +53,12 @@ export function useDecks(): { decks: DeckSummary[] | null; error: string | null 
     };
   }, []);
   return { decks, error };
+}
+
+/** The printed data of a card in a view: its catalog entry, or its own data for a Unique */
+export function cardDef(catalog: CardCatalog, c: Pick<CardView, 'ref' | 'unique'> | undefined | null): CardDef | null {
+  if (!c) return null;
+  return c.unique ?? (c.ref ? (catalog[c.ref] ?? null) : null);
 }
 
 const ASSET_FACTIONS: Record<string, Faction> = { OR: 'OD' };

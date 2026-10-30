@@ -1,274 +1,301 @@
-/* A card is drawn at any width: everything inside is sized in cqw (percent of the card width). */
+/* A card is drawn at any width: everything inside is sized from the card width (cqw). */
 .card {
-  --fc: var(--f-NE);
-  --fc-dark: color-mix(in oklab, var(--fc) 55%, black);
   width: var(--card-w, 100px);
-  aspect-ratio: 362 / 505;
+  aspect-ratio: 324 / 450;
   container-type: inline-size;
   position: relative;
   flex: none;
+  border-radius: calc(var(--card-w, 100px) * 0.06);
   user-select: none;
   -webkit-user-select: none;
   -webkit-touch-callout: none;
 }
-.card-mini { --card-w: var(--card-mini-w); }
 .card-small { --card-w: var(--card-small-w); }
 .card-hand { --card-w: var(--card-hand-w); }
 .card-zoom { --card-w: var(--card-zoom-w); }
 
-.f-AX { --fc: var(--f-AX); }
-.f-BR { --fc: var(--f-BR); }
-.f-LY { --fc: var(--f-LY); }
-.f-MU { --fc: var(--f-MU); }
-.f-OD { --fc: var(--f-OD); }
-.f-YZ { --fc: var(--f-YZ); }
-.f-NE { --fc: var(--f-NE); }
-
-.card-inner {
-  position: absolute;
-  inset: 0;
-  border-radius: 5.5cqw;
-  overflow: hidden;
-  background: #1a1b26;
-  box-shadow: 0 0.8cqw 3cqw rgb(0 0 0 / 0.55);
-  transition: filter 0.2s, transform 0.25s;
-}
-.card-art {
+.fc-art {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
+  border-radius: 4.6cqw;
+  box-shadow: 0 0.8cqw 3cqw rgb(0 0 0 / 0.55);
   pointer-events: none;
+  transition: filter 0.2s;
 }
-.card-art-missing {
-  background:
-    radial-gradient(circle at 50% 35%, color-mix(in oklab, var(--fc) 60%, white 10%), transparent 70%),
-    linear-gradient(160deg, var(--fc-dark), #111);
-}
-.card-frame {
+.fc-art-missing { background: linear-gradient(160deg, #3b3560, #15132a); }
+.card-back .fc-art { border-radius: 4.6cqw; }
+.card.is-exhausted .fc-art,
+.card.is-exhausted .fc { filter: grayscale(0.5) brightness(0.75); }
+
+/* ------------------------------------------------------------------ printed card (BGA)
+   A 324 x 450 card: --u is one of its pixels */
+.fc {
+  --u: calc(100cqw / 324);
   position: absolute;
   inset: 0;
-  border-radius: inherit;
-  border: 1.8cqw solid var(--fc);
-  box-shadow:
-    inset 0 0 0 0.6cqw rgb(255 255 255 / 0.25),
-    inset 0 0 6cqw rgb(0 0 0 / 0.45);
+  overflow: hidden;
+  border-radius: 4.6cqw;
   pointer-events: none;
+  font-family: 'Jali Greek', var(--font-text);
+  color: #000;
 }
-.card-back .card-inner { border: 1.5cqw solid #2b2d42; }
-
-/* Costs: hand cost (big) and reserve cost (small), top left */
-.card-costs {
+.fc-frame {
   position: absolute;
-  top: 3cqw;
-  left: 3cqw;
+  inset: 0;
+  z-index: 2;
+  background-size: 600% 800%;
+  background-repeat: no-repeat;
+}
+
+.fc-name {
+  position: absolute;
+  z-index: 2;
+  top: calc(24 * var(--u));
+  left: calc(51 * var(--u));
+  right: calc(53 * var(--u));
+  height: calc(23 * var(--u));
   display: flex;
-  flex-direction: column;
+  justify-content: center;
   align-items: center;
-  gap: 1cqw;
-}
-.cost {
-  display: grid;
-  place-items: center;
-  border-radius: 50%;
-  font-family: var(--font-title);
+  font-size: calc(16 * var(--u));
+  font-weight: bold;
   line-height: 1;
-  color: #fff;
-  box-shadow: 0 0.5cqw 1.5cqw rgb(0 0 0 / 0.6);
-}
-.cost-hand {
-  width: 17cqw;
-  height: 17cqw;
-  font-size: 12cqw;
-  background: radial-gradient(circle at 35% 30%, #4b4f6b, #15172a);
-  border: 1.2cqw solid var(--fc);
-}
-.cost-reserve {
-  width: 13cqw;
-  height: 13cqw;
-  font-size: 9cqw;
-  background: radial-gradient(circle at 35% 30%, #e9e2cf, #a89f86);
-  color: #23212a;
-  border: 0.9cqw solid var(--fc);
-}
-.cost.down { color: #7dffb0; text-shadow: 0 0 2cqw #0f0; }
-.cost-reserve.down { color: #0b6b33; }
-.cost.up { color: #ff8a8a; }
-.cost-reserve.up { color: #a01010; }
-
-.card-rarity {
-  position: absolute;
-  top: 4cqw;
-  right: 4cqw;
-  width: 6cqw;
-  height: 6cqw;
-  transform: rotate(45deg);
-  border: 0.6cqw solid rgb(255 255 255 / 0.8);
-  box-shadow: 0 0 1.5cqw rgb(0 0 0 / 0.8);
-}
-.r-common { background: #b7b7b7; }
-.r-rare { background: #3fa3ff; }
-.r-unique { background: #f5a623; }
-.r-exalted { background: #c35cff; }
-
-/* Name plate */
-.card-plate {
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 50%;
-  padding: 1.6cqw 5cqw 1.8cqw;
-  background: linear-gradient(90deg, color-mix(in oklab, var(--fc) 92%, black), var(--fc-dark));
   color: #fff;
   text-align: center;
-  box-shadow: 0 0.6cqw 2cqw rgb(0 0 0 / 0.5);
+  overflow-wrap: anywhere;
 }
-.card-name {
-  font-family: var(--font-title);
-  font-size: 8.5cqw;
-  line-height: 1;
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.card-typeline {
-  font-size: 4.6cqw;
+.fc-typeline {
+  position: absolute;
+  z-index: 2;
+  top: calc(45 * var(--u));
+  left: calc(48 * var(--u));
+  right: calc(50 * var(--u));
+  font-size: calc(13 * var(--u));
   line-height: 1.15;
-  opacity: 0.85;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  text-align: center;
 }
-.t-hero .card-plate { top: auto; bottom: 33%; }
-.t-spell .card-plate,
-.t-permanent .card-plate { top: 47%; }
+.fc[data-frame='hero'] .fc-name { top: calc(24 * var(--u)); height: calc(27 * var(--u)); font-size: calc(22 * var(--u)); }
+.fc[data-frame='hero'] .fc-typeline { top: calc(50 * var(--u)); font-size: calc(15 * var(--u)); }
+/* Landmarks and expedition permanents have their name in the middle */
+.fc[data-frame='permanent'][data-support='0'][data-size='1'] .fc-name,
+.fc[data-frame='gear'][data-support='0'][data-size='1'] .fc-name { top: calc(250 * var(--u)); }
+.fc[data-frame='permanent'][data-support='0'][data-size='1'] .fc-typeline { top: calc(270 * var(--u)); }
+.fc[data-frame='gear'][data-support='0'][data-size='1'] .fc-typeline { top: calc(272 * var(--u)); }
+.fc[data-frame='permanent'][data-support='0'][data-size='2'] .fc-name,
+.fc[data-frame='permanent'][data-support='1'][data-size='1'] .fc-name,
+.fc[data-frame='gear'][data-support='0'][data-size='2'] .fc-name,
+.fc[data-frame='gear'][data-support='1'][data-size='1'] .fc-name { top: calc(219 * var(--u)); }
+.fc[data-frame='permanent'][data-support='0'][data-size='2'] .fc-typeline,
+.fc[data-frame='permanent'][data-support='1'][data-size='1'] .fc-typeline { top: calc(239 * var(--u)); }
+.fc[data-frame='gear'][data-support='0'][data-size='2'] .fc-typeline,
+.fc[data-frame='gear'][data-support='1'][data-size='1'] .fc-typeline { top: calc(241 * var(--u)); }
+.fc[data-frame='permanent'][data-support='1'][data-size='2'] .fc-name,
+.fc[data-frame='gear'][data-support='1'][data-size='2'] .fc-name { top: calc(185 * var(--u)); }
+.fc[data-frame='permanent'][data-support='1'][data-size='2'] .fc-typeline,
+.fc[data-frame='gear'][data-support='1'][data-size='2'] .fc-typeline { top: calc(205 * var(--u)); }
+.fc[data-frame='permanent'][data-rarity='3'][data-size='2'] .fc-typeline { top: calc(208 * var(--u)); }
+.fc[data-frame='permanent'][data-rarity='3'][data-size='1'] .fc-typeline { top: calc(240 * var(--u)); }
 
-/* Stats: forest / mountain / ocean, on the left above the name plate */
-.card-stats {
+/* Costs: hand cost and reserve cost, top left */
+.fc-cost-hand,
+.fc-cost-reserve {
   position: absolute;
-  left: 3cqw;
-  top: 26%;
-  display: flex;
-  flex-direction: column;
-  gap: 1.2cqw;
-}
-.stat {
-  display: flex;
-  align-items: center;
-  gap: 0.5cqw;
-  min-width: 17cqw;
-  height: 10.5cqw;
-  padding: 0 1.6cqw 0 1.2cqw;
-  border-radius: 5.5cqw;
+  z-index: 3;
   color: #fff;
-  font-family: var(--font-title);
-  font-size: 8.5cqw;
-  box-shadow: 0 0.5cqw 1.5cqw rgb(0 0 0 / 0.6);
-  border: 0.6cqw solid rgb(255 255 255 / 0.5);
+  font-family: 'HapticPro', var(--font-text);
+  font-weight: bold;
+  line-height: 1;
+  text-shadow: 0 0 calc(5 * var(--u)) #000;
 }
-.stat .glyph { font-size: 6.5cqw; }
-.stat b { font-weight: normal; margin-left: auto; }
-.stat-forest { background: var(--b-forest); }
-.stat-mountain { background: var(--b-mountain); }
-.stat-ocean { background: var(--b-ocean); }
-.stat.up { box-shadow: 0 0 0 0.8cqw #7dffb0, 0 0 4cqw #7dffb0; }
-.stat.down { box-shadow: 0 0 0 0.8cqw #ff6b6b, 0 0 4cqw #ff6b6b; }
+.fc-cost-hand { top: calc(24 * var(--u)); left: calc(25 * var(--u)); font-size: calc(27 * var(--u)); }
+.fc-cost-reserve { top: calc(45 * var(--u)); left: calc(50 * var(--u)); font-size: calc(21 * var(--u)); }
+.fc-cost-hand.down,
+.fc-cost-reserve.down { color: #7dff8c; }
+.fc-cost-hand.up,
+.fc-cost-reserve.up { color: #ff8a8a; }
 
-/* Rules text: shown on hand cards when big enough, always when zoomed */
-.card-text {
+/* Statistics: pills coming out of the left edge of the frame */
+.fc-stat {
   position: absolute;
-  left: 4cqw;
-  right: 4cqw;
-  top: 63%;
-  bottom: 3.5cqw;
-  padding: 2.2cqw 3cqw;
-  border-radius: 2.5cqw;
-  background: rgb(246 241 230 / 0.94);
-  color: #1f1b16;
-  font-size: 5.2cqw;
-  line-height: 1.22;
-  overflow: hidden;
+  z-index: 1;
+  left: calc(22 * var(--u));
+  box-sizing: content-box;
+  width: calc(28 * var(--u));
+  height: calc(28 * var(--u));
+  padding-left: calc(12 * var(--u));
+  border-radius: calc(11 * var(--u));
+  font-family: 'HapticPro', var(--font-text);
+  font-size: calc(22 * var(--u));
+  line-height: calc(31 * var(--u));
+  color: #fff;
+  text-shadow: 0 0 calc(6 * var(--u)) #000;
+  box-shadow: calc(1 * var(--u)) calc(1 * var(--u)) calc(4 * var(--u)) calc(1 * var(--u)) #424242dd;
+}
+.fc-stat[data-size='0'] { width: calc(18 * var(--u)); background: #fdfdfd4a !important; }
+.fc-stat[data-size='1'] { width: calc(20 * var(--u)); }
+.fc-stat[data-size='3'] { width: calc(40 * var(--u)); }
+.fc-forest { top: calc(90 * var(--u)); background: #a6c24b; border-bottom-right-radius: calc(4 * var(--u)); line-height: calc(35 * var(--u)); }
+.fc-mountain { top: calc(120 * var(--u)); background: #d58447; border-top-right-radius: calc(4 * var(--u)); border-bottom-right-radius: calc(4 * var(--u)); }
+.fc-ocean { top: calc(150 * var(--u)); background: #6386bc; border-top-right-radius: calc(4 * var(--u)); line-height: calc(29 * var(--u)); }
+.fc-stat.up { color: #b6ffbf; text-shadow: 0 0 calc(4 * var(--u)) #0a5d1a, 0 0 calc(8 * var(--u)) #000; }
+.fc-stat.down { color: #ffb3b3; text-shadow: 0 0 calc(4 * var(--u)) #7a0000, 0 0 calc(8 * var(--u)) #000; }
+
+/* Rules text, the QR code square of the frame at its bottom right */
+.fc-text {
+  position: absolute;
+  z-index: 2;
+  top: calc(317 * var(--u));
+  height: calc(102 * var(--u));
+  left: calc(20 * var(--u));
+  right: calc(20 * var(--u));
+  font-size: calc(14 * var(--u));
+  line-height: 1.1em;
+  --qr-shape: polygon(0 calc(36 * var(--u)), 0 calc(102 * var(--u)), calc(70 * var(--u)) calc(102 * var(--u)), calc(70 * var(--u)) calc(36 * var(--u)));
+}
+.fc-qr {
+  float: right;
+  width: calc(70 * var(--u));
+  height: 100%;
   display: flex;
-  flex-direction: column;
-  gap: 1.5cqw;
+  align-items: flex-end;
+  justify-content: flex-end;
+  shape-outside: var(--qr-shape);
 }
-.t-hero .card-text { top: 69%; }
-.t-spell .card-text,
-.t-permanent .card-text { top: 60%; }
-.card-support {
-  border-top: 0.4cqw solid rgb(0 0 0 / 0.25);
-  padding-top: 1.2cqw;
-  font-size: 0.95em;
+.fc-qr span {
+  display: block;
+  width: calc(66 * var(--u));
+  height: calc(66 * var(--u));
+  margin: 0 calc(-4 * var(--u)) calc(-4 * var(--u)) 0;
+  background: url('/img/card/qrcode.png') calc(5 * var(--u)) calc(5 * var(--u)) / 84% no-repeat;
 }
-.card-support > .glyph { margin-right: 0.3em; color: var(--fc-dark); }
-.card-hand .card-text { display: none; }
-@container (min-width: 170px) {
-  .card-hand .card-text { display: flex; }
+.fc-text hr { height: 0; margin: calc(3 * var(--u)); border: none; border-bottom: 1px solid #a2a2a2; }
+.fc-flavor { font-style: italic; }
+.fc[data-support='1'][data-size='1'] .fc-text,
+.fc[data-support='0'][data-size='2'] .fc-text {
+  top: calc(280 * var(--u));
+  height: calc(139 * var(--u));
+  --qr-shape: polygon(0 calc(70 * var(--u)), 0 calc(142 * var(--u)), calc(70 * var(--u)) calc(142 * var(--u)), calc(70 * var(--u)) calc(70 * var(--u)));
 }
-.card-mini .card-plate,
-.card-small .card-plate {
-  top: auto;
-  bottom: 0;
-  padding: 1.5cqw 2cqw 2cqw;
+.fc[data-support='1'][data-size='2'] .fc-text {
+  top: calc(245 * var(--u));
+  height: calc(174 * var(--u));
+  --qr-shape: polygon(0 calc(106 * var(--u)), 0 calc(182 * var(--u)), calc(70 * var(--u)) calc(182 * var(--u)), calc(70 * var(--u)) calc(106 * var(--u)));
 }
-.card-mini .card-typeline,
-.card-small .card-typeline { display: none; }
-.card-mini .card-name { font-size: 11cqw; }
-.card-small .card-name { font-size: 10cqw; }
-.card-mini .card-stats,
-.card-small .card-stats {
-  top: auto;
-  bottom: 17cqw;
-  left: 2cqw;
-  right: 2cqw;
-  flex-direction: row;
-  justify-content: space-between;
-  gap: 1cqw;
+.fc[data-frame='token'] .fc-text {
+  top: calc(365 * var(--u));
+  height: calc(54 * var(--u));
+  --qr-shape: polygon(0 0, 0 calc(53 * var(--u)), calc(70 * var(--u)) calc(52 * var(--u)), calc(70 * var(--u)) 0);
 }
-.card-mini .stat,
-.card-small .stat {
-  min-width: 0;
-  flex: 1;
-  height: 19cqw;
+.fc[data-frame='hero'] .fc-text { top: calc(311 * var(--u)); height: calc(108 * var(--u)); left: calc(21 * var(--u)); right: calc(21 * var(--u)); }
+.fc[data-frame='permanent'] .fc-text,
+.fc[data-frame='gear'] .fc-text { left: calc(25 * var(--u)); right: calc(25 * var(--u)); }
+.fc[data-frame='permanent'] .fc-qr,
+.fc[data-frame='gear'] .fc-qr { margin-right: calc(-5 * var(--u)); }
+.fc[data-frame='permanent'] .fc-text {
+  top: calc(310 * var(--u));
+  height: calc(107 * var(--u));
+  --qr-shape: polygon(0 calc(53 * var(--u)), 0 calc(105 * var(--u)), calc(70 * var(--u)) calc(105 * var(--u)), calc(70 * var(--u)) calc(53 * var(--u)));
+}
+.fc[data-frame='gear'][data-support='1'][data-size='1'] .fc-text,
+.fc[data-frame='permanent'][data-support='1'][data-size='1'] .fc-text,
+.fc[data-frame='permanent'][data-support='0'][data-size='2'] .fc-text,
+.fc[data-frame='gear'][data-support='0'][data-size='2'] .fc-text {
+  top: calc(310 * var(--u));
+  height: calc(107 * var(--u));
+  --qr-shape: polygon(calc(10 * var(--u)) calc(52 * var(--u)), calc(10 * var(--u)) calc(103 * var(--u)), calc(70 * var(--u)) calc(103 * var(--u)), calc(70 * var(--u)) calc(52 * var(--u)));
+}
+.fc[data-frame='permanent'][data-support='0'][data-size='1'] .fc-text,
+.fc[data-frame='gear'][data-support='0'][data-size='1'] .fc-text {
+  top: calc(347 * var(--u));
+  height: calc(73 * var(--u));
+  --qr-shape: polygon(calc(8 * var(--u)) calc(10 * var(--u)), calc(8 * var(--u)) calc(75 * var(--u)), calc(70 * var(--u)) calc(75 * var(--u)), calc(70 * var(--u)) calc(10 * var(--u)));
+}
+.fc[data-frame='permanent'][data-support='1'][data-size='2'] .fc-text,
+.fc[data-frame='gear'][data-support='1'][data-size='2'] .fc-text {
+  top: calc(279 * var(--u));
+  height: calc(139 * var(--u));
+  --qr-shape: polygon(calc(8 * var(--u)) calc(77 * var(--u)), calc(8 * var(--u)) calc(142 * var(--u)), calc(70 * var(--u)) calc(142 * var(--u)), calc(70 * var(--u)) calc(77 * var(--u)));
+}
+/* Uniques and Exalted cards have a dark text box */
+.fc[data-rarity='2'] .fc-text,
+.fc[data-rarity='3'] .fc-text { color: #fff; }
+
+/* What a permanent does, under its name */
+.fc-subpermanent {
+  position: absolute;
+  z-index: 2;
+  top: calc(317 * var(--u));
+  height: calc(28 * var(--u));
+  left: calc(54 * var(--u));
+  right: calc(16 * var(--u));
+  font-size: calc(12 * var(--u));
+  line-height: 1.1em;
+  font-style: italic;
+}
+.fc[data-support='1'][data-size='1'] .fc-subpermanent,
+.fc[data-support='0'][data-size='2'] .fc-subpermanent { top: calc(276 * var(--u)); }
+.fc[data-support='1'][data-size='2'] .fc-subpermanent { top: calc(245 * var(--u)); }
+.fc[data-rarity='3'] .fc-subpermanent { color: #fff; }
+.fc[data-frame='permanent'][data-faction='NE'][data-support='0'][data-size='2'] .fc-name { top: calc(250 * var(--u)); }
+.fc[data-frame='permanent'][data-faction='NE'][data-support='0'][data-size='2'] .fc-typeline { top: calc(270 * var(--u)); }
+.fc[data-frame='permanent'][data-faction='NE'][data-support='0'][data-size='2'] .fc-subpermanent { top: calc(314 * var(--u)); }
+.fc[data-frame='permanent'][data-faction='NE'][data-support='0'][data-size='2'] .fc-text { top: calc(350 * var(--u)); }
+
+/* Support ability (in Reserve), in the dark band at the bottom */
+.fc-support {
+  position: absolute;
+  z-index: 2;
+  top: calc(371 * var(--u));
+  bottom: calc(29 * var(--u));
+  left: calc(20 * var(--u));
+  right: calc(84 * var(--u));
+  font-size: calc(13 * var(--u));
+  line-height: 1.1em;
+  color: #fff;
+  overflow: hidden;
+}
+.fc-support .rt-rare { color: #e1c24e; }
+.fc[data-faction='LY'] .fc-support .rt-rare { color: #f2d261; }
+
+.fc-footer {
+  position: absolute;
+  z-index: 2;
+  bottom: calc(16 * var(--u));
+  height: calc(12 * var(--u));
+  left: calc(20 * var(--u));
+  right: calc(20 * var(--u));
+  display: flex;
   justify-content: center;
-  padding: 0;
-  font-size: 15cqw;
-  border-radius: 4cqw;
-  border-width: 0.8cqw;
+  align-items: center;
+  gap: calc(3 * var(--u));
+  font-family: var(--font-text);
+  font-size: calc(9 * var(--u));
+  color: #ffffffa1;
+  white-space: nowrap;
 }
-.card-mini .stat .glyph,
-.card-small .stat .glyph { display: none; }
-.card-mini .stat b,
-.card-small .stat b { margin: 0; }
-.card-mini .cost-hand { width: 26cqw; height: 26cqw; font-size: 18cqw; }
-.card-mini .cost-reserve { width: 20cqw; height: 20cqw; font-size: 14cqw; }
-.card-mini .card-rarity { display: none; }
-@container (max-width: 64px) {
-  .card-mini .card-plate { display: none; }
-  .card-mini .card-stats { bottom: 3cqw; }
-}
+.fc-set { width: calc(12 * var(--u)); height: calc(12 * var(--u)); background: center / contain no-repeat; }
 
-.card-slots {
-  position: absolute;
-  top: 3cqw;
-  right: 3cqw;
-  display: flex;
-  gap: 2cqw;
-  font-size: 6cqw;
-  color: #fff;
-}
-.card-slots span {
-  background: rgb(0 0 0 / 0.65);
-  border-radius: 3cqw;
-  padding: 0.8cqw 2cqw;
-}
+/* Rules text markup on the card */
+.fc .rt-keyword { font-weight: bold; }
+.fc .rt-paren { font-style: italic; opacity: 1; }
+.fc .rt-rare { color: inherit; font-weight: inherit; }
+.fc .rt-name { color: inherit; }
+.fc .mana-icon { background: #1d1d1d; }
+.fc[data-rarity='2'] .mana-icon,
+.fc[data-rarity='3'] .mana-icon,
+.fc-support .mana-icon { background: #f3eee2; color: #111; }
+/* Two-layer icons ({D}) keep their inner layer readable on white text */
+.fc[data-rarity='2'] .fc-text .glyph-white,
+.fc[data-rarity='3'] .fc-text .glyph-white,
+.fc-support .glyph-white { color: #000; }
 
 /* Badges: boosts, statuses, counters (top right) */
 .card-badges {
   position: absolute;
+  z-index: 4;
   top: 3cqw;
   right: 3cqw;
   display: flex;
@@ -294,14 +321,12 @@
 .badge img { width: 10cqw; height: 10cqw; }
 .badge-boost { background: #d9480f; border-color: #ffc078; }
 .badge-text { font-size: 5.5cqw; text-transform: uppercase; }
-.card-mini .badge { height: 22cqw; min-width: 22cqw; font-size: 14cqw; border-radius: 11cqw; }
-.card-mini .badge img { width: 17cqw; height: 17cqw; }
-.card-mini .badge-text { font-size: 9cqw; }
 .card-zoom .badge { height: 10cqw; min-width: 10cqw; font-size: 6cqw; }
 .card-zoom .badge img { width: 8cqw; height: 8cqw; }
 
 .card-extra-cost {
   position: absolute;
+  z-index: 4;
   bottom: 40%;
   right: 3cqw;
   background: #c92a2a;
@@ -312,8 +337,6 @@
   font-size: 12cqw;
   border: 0.8cqw solid #fff;
 }
-
-.card.is-exhausted .card-inner { filter: grayscale(0.6) brightness(0.65); }
 
 /* Inline icons in rich text */
 .glyph {
@@ -350,4 +373,3 @@
 .rt-ref { font-weight: 600; }
 .rt-name { font-weight: 600; color: var(--accent-2); }
 .rt-name-link { cursor: pointer; text-decoration: underline dotted; text-underline-offset: 2px; }
-.card-text .rt-name { color: inherit; }

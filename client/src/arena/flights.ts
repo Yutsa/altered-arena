@@ -6,8 +6,8 @@
  *
  * Plain DOM and the Web Animations API: no React state, nothing re-renders during a flight.
  */
-import type { CardCatalog, CardView, GameView, PlayerId, Zone } from '@protocol';
-import { artUrl } from '../api/catalog';
+import type { CardCatalog, CardDef, CardView, GameView, PlayerId, Zone } from '@protocol';
+import { artUrl, cardDef } from '../api/catalog';
 import { lastDrop } from '../game/drag';
 
 const DURATION = 320;
@@ -18,6 +18,7 @@ interface CardSnap {
   zone: Zone;
   owner: PlayerId;
   ref: string | null;
+  unique?: CardDef;
   rect: DOMRect | null;
 }
 
@@ -44,7 +45,7 @@ export function snapshot(root: HTMLElement, view: GameView): Snapshot {
   const cards = new Map<number, CardSnap>();
   for (const c of view.cards) {
     const el = cardEl(root, c.id);
-    cards.set(c.id, { zone: c.zone, owner: ownerOf(c), ref: c.ref, rect: el ? el.getBoundingClientRect() : null });
+    cards.set(c.id, { zone: c.zone, owner: ownerOf(c), ref: c.ref, unique: c.unique, rect: el ? el.getBoundingClientRect() : null });
   }
   const piles = new Map<string, DOMRect>();
   root.querySelectorAll<HTMLElement>('[data-pile]').forEach((el) => piles.set(el.dataset.pile!, el.getBoundingClientRect()));
@@ -80,8 +81,8 @@ interface Flight {
 export function fly(prev: Snapshot, next: Snapshot, view: GameView, root: HTMLElement, layer: HTMLElement, catalog: CardCatalog) {
   const you = view.you;
   const flights: Flight[] = [];
-  const face = (ref: string | null) => {
-    const d = ref ? catalog[ref] : undefined;
+  const face = (c: Pick<CardView, 'ref' | 'unique'> | undefined) => {
+    const d = cardDef(catalog, c);
     return d ? artUrl(d) : null;
   };
 
@@ -111,14 +112,14 @@ export function fly(prev: Snapshot, next: Snapshot, view: GameView, root: HTMLEl
       if (el && !before) mark(el, 'arena-pop');
       continue;
     }
-    flights.push({ from, to, face: face(c.ref ?? before?.ref ?? null), hide: el, intoPile: !el });
+    flights.push({ from, to, face: face(c.ref ? c : before), hide: el, intoPile: !el });
   }
 
   // Cards that left the view (back into a hidden hand or deck)
   for (const [id, before] of prev.cards) {
     if (next.cards.has(id) || !visible(before.rect)) continue;
     const to = before.owner !== you ? next.piles.get(`hand-${before.owner}`) : next.piles.get(`deck-${before.owner}`);
-    if (visible(to)) flights.push({ from: before.rect, to, face: face(before.ref), hide: null, intoPile: true });
+    if (visible(to)) flights.push({ from: before.rect, to, face: face(before), hide: null, intoPile: true });
   }
 
   // Draws we only know as counts (the opponent's hand)

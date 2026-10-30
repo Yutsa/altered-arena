@@ -42,6 +42,7 @@ export const MatCard = memo(function MatCard({ id, kind }: { id: number; kind: '
     <div
       className={cls}
       data-card-id={id}
+      data-rarity={d?.rarity}
       style={{ touchAction: draggable ? 'none' : undefined }}
       title={d?.name}
       {...handlers}

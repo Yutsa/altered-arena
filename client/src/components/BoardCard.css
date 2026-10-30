@@ -43,18 +43,16 @@
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
-.board-card .card-inner { transition: box-shadow 0.2s, transform 0.2s, filter 0.2s; }
-.board-card.is-playable .card-inner { box-shadow: 0 0 0 2px #69db7c, 0 0 14px #69db7c; }
-.board-card.is-selectable .card-inner { box-shadow: 0 0 0 2px var(--accent), 0 0 14px var(--accent); animation: glow 1.4s ease-in-out infinite; }
-.board-card.is-picked .card-inner { box-shadow: 0 0 0 4px #fff, 0 0 22px var(--accent); transform: translateY(-6%); animation: none; }
-.board-card.is-source .card-inner { box-shadow: 0 0 0 3px var(--accent-2), 0 0 22px var(--accent-2); }
-.board-card.is-selected .card-inner { box-shadow: 0 0 0 4px #fff, 0 0 24px #69db7c; }
+.board-card > .card { transition: box-shadow 0.2s, transform 0.2s, filter 0.2s; }
+.board-card.is-playable > .card { box-shadow: 0 0 0 2px #69db7c, 0 0 14px #69db7c; }
+.board-card.is-selectable > .card { box-shadow: 0 0 0 2px var(--accent), 0 0 14px var(--accent); animation: glow 1.4s ease-in-out infinite; }
+.board-card.is-picked > .card { box-shadow: 0 0 0 4px #fff, 0 0 22px var(--accent); transform: translateY(-6%); animation: none; }
+.board-card.is-source > .card { box-shadow: 0 0 0 3px var(--accent-2), 0 0 22px var(--accent-2); }
+.board-card.is-selected > .card { box-shadow: 0 0 0 4px #fff, 0 0 24px #69db7c; }
 .board-card.is-dragged { opacity: 0.35; }
 .board-card.is-exhausted > .card { transform: rotate(90deg) scale(0.72); }
-.zone-cards .board-card.is-exhausted,
-.exp-cards .board-card.is-exhausted { margin: 0 calc(var(--card-mini-w) * 0.18); }
 @media (hover: hover) {
-  .board-card:hover .card-inner { filter: brightness(1.12); }
+  .board-card:hover > .card { filter: brightness(1.12); }
 }
 .ability-flags {
   position: absolute;

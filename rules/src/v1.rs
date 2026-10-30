@@ -876,6 +876,9 @@ fn card_view(g: &Game, id: i64, tokens: &[String], positions: &mut std::collecti
             }
         }
     }
+    if php::loose_eq(c.db_props.get("rarity").unwrap_or(&Value::Null), &json!(2)) {
+        v["unique"] = unique_def(&c.db_props);
+    }
     let extra = p.get("extraDatas").cloned().unwrap_or(Value::Null);
     if !php::empty(php::get(&extra, "counter")) {
         let name = php::strval(php::coalesce(php::get(&extra, "counterName"), &json!("counter")));
@@ -884,6 +887,51 @@ fn card_view(g: &Game, id: i64, tokens: &[String], positions: &mut std::collecti
         v["counters"] = Value::Object(m);
     }
     Ok(v)
+}
+
+/// The printed data of a Unique, as a `CardDef` of the protocol: Uniques are not in the catalog
+/// (their ref is `Card`), each one carries its own properties. Their texts are lists of fragments
+/// (trigger, condition, output of each effect, `<BR>` between effects, `[]]` for an empty part).
+fn unique_def(p: &crate::game::PropMap) -> Value {
+    let get = |k: &str| p.get(k).cloned().unwrap_or(Value::Null);
+    let text = |k: &str| match get(k) {
+        Value::Array(parts) => {
+            let parts: Vec<String> = parts.iter().map(php::strval).filter(|s| !s.is_empty() && s != "[]]").collect();
+            Value::String(parts.join(" "))
+        }
+        Value::Null => Value::Null,
+        v => Value::String(php::strval(&v)),
+    };
+    let artist = match get("artist") {
+        Value::Object(m) => m.get("nickName").cloned().unwrap_or(Value::Null),
+        v => v,
+    };
+    let mut d = json!({
+        "ref": get("uid"),
+        "name": get("name"),
+        "type": get("type"),
+        "typeline": get("typeline"),
+        "subtypes": if get("subtypes").is_array() { get("subtypes") } else { json!([]) },
+        "faction": get("faction"),
+        "rarity": "unique",
+        "asset": get("asset"),
+        "effect": text("effectDesc"),
+        "keywords": [],
+    });
+    if d["effect"].is_null() {
+        d["effect"] = json!("");
+    }
+    for (k, v) in [("support", text("supportDesc")), ("flavor", get("flavorText")), ("artist", artist)] {
+        if !v.is_null() {
+            d[k] = v;
+        }
+    }
+    for k in ["costHand", "costReserve", "forest", "mountain", "ocean"] {
+        if let Some(x) = p.get(k).filter(|x| php::is_numeric(x)) {
+            d[k] = json!(php::intval(x));
+        }
+    }
+    d
 }
 
 /// The GameView of a player (`V1::build(Arena::view($gameId, $playerId))`); `you = None` is a
