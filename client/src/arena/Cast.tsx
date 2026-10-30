@@ -1,34 +1,53 @@
 import { useEffect, useRef, useState } from 'react';
+import type { CardView } from '@protocol';
 import { useGameCtx } from '../game/GameContext';
 import { useCardPointer } from '../game/useCardPointer';
 import { Card } from '../components/Card';
 
 /**
- * The card being cast (in limbo), shown large beside the mat while its effects wait for their
- * targets, as on BGA. When it leaves limbo, the arena flies it from here to its new place.
+ * The card whose effect the current decision resolves, shown large: the spell being cast (in limbo),
+ * or the card whose effect asks for targets (a character, a permanent, a hero...).
+ */
+function useFocus(): { card: CardView; casting: boolean } | null {
+  const { view, decision, byId } = useGameCtx();
+  const limbo = view.cards.filter((c) => c.zone === 'limbo');
+  const source = decision?.sourceCardId !== undefined ? byId.get(decision.sourceCardId) : undefined;
+  if (source?.zone === 'limbo') return { card: source, casting: true };
+  const targeting = decision?.kind === 'select' || decision?.kind === 'expedition';
+  if (targeting && source?.ref) return { card: source, casting: false };
+  const last = limbo.at(-1);
+  return last ? { card: last, casting: true } : null;
+}
+
+/**
+ * The focus card beside the mat while its effects wait for their targets, as on BGA. A spell is
+ * the card itself: when it leaves limbo, the arena flies it from here to its new place. The source
+ * of an effect is a copy: the card stays at its place on the mat.
  */
 export function CastFocus() {
-  const { view, def, decision, you } = useGameCtx();
-  const limbo = view.cards.filter((c) => c.zone === 'limbo');
-  const card = limbo.find((c) => c.id === decision?.sourceCardId) ?? limbo.at(-1);
-  if (!card) return null;
+  const { view, def, you } = useGameCtx();
+  const focus = useFocus();
+  if (!focus) return null;
+  const { card, casting } = focus;
   const owner = card.controller ?? card.owner;
-  const who = owner === you ? 'You cast' : `${view.players.find((p) => p.id === owner)?.name ?? 'Opponent'} casts`;
+  const name = owner === you ? null : (view.players.find((p) => p.id === owner)?.name ?? 'Opponent');
+  const who = casting ? (name ? `${name} casts` : 'You cast') : name ? `${name}'s effect` : 'Your effect';
   return (
-    <div className="cast-focus" key={card.id}>
+    <div className={`cast-focus ${casting ? '' : 'is-effect'}`} key={card.id}>
       <span className="cast-who">{who}</span>
-      <FocusCard id={card.id} />
+      <FocusCard id={card.id} copy={!casting} />
       <span className="cast-name">{def(card)?.name}</span>
     </div>
   );
 }
 
-function FocusCard({ id }: { id: number }) {
+function FocusCard({ id, copy }: { id: number; copy: boolean }) {
   const { byId, def } = useGameCtx();
   const { handlers } = useCardPointer(id);
   const card = byId.get(id);
+  // A copy does not carry data-card-id: the flights and the arrows find the card on the mat
   return (
-    <div className="cast-card" data-card-id={id} {...handlers}>
+    <div className="cast-card" data-card-id={copy ? undefined : id} {...handlers}>
       <Card def={def(card)} card={card} size="hand" />
     </div>
   );
@@ -78,15 +97,15 @@ function targetEl(target: { card?: number; exp?: string }): HTMLElement | null {
 }
 
 /**
- * Arrows from the card being cast to its targets: solid to the picked ones, fainter to the one under
- * the pointer (what a click would pick). Drawn over the whole window and measured every frame, so
- * they follow the cards (hover, flights, resize).
+ * Arrows from the focus card (a spell being cast, the source of an effect) to its targets: solid to
+ * the picked ones, fainter to the one under the pointer (what a click would pick). Drawn over the
+ * whole window and measured every frame, so they follow the cards (hover, flights, resize).
  */
 export function TargetArrows() {
-  const { view, decision, ui } = useGameCtx();
-  const casting = view.cards.some((c) => c.zone === 'limbo');
+  const { decision, ui } = useGameCtx();
+  const focus = useFocus();
   const kind = decision?.kind;
-  const active = casting && (kind === 'select' || kind === 'expedition');
+  const active = !!focus && (kind === 'select' || kind === 'expedition');
   const [arrows, setArrows] = useState<Arrow[]>([]);
   const state = useRef({ decision, ui });
   state.current = { decision, ui };

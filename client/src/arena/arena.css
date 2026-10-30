@@ -819,6 +819,9 @@ body.drag-spell .arena .track-drop .drop-label { display: none; }
   animation: arena-cast-glow 1.6s ease-in-out infinite;
   cursor: zoom-in;
 }
+/* The source of an effect (a copy: the card stays on the mat) glows gold rather than violet */
+.cast-focus.is-effect .cast-card { box-shadow: 0 0 0 3px #ffd27a, 0 0 34px rgb(255 200 120 / 0.75), 0 18px 30px rgb(0 0 0 / 0.55); animation: none; }
+.cast-focus.is-effect .cast-who { color: #ffe2a8; }
 .cast-who,
 .cast-name {
   padding: 2px 10px;
