@@ -344,7 +344,7 @@ fn report(args: &[String]) {
         let ps = s["players"].as_object().unwrap();
         ps.values().map(|r| pct(r, k, n)).sum::<f64>() / ps.len().max(1) as f64
     };
-    o += &format!("Baselines on the same {} decisions (decision-weighted / player mean): simple bot {:.1} % / {:.1} %, deck AI {:.1} % / {:.1} % (in-sample: its card priors were fit on these replays). Training-set agreement of the final model: {:.1} % / {:.1} %.\n\n",
+    o += &format!("Baselines on the same {} decisions (decision-weighted / player mean): simple bot {:.1} % / {:.1} %, deck AI {:.1} % / {:.1} % (in-sample: its card priors were fit on these replays). Training-set agreement (first member of the final model): {:.1} % / {:.1} %.\n\n",
         all["n"], pct(all, "bot", "base_n"), mean_of("bot", "base_n"), pct(all, "ai", "base_n"), mean_of("ai", "base_n"), pct(all, "train", "n"), mean_of("train", "n"));
     o += "### By decision kind (held-out top-1)\n\n| kind | decisions | final | first model | simple bot | deck AI |\n|---|---|---|---|---|---|\n";
     for (g, r) in s["groups"].as_object().unwrap() {
@@ -353,7 +353,7 @@ fn report(args: &[String]) {
     }
     o += "\n### By day\n\n| day | decisions | final | first model |\n|---|---|---|---|\n";
     for (g, r) in s["days"].as_object().unwrap() {
-        o += &format!("| {} | {} | {:.1} % | {:.1} % |\n", g, r["n"], pct(r, "top1", "n"), pct(&b["summary"]["days"][g], "top1", "n"));
+        o += &format!("| {} | {} | {:.1} % | {:.1} % |\n", g, r["n"], pct(r, "top1", "n"), pct(if b["summary"]["days"][g].is_null() { &b["summary"]["days"][g.trim_end_matches('+')] } else { &b["summary"]["days"][g] }, "top1", "n"));
     }
     o += "\n## Players\n\nHeld-out top-1 per decision kind: turn / Mana / target / choice / other.\n\n| AI (player — hero) | deck | games | decisions | simple bot | deck AI | first model | **final** | top-3 | train | turn | Mana | target | choice | other | gate wins | deck AI wins |\n|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|\n";
     let gate_rows: HashMap<String, Value> = gate["rows"].as_array().into_iter().flatten().map(|r| (r["player"].as_str().unwrap_or("").to_string(), r.clone())).collect();
