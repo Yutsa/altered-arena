@@ -110,6 +110,8 @@ export interface CardView {
   counters: Record<string, number>;
   /** Status keywords currently applying: fleeting, anchored, asleep, tough, defender, gigantic... */
   statuses: string[];
+  /** Terrain markers lying on the card (Nadir's, not placed yet) */
+  markers?: Biome[];
   /** Token cards are created by effects and disappear when they leave play */
   token?: boolean;
   /** Unique cards only: their printed data. Uniques are not in the catalog (their ref is "Card");
@@ -148,6 +150,8 @@ export interface RegionView {
   /** Biomes of the region; null while the Tumult card is face down */
   biomes: Biome[] | null;
   kind: 'heroRegion' | 'tumult' | 'companionRegion';
+  /** A terrain marker (Nadir): the region has this biome only, while the marker stays */
+  marker?: { biome: Biome; owner: PlayerId };
 }
 
 export interface LogEntry {
@@ -307,6 +311,8 @@ export interface DeckDecision extends DecisionBase {
 export interface ButtonsDecision extends DecisionBase {
   kind: 'buttons';
   buttons: { key: string; label: string }[];
+  /** Noon of Nadir: put one of these markers on one of these regions (button key "markerId:region") */
+  markRegion?: { markers: { id: number; biome: Biome }[]; regions: number[] };
 }
 
 export type Decision =

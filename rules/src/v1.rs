@@ -313,7 +313,13 @@ pub fn decision(g: &mut Game, raw: &RawState, you: PId) -> R<Option<Value>> {
                     buttons.push(json!({"key": format!("{}:{}", php::strval(php::get(m, "id")), rid), "label": format!("{} marker → region {}", php::ucfirst(&php::strval(php::get(m, "type"))), rid)}));
                 }
             }
-            with(&base, json!({"kind": "buttons", "buttons": buttons}))
+            // The markers and the regions, for the client to drag a marker onto a region
+            let markers: Vec<Value> = php::vals(php::coalesce(php::get(args, "markers"), &php::arr()))
+                .into_iter()
+                .map(|m| json!({"id": php::intval(php::get(m, "id")), "biome": php::strval(php::get(m, "type"))}))
+                .collect();
+            let regions: Vec<i64> = php::entries(php::coalesce(php::get(args, "regions"), &php::arr())).into_iter().map(|(rid, _)| php::intval(&json!(rid))).collect();
+            with(&base, json!({"kind": "buttons", "buttons": buttons, "markRegion": {"markers": markers, "regions": regions}}))
         }
         "moveRegionMarker" => {
             let buttons: Vec<Value> = php::vals(php::coalesce(php::get(args, "markers"), &php::arr()))
@@ -863,6 +869,10 @@ fn card_view(g: &Game, id: i64, tokens: &[String], positions: &mut std::collecti
         "counters": {},
         "statuses": statuses,
     });
+    let markers: Vec<&str> = ["forest", "mountain", "ocean"].into_iter().filter(|b| tokens.iter().any(|t| t == b)).collect();
+    if !markers.is_empty() {
+        v["markers"] = json!(markers);
+    }
     let token = !php::empty(p.get("token").unwrap_or(&Value::Null));
     if token {
         v["token"] = json!(true);
@@ -984,6 +994,7 @@ fn build_view(g: &mut Game, you: Option<PId>, game_id: &str) -> R<Value> {
     // Cards (with the engine class name as ref)
     let mut tokens_on: std::collections::HashMap<i64, Vec<String>> = Default::default();
     let mut storm_tokens: std::collections::HashMap<(PId, String), i64> = Default::default();
+    let mut region_markers: std::collections::HashMap<i64, Value> = Default::default();
     for m in meeples::get_all(g) {
         let mm = &g.meeples[&m];
         if let Some(c) = mm.location.strip_prefix("card-") {
@@ -991,6 +1002,9 @@ fn build_view(g: &mut Game, you: Option<PId>, game_id: &str) -> R<Value> {
         }
         if (mm.kind == "hero" || mm.kind == "companion") && mm.location.starts_with("storm-") {
             storm_tokens.insert((php::intval(&json!(mm.pid)), mm.kind.clone()), php::intval(&json!(&mm.location[6..])));
+        }
+        if ["forest", "mountain", "ocean"].contains(&mm.kind.as_str()) && mm.location.starts_with("storm-") {
+            region_markers.insert(php::intval(&json!(&mm.location[6..])), json!({"biome": mm.kind, "owner": php::intval(&json!(mm.pid))}));
         }
     }
     let mut rows = ui_cards(g, you)?;
@@ -1066,7 +1080,11 @@ fn build_view(g: &mut Game, you: Option<PId>, game_id: &str) -> R<Value> {
         } else {
             Value::Null
         };
-        regions.push(json!({"index": i, "biomes": biomes, "kind": if i == 0 { "heroRegion" } else if i == 7 { "companionRegion" } else { "tumult" }}));
+        let mut r = json!({"index": i, "biomes": biomes, "kind": if i == 0 { "heroRegion" } else if i == 7 { "companionRegion" } else { "tumult" }});
+        if let Some(m) = region_markers.get(&i) {
+            r["marker"] = m.clone();
+        }
+        regions.push(r);
     }
 
     let mut winner = Value::Null;

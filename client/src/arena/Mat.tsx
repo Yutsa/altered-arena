@@ -12,6 +12,7 @@ import { deckPatch, HERO_X, rowBackground, type ArenaLayout } from './layout';
 import { forecast, regionCenter, STORM_BACK, stormTiles, TRACK_UNITS, type StormTile } from './model';
 import { TrackButton } from './TrackButton';
 import { ManaBar } from './Hud';
+import { HeroMarkers, MARKED_SHIFT, RegionMarkers, regionBiomes } from './TerrainMarkers';
 
 /** A location option of the current decision that designates this zone of this player, if any */
 function useLocation(player: PlayerView | undefined, zone: Zone) {
@@ -233,6 +234,7 @@ function HeroCell({ player }: { player: PlayerView }) {
   return (
     <div className="hero-cell">
       {player.heroCardId !== null && <MatCard id={player.heroCardId} kind="hero" />}
+      <HeroMarkers player={player} />
       {view.firstPlayer === player.id && (
         <img key={`${view.day}-${player.id}`} className="first-token" src="/img/icons/first-player.png" alt="First player" title="First player" draggable={false} />
       )}
@@ -293,10 +295,12 @@ function Tile({ t, u, h, part, at }: { t: StormTile; u: number; h: number; part:
 }
 
 function Marker({ player, side, mine, other }: { player: PlayerView; side: Side; mine: boolean; other: boolean }) {
+  const { view } = useGameCtx();
   const pick = useExpeditionPick(player, side);
   const exp = player.expeditions[side];
-  // Both expeditions of a player in the same region: side by side
-  const dx = other ? (side === 'hero' ? -0.22 : 0.22) : 0;
+  // Both expeditions of a player in the same region: side by side; a terrain marker: on its right
+  const marked = view.regions.some((r) => r.index === exp.position && r.marker);
+  const dx = (other ? (side === 'hero' ? -0.22 : 0.22) : 0) + (marked ? MARKED_SHIFT : 0);
   const style: CSSProperties = { left: `${((regionCenter(exp.position) + dx) / TRACK_UNITS) * 100}%` };
   return (
     <button
@@ -316,10 +320,12 @@ function Ghost({ player, side, mine }: { player: PlayerView; side: Side; mine: b
   const { view } = useGameCtx();
   const f = forecast(view, player, side);
   if (!f.advances || view.phase === 'night' || view.phase === 'setup') return null;
+  const next = Math.max(0, Math.min(7, f.next));
+  const dx = view.regions.some((r) => r.index === next && r.marker) ? MARKED_SHIFT : 0;
   return (
     <span
       className={`ghost-marker ${mine ? 'mine' : 'theirs'}`}
-      style={{ left: `${(regionCenter(Math.max(0, Math.min(7, f.next))) / TRACK_UNITS) * 100}%` }}
+      style={{ left: `${((regionCenter(next) + dx) / TRACK_UNITS) * 100}%` }}
       title={`Expected after Dusk: region ${f.next}`}
     />
   );
@@ -343,6 +349,7 @@ function MatTrack({ l }: { l: ArenaLayout }) {
           <Tile key={`2r-${t[2].id}`} t={t[2]} u={u} h={h} part="right" at={6} />
           <Tile key={`3-${t[3].id}`} t={t[3]} u={u} h={h} part="full" at={7} />
           <Tile key={`4-${t[4].id}`} t={t[4]} u={u} h={h} part="full" at={9} />
+          <RegionMarkers regions={regions} u={u} />
           {players.map((p) => {
             const mine = p.id === (you ?? me?.id);
             const same = p.expeditions.hero.position === p.expeditions.companion.position;
@@ -358,7 +365,7 @@ function MatTrack({ l }: { l: ArenaLayout }) {
         </DropZone>
         {regions.map((r) => (
           <span key={r.index} className="region-chips" style={{ left: regionCenter(r.index) * u }}>
-            {r.biomes?.map((b) => (
+            {regionBiomes(r)?.map((b) => (
               <span key={b} className={`tot-${b}`}>
                 <span className="tot-icon">
                   <BiomeGlyph biome={b} />

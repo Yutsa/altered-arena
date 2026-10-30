@@ -287,6 +287,14 @@ function Controls({ d, hide }: { d: Decision; hide?: PrimaryAction['kind'] }) {
     case 'deck':
       return <DeckChooser d={d} />;
     case 'buttons':
+      // Noon of Nadir: the markers are dragged on the table, not picked from a button per region
+      if (d.markRegion)
+        return (
+          <div className="db-buttons wrap">
+            <span className="hint">Drag a terrain marker from your hero onto a visible region (or tap it, then the region).</span>
+            <CommonButtons d={d} hidePass={hidePass} />
+          </div>
+        );
       return (
         <div className="db-buttons wrap">
           {d.buttons.map((b) => (

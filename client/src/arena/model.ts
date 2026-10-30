@@ -64,7 +64,9 @@ export interface Forecast {
 export function forecast(view: GameView, player: PlayerView, side: Side): Forecast {
   const exp = player.expeditions[side];
   const other = view.players.find((p) => p.id !== player.id)?.expeditions[side];
-  const region = view.regions.find((r) => r.index === exp.position)?.biomes ?? null;
+  // A terrain marker (Nadir) gives the region its biome only
+  const r = view.regions.find((x) => x.index === exp.position);
+  const region = (r?.marker ? [r.marker.biome] : r?.biomes) ?? null;
   const winning = (region ?? []).filter((b) => {
     const mine = exp.stats[b];
     const theirs = other?.stats[b] ?? 0;

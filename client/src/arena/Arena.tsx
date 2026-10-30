@@ -7,6 +7,7 @@ import { Mat } from './Mat';
 import { ArenaHand, InfoChip, OppHand, PhaseBanner, PlayerChip, Prompt, RotateHint } from './Hud';
 import { fly, snapshot, type Snapshot } from './flights';
 import { CastFocus, TargetArrows } from './Cast';
+import { MarkerGhost } from './TerrainMarkers';
 import './arena.css';
 
 const coarse = typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches;
@@ -78,6 +79,7 @@ export function Arena({ onLeave, connected, extraTop }: { onLeave: () => void; c
       </div>
       <CastFocus />
       <TargetArrows />
+      <MarkerGhost />
       <div className="arena-flights" ref={layerRef} aria-hidden="true" />
       <Log entries={log} you={you} open={logOpen} onClose={() => setLogOpen(false)} />
       <EndScreen onLeave={onLeave} />
