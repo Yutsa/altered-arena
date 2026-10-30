@@ -4,6 +4,7 @@ import { useGameCtx } from '../game/GameContext';
 import { BoardCard } from '../components/BoardCard';
 import { CardListModal } from '../components/Picker';
 import { DecisionBar } from '../components/DecisionBar';
+import { useDrag } from '../game/drag';
 import { MatCard } from './MatCard';
 
 const PHASES: { phase: Phase; label: string; icon: string }[] = [
@@ -141,18 +142,26 @@ export function PhaseBanner() {
   );
 }
 
-/** My hand, fanned at the bottom; cards rise when hovered or tapped. */
+/**
+ * My hand, fanned at the bottom; cards rise when hovered or tapped. A card being dragged leaves
+ * the fan, which closes up (and opens again if the card comes back).
+ */
 export function ArenaHand() {
   const { me, zoneCards, ui, you } = useGameCtx();
+  const { drag } = useDrag();
   if (!me || you === null) return null;
   const cards = zoneCards(me.id, 'hand');
-  const n = cards.length;
+  const out = drag && !drag.returning ? drag.cardId : null;
+  const fanned = cards.filter((c) => c.id !== out);
+  const n = fanned.length;
   const spread = Math.min(6, 30 / Math.max(n, 1));
   const step = n > 6 ? 0.62 : 0.8;
   return (
     <div className="arena-hand" aria-label="Your hand">
-      {cards.map((c, i) => {
-        const off = i - (n - 1) / 2;
+      {cards.map((c, j) => {
+        // The card that left keeps the place it had, hidden
+        const i = c.id === out ? j : fanned.indexOf(c);
+        const off = i - ((c.id === out ? cards.length : n) - 1) / 2;
         return (
           <div
             key={c.id}

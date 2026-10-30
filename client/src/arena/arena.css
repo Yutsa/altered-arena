@@ -400,7 +400,7 @@
 .mc.is-picked { border-color: var(--cyan); transform: translateY(-6%) scale(1.06); box-shadow: 0 0 0 5px var(--cyan), 0 0 36px 12px rgb(80 200 255 / 0.85); animation: none; }
 .mc.is-source { box-shadow: 0 0 0 3px #ffd166, 0 0 22px #ffd166; }
 .mc.is-selected { box-shadow: 0 0 0 4px #fff, 0 0 24px #69db7c; }
-.mc.is-dragged { opacity: 0.35; }
+.mc.is-dragged { visibility: hidden; }
 @media (hover: hover) {
   .mc:hover { filter: brightness(1.12); }
 }
@@ -701,7 +701,7 @@
   translate: -50% 0;
   transform: translateY(var(--dy)) rotate(var(--rot));
   transform-origin: 50% 150%;
-  transition: transform 0.16s ease-out, bottom 0.16s ease-out;
+  transition: transform 0.16s ease-out, bottom 0.16s ease-out, left 0.22s ease-out;
 }
 @media (hover: hover) {
   .ah-slot:hover { transform: translateY(calc(var(--card-hand-w) * -0.62)) scale(1.12) rotate(0deg); z-index: 50 !important; }

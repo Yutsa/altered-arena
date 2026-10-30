@@ -25,7 +25,7 @@ export interface GameCtxValue {
   aff: Map<number, Affordance>;
   clickCard: (id: number) => void;
   inspectCard: (id: number, mode?: 'hover' | 'modal', x?: number) => void;
-  play: (cardId: number, destination: Destination) => void;
+  play: (cardId: number, destination: Destination) => Promise<boolean>;
 }
 
 const Ctx = createContext<GameCtxValue | null>(null);
@@ -123,7 +123,7 @@ export function GameProvider({
   const play = useCallback(
     (cardId: number, destination: Destination) => {
       setUI((u) => ({ ...u, selected: null }));
-      void send({ type: 'play', cardId, destination });
+      return send({ type: 'play', cardId, destination });
     },
     [send, setUI],
   );

@@ -66,7 +66,7 @@ export function useCardPointer(cardId: number) {
           if (draggable && !s.longPressed) {
             s.dragging = true;
             hide();
-            begin(cardId, destinations!, e.clientX, e.clientY);
+            begin(cardId, destinations!, e.clientX, e.clientY, (e.currentTarget as HTMLElement).getBoundingClientRect());
           } else if (!s.longPressed) {
             st.current = null; // a scroll gesture, not a tap
           }

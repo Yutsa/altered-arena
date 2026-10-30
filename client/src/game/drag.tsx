@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import type { Destination } from '@protocol';
 import { useGameCtx } from './GameContext';
@@ -8,11 +8,15 @@ interface DragState {
   cardId: number;
   destinations: Destination[];
   over: Destination | null;
+  /** dropped on a destination: the card waits there for the answer of the server */
+  dropped?: boolean;
+  /** dropped elsewhere: the card goes back to its place */
+  returning?: boolean;
 }
 
 interface DragCtxValue {
   drag: DragState | null;
-  begin: (cardId: number, destinations: Destination[], x: number, y: number) => void;
+  begin: (cardId: number, destinations: Destination[], x: number, y: number, from: DOMRect) => void;
   move: (x: number, y: number) => void;
   end: (drop: boolean) => void;
 }
@@ -32,54 +36,120 @@ function dropAt(x: number, y: number, allowed: Destination[]): Destination | nul
   return null;
 }
 
+const clamp = (v: number, m: number) => Math.max(-m, Math.min(m, v));
+
+/** The ghost card: where it is, where it goes, how it leans */
+interface Motion {
+  x: number;
+  y: number;
+  /** where the pointer is (dragging) or where the card goes back (returning) */
+  tx: number;
+  ty: number;
+  /** lean, in degrees: around the vertical axis, the horizontal axis, and in the plane */
+  ry: number;
+  rx: number;
+  rz: number;
+  scale: number;
+  frame: number;
+}
+
 /**
- * Hand-written drag and drop on pointer events (mouse, touch, pen): a ghost card follows the
- * pointer, drop zones are found with elementsFromPoint. Positions are written to the DOM directly
- * so that a drag does not re-render the table on every move.
+ * Hand-written drag and drop on pointer events (mouse, touch, pen). The card leaves its place
+ * and a ghost of it follows the pointer with a little delay, leaning with the motion (it tilts
+ * towards where it goes, more when the pointer moves fast) and shrinking over a drop zone. Dropped
+ * on a destination, it waits there for the server, and the arena flies it from there to its new
+ * place; dropped elsewhere, it goes back to its place. Drop zones are found with
+ * elementsFromPoint. The ghost is moved in a requestAnimationFrame loop, written to the DOM
+ * directly: a drag does not re-render the table on every move.
  */
 export function DragProvider({ children }: { children: ReactNode }) {
   const { byId, def, play } = useGameCtx();
   const [drag, setDrag] = useState<DragState | null>(null);
   const dragRef = useRef<DragState | null>(null);
   const ghostRef = useRef<HTMLDivElement>(null);
-  const pos = useRef({ x: 0, y: 0 });
+  const [size, setSize] = useState(0);
+  const home = useRef({ x: 0, y: 0 });
+  const m = useRef<Motion>({ x: 0, y: 0, tx: 0, ty: 0, ry: 0, rx: 0, rz: 0, scale: 1, frame: 0 });
 
-  const place = () => {
-    const g = ghostRef.current;
-    if (g) g.style.transform = `translate(${pos.current.x}px, ${pos.current.y}px) translate(-50%, -60%) rotate(-4deg)`;
-  };
-
-  const begin = useCallback((cardId: number, destinations: Destination[], x: number, y: number) => {
-    pos.current = { x, y };
-    const s = { cardId, destinations, over: null };
+  const set = (s: DragState | null) => {
     dragRef.current = s;
     setDrag(s);
-    requestAnimationFrame(place);
-    document.body.classList.add('is-dragging');
+  };
+
+  // One frame of the ghost: it eases towards its target, and leans with its speed
+  const step = useCallback(() => {
+    const s = dragRef.current;
+    const g = ghostRef.current;
+    const k = m.current;
+    if (!s) return;
+    const returning = !!s.returning;
+    const ease = returning ? 0.22 : s.dropped ? 0.5 : 0.32;
+    const vx = (k.tx - k.x) * ease;
+    const vy = (k.ty - k.y) * ease;
+    k.x += vx;
+    k.y += vy;
+    const lean = returning || s.dropped ? 0 : 1;
+    k.ry += (clamp(vx * 1.6, 28) * lean - k.ry) * 0.25;
+    k.rx += (clamp(-vy * 1.3, 24) * lean - k.rx) * 0.25;
+    k.rz += (clamp(vx * 0.7, 12) * lean - k.rz) * 0.25;
+    const scale = returning ? 1 : s.over ? 0.86 : 1.08;
+    k.scale += (scale - k.scale) * 0.25;
+    if (g) {
+      g.style.visibility = 'visible';
+      g.style.transform =
+        `translate(${k.x}px, ${k.y}px) translate(-50%, -50%) perspective(700px) ` +
+        `rotateX(${k.rx}deg) rotateY(${k.ry}deg) rotate(${k.rz}deg) scale(${k.scale})`;
+    }
+    if (returning && Math.hypot(k.tx - k.x, k.ty - k.y) < 1.5) {
+      set(null);
+      return;
+    }
+    k.frame = requestAnimationFrame(step);
   }, []);
+
+  const begin = useCallback(
+    (cardId: number, destinations: Destination[], x: number, y: number, from: DOMRect) => {
+      cancelAnimationFrame(m.current.frame);
+      home.current = { x: from.left + from.width / 2, y: from.top + from.height / 2 };
+      // The ghost starts on the card, the size it is drawn at on the table
+      m.current = { x: home.current.x, y: home.current.y, tx: x, ty: y, ry: 0, rx: 0, rz: 0, scale: 1, frame: 0 };
+      setSize(Math.min(from.width, from.height * (324 / 450)));
+      set({ cardId, destinations, over: null });
+      m.current.frame = requestAnimationFrame(step);
+      document.body.classList.add('is-dragging');
+    },
+    [step],
+  );
 
   const move = useCallback((x: number, y: number) => {
     const s = dragRef.current;
-    if (!s) return;
-    pos.current = { x, y };
-    place();
+    if (!s || s.dropped || s.returning) return;
+    m.current.tx = x;
+    m.current.ty = y;
     const over = dropAt(x, y, s.destinations);
-    if (over !== s.over) {
-      const n = { ...s, over };
-      dragRef.current = n;
-      setDrag(n);
-    }
+    if (over !== s.over) set({ ...s, over });
   }, []);
 
   const end = useCallback(
     (drop: boolean) => {
       const s = dragRef.current;
-      dragRef.current = null;
-      setDrag(null);
       document.body.classList.remove('is-dragging');
-      if (drop && s?.over) {
-        Object.assign(lastDrop, { cardId: s.cardId, x: pos.current.x, y: pos.current.y, at: performance.now() });
-        play(s.cardId, s.over);
+      if (!s) return;
+      if (drop && s.over) {
+        const k = m.current;
+        k.tx = k.x;
+        k.ty = k.y;
+        Object.assign(lastDrop, { cardId: s.cardId, x: k.x, y: k.y, at: performance.now() });
+        set({ ...s, destinations: [], dropped: true });
+        // The ghost stays where it was dropped until the new view moves the card
+        void play(s.cardId, s.over).finally(() => {
+          cancelAnimationFrame(m.current.frame);
+          if (dragRef.current?.cardId === s.cardId) set(null);
+        });
+      } else {
+        m.current.tx = home.current.x;
+        m.current.ty = home.current.y;
+        set({ ...s, destinations: [], over: null, returning: true });
       }
     },
     [play],
@@ -92,7 +162,11 @@ export function DragProvider({ children }: { children: ReactNode }) {
       {children}
       {drag &&
         createPortal(
-          <div ref={ghostRef} className={`drag-ghost ${drag.over ? 'over' : ''}`}>
+          <div
+            ref={ghostRef}
+            className={`drag-ghost ${drag.over || drag.dropped ? 'over' : ''}`}
+            style={{ ['--card-hand-w' as string]: `${size}px` } as CSSProperties}
+          >
             <Card def={def(card)} card={card} size="hand" />
           </div>,
           document.body,
