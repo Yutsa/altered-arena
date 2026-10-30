@@ -54,3 +54,6 @@
 }
 .inspector.insp-hover .card-zoom { --card-w: min(var(--card-zoom-w), 42vw); }
 .inspector.insp-hover .inspector-info { width: min(var(--card-zoom-w), 42vw); }
+
+.ii-up { color: #7dff8c; font-weight: 700; }
+.ii-down { color: #ff8a8a; font-weight: 700; }

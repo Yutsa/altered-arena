@@ -17,6 +17,9 @@ interface DragCtxValue {
   end: (drop: boolean) => void;
 }
 
+/** Where the last dragged card was dropped: the arena flies it from there instead of from the hand */
+export const lastDrop: { cardId: number | null; x: number; y: number; at: number } = { cardId: null, x: 0, y: 0, at: 0 };
+
 const DragCtx = createContext<DragCtxValue>({ drag: null, begin: () => {}, move: () => {}, end: () => {} });
 export const useDrag = () => useContext(DragCtx);
 
@@ -74,7 +77,10 @@ export function DragProvider({ children }: { children: ReactNode }) {
       dragRef.current = null;
       setDrag(null);
       document.body.classList.remove('is-dragging');
-      if (drop && s?.over) play(s.cardId, s.over);
+      if (drop && s?.over) {
+        Object.assign(lastDrop, { cardId: s.cardId, x: pos.current.x, y: pos.current.y, at: performance.now() });
+        play(s.cardId, s.over);
+      }
     },
     [play],
   );

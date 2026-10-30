@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import type { Decision, TurnDecision } from '@protocol';
 import { useGameCtx } from '../game/GameContext';
-import { cleanupCounts, confirmAnswer, DESTINATION_LABELS, exchangePicks, pickerCardIds, playCost } from '../game/decisions';
+import { cleanupCounts, confirmAnswer, DESTINATION_LABELS, exchangePicks, pickerCardIds, playCost, primaryAction, type PrimaryAction } from '../game/decisions';
 import { RichText } from './RichText';
 import { DeckGrid, SelectPicker } from './Picker';
 import { Modal } from './Modal';
@@ -45,8 +45,9 @@ function CommonButtons({ d, hidePass }: { d: Decision; hidePass?: boolean }) {
   );
 }
 
-function ConfirmButton({ d, label = 'Confirm' }: { d: Decision; label?: string }) {
+function ConfirmButton({ d, label = 'Confirm', hidden }: { d: Decision; label?: string; hidden?: boolean }) {
   const { ui, send } = useGameCtx();
+  if (hidden) return null;
   const a = confirmAnswer(d, ui);
   return (
     <Btn kind="primary" disabled={!a} onClick={() => a && void send(a)}>
@@ -105,7 +106,7 @@ function SelectedCardActions({ d }: { d: TurnDecision }) {
   );
 }
 
-function TurnControls({ d }: { d: TurnDecision }) {
+function TurnControls({ d, hide }: { d: TurnDecision; hide?: PrimaryAction['kind'] }) {
   const { send, ui } = useGameCtx();
   const [confirmEnd, setConfirmEnd] = useState(false);
   const canAct = d.play.length + d.support.length + d.tap.length > 0;
@@ -114,8 +115,8 @@ function TurnControls({ d }: { d: TurnDecision }) {
     <>
       <span className="hint">{canAct ? 'Drag a glowing card to a zone, or tap it.' : 'No card can be played.'}</span>
       <div className="db-buttons">
-        <CommonButtons d={d} />
-        {d.canEndTurn && (
+        <CommonButtons d={d} hidePass={hide === 'pass'} />
+        {d.canEndTurn && hide !== 'endTurn' && (
           <Btn
             kind={canAct ? '' : 'primary'}
             onClick={() => {
@@ -156,11 +157,13 @@ function DeckChooser({ d }: { d: Extract<Decision, { kind: 'deck' }> }) {
   );
 }
 
-function Controls({ d }: { d: Decision }) {
+function Controls({ d, hide }: { d: Decision; hide?: PrimaryAction['kind'] }) {
   const { view, ui, send, byId, def } = useGameCtx();
+  const hideConfirm = hide === 'confirm';
+  const hidePass = hide === 'pass';
   switch (d.kind) {
     case 'turn':
-      return <TurnControls d={d} />;
+      return <TurnControls d={d} hide={hide} />;
     case 'select': {
       const inPicker = pickerCardIds(view, d);
       return (
@@ -170,8 +173,8 @@ function Controls({ d }: { d: Decision }) {
             {ui.picked.length > 0 && ': ' + ui.picked.map((id) => def(byId.get(id))?.name ?? `#${id}`).join(', ')}
           </span>
           <div className="db-buttons">
-            <CommonButtons d={d} />
-            <ConfirmButton d={d} />
+            <CommonButtons d={d} hidePass={hidePass} />
+            <ConfirmButton d={d} hidden={hideConfirm} />
           </div>
           {inPicker.length > 0 && <SelectPicker decision={d} cardIds={inPicker} />}
         </>
@@ -185,16 +188,18 @@ function Controls({ d }: { d: Decision }) {
               <RichText text={c.label} />
             </Btn>
           ))}
-          <CommonButtons d={d} />
+          <CommonButtons d={d} hidePass={hidePass} />
         </div>
       );
     case 'confirm':
       return (
         <div className="db-buttons">
-          <CommonButtons d={d} />
-          <Btn kind="primary" onClick={() => void send({ type: 'confirm' })}>
-            Confirm
-          </Btn>
+          <CommonButtons d={d} hidePass={hidePass} />
+          {!hideConfirm && (
+            <Btn kind="primary" onClick={() => void send({ type: 'confirm' })}>
+              Confirm
+            </Btn>
+          )}
         </div>
       );
     case 'expedition': {
@@ -210,8 +215,8 @@ function Controls({ d }: { d: Decision }) {
               <ExpeditionButton key={o.key} d={d} optKey={o.key} label={label} picked={picked} single={single} />
             );
           })}
-          <CommonButtons d={d} />
-          {!single && <ConfirmButton d={d} />}
+          <CommonButtons d={d} hidePass={hidePass} />
+          {!single && <ConfirmButton d={d} hidden={hideConfirm} />}
         </div>
       );
     }
@@ -223,7 +228,7 @@ function Controls({ d }: { d: Decision }) {
               {pid === view.you ? 'You' : (view.players.find((p) => p.id === pid)?.name ?? `Player ${pid}`)}
             </Btn>
           ))}
-          <CommonButtons d={d} />
+          <CommonButtons d={d} hidePass={hidePass} />
         </div>
       );
     case 'number':
@@ -234,7 +239,7 @@ function Controls({ d }: { d: Decision }) {
               {v}
             </Btn>
           ))}
-          <CommonButtons d={d} />
+          <CommonButtons d={d} hidePass={hidePass} />
         </div>
       );
     case 'location':
@@ -245,7 +250,7 @@ function Controls({ d }: { d: Decision }) {
               <RichText text={l.label} />
             </Btn>
           ))}
-          <CommonButtons d={d} />
+          <CommonButtons d={d} hidePass={hidePass} />
         </div>
       );
     case 'exchange': {
@@ -257,8 +262,8 @@ function Controls({ d }: { d: Decision }) {
             {p.reserve !== undefined ? (def(byId.get(p.reserve))?.name ?? '✓') : '—'}
           </span>
           <div className="db-buttons">
-            <CommonButtons d={d} />
-            <ConfirmButton d={d} label="Exchange" />
+            <CommonButtons d={d} hidePass={hidePass} />
+            <ConfirmButton d={d} label="Exchange" hidden={hideConfirm} />
           </div>
         </>
       );
@@ -273,8 +278,8 @@ function Controls({ d }: { d: Decision }) {
             {c.needL > 0 && `Landmarks: ${c.landmarks.length}/${c.needL}`}
           </span>
           <div className="db-buttons">
-            <CommonButtons d={d} />
-            <ConfirmButton d={d} label="Discard" />
+            <CommonButtons d={d} hidePass={hidePass} />
+            <ConfirmButton d={d} label="Discard" hidden={hideConfirm} />
           </div>
         </>
       );
@@ -289,7 +294,7 @@ function Controls({ d }: { d: Decision }) {
               <RichText text={b.label} />
             </Btn>
           ))}
-          <CommonButtons d={d} />
+          <CommonButtons d={d} hidePass={hidePass} />
         </div>
       );
     default: {
@@ -319,8 +324,11 @@ function ExpeditionButton({ d, optKey, label, picked, single }: { d: Extract<Dec
   );
 }
 
-/** The prompt of the current decision and its controls; a waiting indicator otherwise. */
-export function DecisionBar() {
+/**
+ * The prompt of the current decision and its controls; a waiting indicator otherwise.
+ * primaryOnTrack: the main action (end turn, confirm, pass) is on another button, not here.
+ */
+export function DecisionBar({ primaryOnTrack = false, before }: { primaryOnTrack?: boolean; before?: ReactNode }) {
   const { view, decision, byId, def, sending, inspectCard } = useGameCtx();
   const [flash, setFlash] = useState(false);
   const decisionId = decision?.id;
@@ -348,6 +356,7 @@ export function DecisionBar() {
   return (
     <div className={`decision-bar kind-${decision.kind} ${flash ? 'flash' : ''} ${sending ? 'sending' : ''}`} aria-live="polite">
       <div className="db-prompt">
+        {before}
         {sourceDef && (
           <button type="button" className="db-source" onClick={() => inspectCard(source!.id)} title={sourceDef.name}>
             {sourceDef.name}
@@ -356,7 +365,7 @@ export function DecisionBar() {
         <RichText text={decision.prompt} />
       </div>
       <div className="db-controls">
-        <Controls d={decision} />
+        <Controls d={decision} hide={primaryOnTrack ? primaryAction(decision)?.kind : undefined} />
       </div>
     </div>
   );

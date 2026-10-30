@@ -1,0 +1,24 @@
+.end-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 150;
+  display: grid;
+  place-items: center;
+  background: rgb(5 6 15 / 0.7);
+  backdrop-filter: blur(4px);
+}
+.end-card {
+  text-align: center;
+  padding: 28px 36px;
+  border-radius: 20px;
+  background: var(--panel-solid);
+  border: 2px solid var(--line);
+  box-shadow: 0 30px 80px rgb(0 0 0 / 0.6);
+  max-width: calc(100vw - 32px);
+}
+.end-card.won { border-color: #ffd43b; box-shadow: 0 0 60px -10px #ffd43b; }
+.end-title { font-family: var(--font-title); font-size: clamp(40px, 10vw, 72px); text-transform: uppercase; letter-spacing: 0.04em; }
+.end-card.won .end-title { color: #ffd43b; }
+.end-card.lost .end-title { color: #ff8787; }
+.end-sub { color: var(--muted); margin: 6px 0 18px; }
+.end-buttons { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }

@@ -5,7 +5,7 @@ import { useGame } from '../game/useGame';
 import { InspectProvider } from '../game/inspect';
 import { GameProvider } from '../game/GameContext';
 import { DragProvider } from '../game/drag';
-import { Table } from '../components/Table';
+import { Arena } from '../arena/Arena';
 import { Inspector } from '../components/Inspector';
 import { forgetGame, rememberGame, tokenOf } from './storage';
 
@@ -70,7 +70,7 @@ export function GameScreen({
     <InspectProvider catalog={catalog} preferredRefs={refs}>
       <GameProvider view={view} catalog={catalog} log={game.log} sending={game.sending} send={game.send}>
         <DragProvider>
-          <Table onLeave={onLeave} connected={game.connected} extraTop={<>{spectator}{switcher}</>} />
+          <Arena onLeave={onLeave} connected={game.connected} extraTop={spectator || switcher ? <>{spectator}{switcher}</> : undefined} />
         </DragProvider>
       </GameProvider>
       <Inspector />

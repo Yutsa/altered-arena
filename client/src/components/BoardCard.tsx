@@ -5,6 +5,7 @@ import { useCardPointer } from '../game/useCardPointer';
 import { useDrag } from '../game/drag';
 import { hasActions } from '../game/decisions';
 import { Card, type CardSize } from './Card';
+import './BoardCard.css';
 
 export const cardTransition = { type: 'spring', stiffness: 420, damping: 36, mass: 0.9 } as const;
 

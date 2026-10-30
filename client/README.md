@@ -70,23 +70,37 @@ src/
     inspect.tsx     large card view state (hover preview, modal), card name resolution
     keywords.ts     effect keywords and reminders
     toasts.ts       error toasts
+  arena/        the game table
+    Arena.tsx       stage scaled to the window, the mat tilted in CSS 3D, HUD, flights
+    layout.ts       the two stages (wide 1440x900, phone landscape 844x390), mat slices of board.jpg
+    Mat.tsx         mat rows: player zones (piles, Reserve, Landmarks), expedition bands (totals,
+                    expeditions, hero card), the Tumult track (storm.jpg tiles, markers, forecast)
+    MatCard.tsx     card on the mat: art, statistics column (green when boosted), "+1" effects
+    Hud.tsx         player chips (mana, hand, gap), day/phase, prompt, hand, phase banner
+    TrackButton.tsx the round button in the middle of the track (end turn, confirm, pass)
+    flights.ts      cards flying between zones (Web Animations, no React state)
+    model.ts        pure: Tumult card per region pair, Dusk forecast, track geometry
   components/
     Card            card drawn in CSS (sizes mini/small/hand/zoom, all in container units)
-    BoardCard       interactive card, animated between zones (motion layoutId per card id)
-    Hand, Board (expedition rows, reserve, landmarks), Tumult (regions, markers, cast zone)
-    PlayerBar, DecisionBar (all decision kinds), Picker (select picker, deck grid), Inspector,
-    Log, PhaseIndicator, EndScreen, Toasts, Modal, RichText (effect markup), Glyph (icon font)
+    BoardCard       interactive card of the hand and pickers (motion layoutId per card id)
+    DecisionBar (all decision kinds), Picker (select picker, deck grid), Inspector,
+    Log, EndScreen, Toasts, Modal, RichText (effect markup), Glyph (icon font)
   screens/      Lobby, GameScreen, storage (name, deck, last game, seat tokens)
   dev/          ReplayScreen (dev only, not in production builds)
-public/         fonts, icons, Tumult tokens and card back taken from AlteredBGA/img, PWA icons
+public/         fonts, icons, Tumult tokens, card back, and img/arena (mat, Tumult cards, sky,
+                landmark slot) taken from AlteredBGA/img, PWA icons
 ```
 
 Interaction model:
 
 - Turn: playable cards glow green. Drag one onto a highlighted zone (expedition, Scout area,
-  landmarks, reserve, the cast circle over the Tumult for spells), or tap it and pick a zone or a
-  button (destinations with their cost, support, exhaust ability). End turn asks for a second tap
-  while cards can still be played.
+  landmarks, reserve, the Tumult track for spells), or tap it and pick a zone or a button
+  (destinations with their cost, support, exhaust ability). The round button in the middle of the
+  track ends the turn (a second tap is asked while cards can still be played), confirms picks or
+  passes an optional step.
+- Totals at both ends of each expedition band show its statistics; biomes of its region are lit,
+  and a lit arrow marks the biomes where it beats the opposing expedition. A dashed circle on the
+  track shows where a marker goes at Dusk. Phones play in landscape.
 - Other decisions: the prompt and its buttons are in the decision bar; selectable cards pulse on the
   table; a picker opens when the cards are not on the table (mana, discard, deck) or `showInPicker`.
   Expedition and location decisions can also be answered by clicking an expedition row or marker.

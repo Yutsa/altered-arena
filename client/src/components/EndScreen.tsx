@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { useGameCtx } from '../game/GameContext';
+import './EndScreen.css';
 
 export function EndScreen({ onLeave }: { onLeave: () => void }) {
   const { view } = useGameCtx();

@@ -184,6 +184,33 @@ export function confirmAnswer(d: Decision, ui: UIState) {
   }
 }
 
+/**
+ * The main action of a decision, shown on its own button (the round button of the arena track):
+ * end the turn, confirm the picks, or pass an optional step.
+ */
+export type PrimaryAction = { kind: 'endTurn' } | { kind: 'confirm'; label: string } | { kind: 'pass'; label: string };
+
+export function primaryAction(d: Decision | null): PrimaryAction | null {
+  if (!d) return null;
+  switch (d.kind) {
+    case 'turn':
+      return d.canEndTurn ? { kind: 'endTurn' } : d.canPass ? { kind: 'pass', label: d.passLabel ?? 'Pass' } : null;
+    case 'select':
+    case 'confirm':
+      return { kind: 'confirm', label: 'Confirm' };
+    case 'cleanup':
+      return { kind: 'confirm', label: 'Discard' };
+    case 'exchange':
+      return { kind: 'confirm', label: 'Exchange' };
+    case 'expedition':
+      if (!(d.min === 1 && d.max === 1)) return { kind: 'confirm', label: 'Confirm' };
+      break;
+    case 'deck':
+      return null;
+  }
+  return d.canPass ? { kind: 'pass', label: d.passLabel ?? 'Pass' } : null;
+}
+
 /** Cards of a select decision that are not drawn on the table: they are shown in a picker. */
 export function pickerCardIds(view: GameView, d: SelectDecision): number[] {
   if (d.showInPicker) return d.cardIds;

@@ -4,7 +4,7 @@ import { useCatalog } from '../api/catalog';
 import { InspectProvider } from '../game/inspect';
 import { GameProvider } from '../game/GameContext';
 import { DragProvider } from '../game/drag';
-import { Table } from '../components/Table';
+import { Arena } from '../arena/Arena';
 import { Inspector } from '../components/Inspector';
 import { toast } from '../game/toasts';
 import type { AnswerBody } from '../game/useGame';
@@ -176,7 +176,7 @@ function Viewer({ table, seat, file }: { table?: string; seat?: number; file?: s
     <InspectProvider catalog={catalog} preferredRefs={refs}>
       <GameProvider view={view} catalog={catalog} log={log} sending={false} send={send}>
         <DragProvider>
-          <Table onLeave={() => (location.search = '?replay')} connected extraTop={controls} />
+          <Arena onLeave={() => (location.search = '?replay')} connected extraTop={controls} />
         </DragProvider>
       </GameProvider>
       <Inspector />
