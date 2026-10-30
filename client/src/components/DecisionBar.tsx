@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import type { Decision, TurnDecision } from '@protocol';
 import { useGameCtx } from '../game/GameContext';
-import { cleanupCounts, confirmAnswer, DESTINATION_LABELS, exchangePicks, pickerCardIds, playCost, primaryAction, type PrimaryAction } from '../game/decisions';
+import { choiceKey, cleanupCounts, confirmAnswer, DESTINATION_LABELS, exchangePicks, pickerCardIds, playCost, primaryAction, type PrimaryAction } from '../game/decisions';
 import { RichText } from './RichText';
 import { DeckGrid, SelectPicker } from './Picker';
 import { Modal } from './Modal';
@@ -181,16 +181,7 @@ function Controls({ d, hide }: { d: Decision; hide?: PrimaryAction['kind'] }) {
       );
     }
     case 'choice':
-      return (
-        <div className="db-buttons wrap">
-          {d.choices.map((c) => (
-            <Btn key={c.id} kind={c.enabled ? 'primary' : ''} disabled={!c.enabled} onClick={() => void send({ type: 'choice', id: c.id })}>
-              <RichText text={c.label} />
-            </Btn>
-          ))}
-          <CommonButtons d={d} hidePass={hidePass} />
-        </div>
-      );
+      return <ChoiceButtons d={d} hidePass={hidePass} />;
     case 'confirm':
       return (
         <div className="db-buttons">
@@ -317,6 +308,36 @@ function Controls({ d, hide }: { d: Decision; hide?: PrimaryAction['kind'] }) {
   }
 }
 
+/** The effects to resolve; identical ones (The Hunger's boosts...) are one button that resolves them all */
+function ChoiceButtons({ d, hidePass }: { d: Extract<Decision, { kind: 'choice' }>; hidePass: boolean }) {
+  const { send, repeatChoice } = useGameCtx();
+  const groups = new Map<string, typeof d.choices>();
+  for (const c of d.choices) {
+    const k = c.enabled ? choiceKey(c) : `off|${c.id}`;
+    groups.set(k, [...(groups.get(k) ?? []), c]);
+  }
+  return (
+    <div className="db-buttons wrap">
+      {[...groups].map(([k, cs]) => (
+        <Btn
+          key={k}
+          kind={cs[0].enabled ? 'primary' : ''}
+          disabled={!cs[0].enabled}
+          title={cs.length > 1 ? `Resolve all ${cs.length}` : undefined}
+          onClick={() => {
+            repeatChoice(cs.length > 1 ? k : null);
+            void send({ type: 'choice', id: cs[0].id });
+          }}
+        >
+          <RichText text={cs[0].label} />
+          {cs.length > 1 && <span className="db-times">×{cs.length}</span>}
+        </Btn>
+      ))}
+      <CommonButtons d={d} hidePass={hidePass} />
+    </div>
+  );
+}
+
 function ExpeditionButton({ d, optKey, label, picked, single }: { d: Extract<Decision, { kind: 'expedition' }>; optKey: string; label: string; picked: boolean; single: boolean }) {
   const { send, setUI } = useGameCtx();
   return (
@@ -337,7 +358,7 @@ function ExpeditionButton({ d, optKey, label, picked, single }: { d: Extract<Dec
  * primaryOnTrack: the main action (end turn, confirm, pass) is on another button, not here.
  */
 export function DecisionBar({ primaryOnTrack = false, before }: { primaryOnTrack?: boolean; before?: ReactNode }) {
-  const { view, decision, byId, def, sending, inspectCard } = useGameCtx();
+  const { view, decision, byId, def, sending, inspectCard, auto } = useGameCtx();
   const [flash, setFlash] = useState(false);
   const decisionId = decision?.id;
   useEffect(() => {
@@ -361,6 +382,15 @@ export function DecisionBar({ primaryOnTrack = false, before }: { primaryOnTrack
   }
   const source = decision.sourceCardId !== undefined ? byId.get(decision.sourceCardId) : undefined;
   const sourceDef = def(source);
+  // Answered for the player (no real choice): nothing to click
+  if (auto)
+    return (
+      <div className="decision-bar waiting" aria-live="polite">
+        <span className="spinner" />
+        {sourceDef && <b>{sourceDef.name}</b>}
+        <RichText text={decision.prompt} />
+      </div>
+    );
   return (
     <div className={`decision-bar kind-${decision.kind} ${flash ? 'flash' : ''} ${sending ? 'sending' : ''}`} aria-live="polite">
       <div className="db-prompt">

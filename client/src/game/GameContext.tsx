@@ -1,6 +1,6 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { CardCatalog, CardDef, CardView, Decision, Destination, GameView, LogEntry, PlayerId, PlayerView, Zone } from '@protocol';
-import { affordances, emptyUI, hasActions, togglePick, type Affordance, type UIState } from './decisions';
+import { affordances, autoAnswer, emptyUI, hasActions, togglePick, type Affordance, type UIState } from './decisions';
 import type { AnswerBody } from './useGame';
 import { useInspect } from './inspect';
 import { cardDef } from '../api/catalog';
@@ -26,6 +26,10 @@ export interface GameCtxValue {
   clickCard: (id: number) => void;
   inspectCard: (id: number, mode?: 'hover' | 'modal', x?: number) => void;
   play: (cardId: number, destination: Destination) => Promise<boolean>;
+  /** The answer about to be sent for the player: the decision leaves no real choice */
+  auto: ReturnType<typeof autoAnswer>;
+  /** Resolve this choice (choiceKey) every time it is offered, until it is gone */
+  repeatChoice: (key: string | null) => void;
 }
 
 const Ctx = createContext<GameCtxValue | null>(null);
@@ -89,6 +93,34 @@ export function GameProvider({
   const def = useCallback((c: CardView | undefined | null) => cardDef(catalog, c), [catalog]);
   const aff = useMemo(() => affordances(decision, current), [decision, current]);
 
+  // Decisions without a real choice are answered for the player (once each: not again after an error)
+  const [repeat, setRepeat] = useState<string | null>(null);
+  const auto = useMemo(() => autoAnswer(decision, repeat), [decision, repeat]);
+  const autoDone = useRef<string | null>(null);
+  const [autoFailed, setAutoFailed] = useState<string | null>(null);
+  // Shown as resolving until the answer is in (a late view may still carry the decision)
+  const shownAuto = auto && decisionId !== autoFailed ? auto : null;
+  useEffect(() => {
+    if (!shownAuto || !decisionId || sending || autoDone.current === decisionId) return;
+    const t = setTimeout(() => {
+      autoDone.current = decisionId;
+      void send(shownAuto.answer).then((ok) => ok || setAutoFailed(decisionId));
+    }, shownAuto.delay);
+    return () => clearTimeout(t);
+  }, [shownAuto, decisionId, sending, send]);
+  // The player answers the current decision: its repeat must not answer it again
+  const repeatChoice = useCallback(
+    (key: string | null) => {
+      autoDone.current = decisionId;
+      setRepeat(key);
+    },
+    [decisionId],
+  );
+  // The repeated choice ends with the first decision that does not offer it
+  useEffect(() => {
+    if (repeat !== null && decision && !auto) setRepeat(null);
+  }, [repeat, decision, auto]);
+
   const you = view.you;
   const me = view.players.find((p) => p.id === you) ?? (you === null ? view.players[0] : undefined);
   const opp = view.players.find((p) => p.id !== me?.id);
@@ -107,7 +139,14 @@ export function GameProvider({
       const a = aff.get(id);
       if (decision && !sending) {
         if (decision.kind === 'turn' && hasActions(a)) {
-          setUI((u) => ({ ...u, selected: u.selected === id ? null : id }));
+          // An exhaust ability alone ({T}: Manaseed, Akesha...): used at once
+          if (a?.tap && !a.support && !a.destinations?.length) void send({ type: 'tap', cardId: id });
+          else setUI((u) => ({ ...u, selected: u.selected === id ? null : id }));
+          return;
+        }
+        // A single target to pick: the click picks it (Pass or Confirm with none still decline)
+        if (decision.kind === 'select' && a?.selectable && decision.max === 1 && decision.sourceCardId !== undefined && !decision.costs?.[id]) {
+          void send({ type: 'select', cardIds: [id] });
           return;
         }
         if ((decision.kind === 'select' || decision.kind === 'cleanup' || decision.kind === 'exchange') && a?.selectable) {
@@ -117,7 +156,7 @@ export function GameProvider({
       }
       inspectCard(id, 'modal');
     },
-    [aff, decision, sending, setUI, inspectCard],
+    [aff, decision, sending, setUI, inspectCard, send],
   );
 
   const play = useCallback(
@@ -148,6 +187,8 @@ export function GameProvider({
     clickCard,
     inspectCard,
     play,
+    auto: shownAuto,
+    repeatChoice,
   };
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

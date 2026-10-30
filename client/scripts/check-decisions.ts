@@ -7,7 +7,7 @@
  *   node scripts/check-decisions.ts [--games N] [--hotseat] [--record out.json] [--server URL]
  */
 import type { CardCatalog, Decision, GameCreated, GameView, PlayerId } from '../../protocol/protocol.ts';
-import { affordances, confirmAnswer, emptyUI, isOnBoard, pickerCardIds, toggleKey, togglePick, type UIState, type AnswerBody } from '../src/game/decisions.ts';
+import { affordances, autoAnswer, confirmAnswer, emptyUI, isOnBoard, pickerCardIds, toggleKey, togglePick, type UIState, type AnswerBody } from '../src/game/decisions.ts';
 import { KEYWORDS } from '../src/game/keywords.ts';
 import { writeFileSync } from 'node:fs';
 
@@ -39,6 +39,9 @@ const shuffle = <T>(l: T[]): T[] => [...l].sort(() => Math.random() - 0.5);
 const stats = {
   kinds: {} as Record<string, number>,
   refused: [] as string[],
+  auto: {} as Record<string, number>,
+  /** A declinable choice whose next decision cannot be passed */
+  notDeclinable: [] as string[],
   unknownCards: new Set<string>(),
   unknownMarkup: new Set<string>(),
   picker: 0,
@@ -152,7 +155,10 @@ async function playGame(catalog: CardCatalog, decks: { id: string }[]) {
       if (!d) continue;
       stats.kinds[d.kind] = (stats.kinds[d.kind] ?? 0) + 1;
       if (!RENDERED.has(d.kind)) throw new Error(`No renderer for decision kind ${d.kind}`);
-      const body = uiAnswer(view, d, catalog);
+      // As the UI does: a decision without a real choice is answered for the player
+      const auto = autoAnswer(d);
+      if (auto) stats.auto[d.kind] = (stats.auto[d.kind] ?? 0) + 1;
+      const body = auto?.answer ?? uiAnswer(view, d, catalog);
       let res = await call<GameView>('POST', `/api/v1/games/${g.gameId}/answer?${seat(me)}`, { ...body, decisionId: d.id });
       if (res.error) {
         stats.refused.push(`${d.kind} "${d.prompt}" ${JSON.stringify(body)} -> ${res.error}`);
@@ -160,6 +166,10 @@ async function playGame(catalog: CardCatalog, decks: { id: string }[]) {
         if (res.error && d.kind === 'turn' && d.canEndTurn)
           res = await call<GameView>('POST', `/api/v1/games/${g.gameId}/answer?${seat(me)}`, { decisionId: d.id, type: 'endTurn' });
         if (res.error) throw new Error(`stuck on ${d.kind}: ${res.error}`);
+      } else if (d.kind === 'choice' && body.type === 'choice' && d.choices.find((c) => c.id === body.id)?.declinable) {
+        const n = res.decision;
+        if (!n || !(n.canPass || (n.kind === 'select' && n.min === 0)))
+          stats.notDeclinable.push(`${d.choices.find((c) => c.id === body.id)?.label} -> ${n?.kind} "${n?.prompt}"`);
       }
       acted = true;
       steps++;
@@ -190,6 +200,8 @@ if (RECORD) writeFileSync(RECORD, JSON.stringify(all));
 console.log('decision kinds:', stats.kinds);
 console.log('select decisions shown in a picker:', stats.picker);
 console.log('turn decisions with PlayOption.cost missing:', stats.missingCost);
+console.log('answered for the player:', stats.auto);
+console.log('declinable choices that could not be passed:', stats.notDeclinable);
 console.log('refused answers:', stats.refused.length);
 for (const r of stats.refused.slice(0, 20)) console.log('  ', r);
 console.log('unknown cards:', [...stats.unknownCards].slice(0, 20));

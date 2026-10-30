@@ -204,6 +204,8 @@ export interface ChoiceOption {
   label: string;
   enabled: boolean;
   sourceCardId?: number;
+  /** A "you may" effect (offered with Pass): once chosen, the decision it leads to can still be passed */
+  declinable?: boolean;
 }
 
 export interface ExpeditionOption {

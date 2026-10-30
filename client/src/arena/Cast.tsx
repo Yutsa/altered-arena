@@ -108,8 +108,12 @@ function targetEl(target: { card?: number; exp?: string }): HTMLElement | null {
  * whole window and measured every frame, so they follow the cards (hover, flights, resize).
  */
 export function TargetArrows() {
-  const { decision, ui } = useGameCtx();
-  const shown = useContext(ShownTargets);
+  const { decision, ui, auto } = useGameCtx();
+  // Replays: the targets the player chose; live: the only targets, about to be picked for the player
+  const a = auto?.answer;
+  const shown =
+    useContext(ShownTargets) ??
+    (a?.type === 'select' ? { cards: a.cardIds, keys: [] } : a?.type === 'expedition' ? { cards: [], keys: a.keys } : null);
   const focus = useFocus();
   const kind = decision?.kind;
   const active = !!focus && (kind === 'select' || kind === 'expedition' || !!shown);

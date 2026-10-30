@@ -967,6 +967,38 @@ pub fn build(g: &mut Game, you: Option<PId>, game_id: &str) -> R<Value> {
     Ok(view)
 }
 
+/// A "you may" effect offered with Pass (one effect, then Pass): `declinable` when the decision it
+/// leads to, once chosen, can still be passed (a target to pick or not...), so that the client
+/// may choose it right away. Found with a dry run on a copy of the game. Only in the GameView:
+/// `decision()` stays as in PHP (goldens, bots).
+fn mark_declinable(g: &Game, you: PId, d: &mut Value) {
+    if d["kind"] != json!("choice") {
+        return;
+    }
+    let Some(choices) = d["choices"].as_array() else { return };
+    let pass = crate::core::node::PASS;
+    let effects: Vec<usize> = (0..choices.len()).filter(|i| choices[*i]["id"] != json!(pass)).collect();
+    let can_pass = choices.iter().any(|c| c["id"] == json!(pass) && c["enabled"] == json!(true));
+    let [i] = effects[..] else { return };
+    let effect = &choices[i];
+    if !can_pass || effect["enabled"] != json!(true) {
+        return;
+    }
+    let mut copy = g.clone();
+    let declinable = (|| -> R<bool> {
+        act(&mut copy, you, "actChooseAction", &json!([effect["id"]]))?;
+        let raw = view_state(&mut copy, you)?;
+        let Some(next) = (if raw.is_active { decision(&mut copy, &raw, you)? } else { None }) else { return Ok(false) };
+        let same_source = effect.get("sourceCardId").is_none() || next.get("sourceCardId").is_none() || effect["sourceCardId"] == next["sourceCardId"];
+        let kind = next["kind"].as_str().unwrap_or("");
+        Ok(same_source && kind != "turn" && kind != "confirm" && (next["canPass"] == json!(true) || (kind == "select" && next["min"] == json!(0))))
+    })()
+    .unwrap_or(false);
+    if declinable {
+        d["choices"][i]["declinable"] = json!(true);
+    }
+}
+
 fn build_view(g: &mut Game, you: Option<PId>, game_id: &str) -> R<Value> {
     let raw = match you {
         Some(p) => Some(view_state(g, p)?),
@@ -1102,10 +1134,13 @@ fn build_view(g: &mut Game, you: Option<PId>, game_id: &str) -> R<Value> {
         _ => vec![],
     };
     let first = globals::get_int(g, "firstPlayer")?;
-    let decision_v = match (&raw, you) {
+    let mut decision_v = match (&raw, you) {
         (Some(r), Some(p)) if r.is_active => decision(g, r, p)?,
         _ => None,
     };
+    if let (Some(d), Some(p)) = (decision_v.as_mut(), you) {
+        mark_declinable(g, p, d);
+    }
     let log: Vec<Value> = crate::arena::log_for(g, you)
         .into_iter()
         .map(|l| {

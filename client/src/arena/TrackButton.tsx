@@ -7,7 +7,7 @@ import { confirmAnswer, primaryAction } from '../game/decisions';
  * the turn, confirm, pass), or who the game is waiting for.
  */
 export function TrackButton() {
-  const { view, decision, ui, send, sending, you } = useGameCtx();
+  const { view, decision, ui, send, sending, you, auto } = useGameCtx();
   const [armed, setArmed] = useState(false);
   const decisionId = decision?.id;
   useEffect(() => setArmed(false), [decisionId]);
@@ -18,7 +18,7 @@ export function TrackButton() {
   }, [armed]);
 
   if (view.phase === 'ended') return <span className="track-btn idle">End</span>;
-  if (!decision) {
+  if (!decision || auto) {
     const waitingOnOther = view.waitingFor.some((p) => p !== you);
     return (
       <span className="track-btn idle" aria-live="polite">

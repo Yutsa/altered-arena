@@ -49,3 +49,13 @@
   .db-controls { gap: 6px; }
   .hint { font-size: 12px; min-width: 90px; }
 }
+
+/* A group of identical effects, resolved together */
+.db-times {
+  margin-left: 0.45em;
+  padding: 0 0.4em;
+  border-radius: 999px;
+  background: rgb(0 0 0 / 0.22);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
