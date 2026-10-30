@@ -86,14 +86,26 @@ decision-weighted mean. A decision whose recorded answer is no candidate counts 
 contain x), so a feature family is tested without re-extracting. `--l-shared`, `--l-player`,
 `--player-mult PREFIX:X` (per-family offset regularization), `--cand-power` tune the training.
 
+## Ensemble over redeals
+
+The features depend on one random redeal of the hidden cards; another seed moves the held-out
+score by about 0.2 point. `extract --seed S` builds the same decisions with another redeal;
+`cv --ensemble DIR` trains one model per dataset and averages their candidate scores. Two members
+(seeds 0 and 1) are kept: +0.15 point; three or four bring nothing more.
+
 ## The AIs (`agent.rs`, `imitate fit`)
 
-`imitate fit` trains on every game and writes the shared weights (`shared.json`, in raw feature
-units, with a version) and one file per player (`players/*.json`: the shared version, the
-player, the deck, the hero, the label "player — hero", the offsets). `agent::Imitator` (a
+`imitate fit [--ensemble DIR]` trains on every game and writes the shared weights (`shared.json`,
+in raw feature units, with a version; the other members in `more`, each with its redeal seed)
+and one file per player (`players/*.json`: the shared version, the player, the deck, the hero,
+the label "player — hero", the offsets, the other members' offsets). `agent::Imitator` (a
 `play::Agent`) adds the player's offsets to the shared weights, runs the deck AI when the model
 reads its pick, extracts the features of every candidate and plays the best one (or draws from
 the softmax with `temperature`). The repeated effect-order guard of `search::Ai` applies.
+
+`imitate check [--ensemble DIR]` replays some games and checks that the agent loaded from the
+exported files picks the fitted model's best candidate when given the extraction's random
+stream (`Imitator::decide_seeded`).
 
 ## Gates (`imitate gate`)
 
@@ -107,7 +119,9 @@ Tested and left out (held-out score equal or lower): the position changes averag
 redeals, per game stage, best/worst marks of each change; the previous answer of the player;
 words of a choice's label; the expedition an invoked token goes to; Mana affordability; rollouts
 for every turn candidate; a hidden tanh layer; faction offsets between the shared model and the
-players; per-family regularization of the shared weights or of the offsets.
+players; per-family regularization of the shared weights or of the offsets; training on several
+redeals at once; the board and Mana of both sides as context; power per cost; finishing the
+action over 0 or 30 fast-policy steps instead of 12.
 
 ## Method of improvement
 

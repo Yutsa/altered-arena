@@ -255,6 +255,11 @@ pub struct Pred {
 pub fn predict(m: &Matrix, theta: &[f64], d: usize) -> Pred {
     let mut s = vec![];
     m.scores(theta, d, &mut s);
+    pred_of(m, d, &s)
+}
+
+/// The prediction from given candidate scores (an ensemble averages several models' scores)
+pub fn pred_of(m: &Matrix, d: usize, s: &[f64]) -> Pred {
     let a = m.dec_start[d];
     let mut order: Vec<usize> = (0..s.len()).collect();
     order.sort_by(|&x, &y| s[y].partial_cmp(&s[x]).unwrap_or(std::cmp::Ordering::Equal).then(x.cmp(&y)));

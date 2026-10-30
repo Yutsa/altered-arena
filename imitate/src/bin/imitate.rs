@@ -12,7 +12,7 @@
 
 use altered_ai::play::{self, Agent};
 use altered_ai::search::{Ai, Params};
-use altered_imitate::agent::{Imitator, PlayerFile, Shared};
+use altered_imitate::agent::{Imitator, Member, PlayerFile, Shared};
 use altered_imitate::cv::{self, Summary};
 use altered_imitate::dataset::{self, Interner, Tables};
 use altered_imitate::features::Config;
@@ -115,7 +115,7 @@ fn run() {
             let interner = Mutex::new(Interner::default());
             let res = cv::par_map(&files, threads, |f| dataset::decisions(f, &tables, &cfg, &interner, None));
             std::fs::create_dir_all(data_dir(&args)).unwrap();
-            std::fs::write(format!("{}/config.json", data_dir(&args)), serde_json::to_string(&json!({"copies": cfg.copies, "finish_steps": cfg.finish_steps})).unwrap()).unwrap();
+            std::fs::write(format!("{}/config.json", data_dir(&args)), serde_json::to_string(&json!({"copies": cfg.copies, "finish_steps": cfg.finish_steps, "seed": cfg.seed})).unwrap()).unwrap();
             let mut decs = vec![];
             let mut skipped = dataset::Skipped::default();
             for (d, _, s) in res {
@@ -163,7 +163,15 @@ fn run() {
             let keep = cv::keep(&names, &drops(&args));
             let mut h = hyper(&args);
             h.player_mult = player_mult(&args, &names);
-            let preds = cv::logo(&decs, names.len(), &keep, &h, threads);
+            // --ensemble DIR,DIR: one more model per dataset (other redeals), scores averaged
+            let preds = match opt(&args, "--ensemble") {
+                Some(l) => {
+                    let mut sets = vec![(names.clone(), decs.clone())];
+                    sets.extend(l.split(',').map(dataset::read));
+                    cv::logo_ensemble(&sets, &drops(&args), &h, threads)
+                }
+                None => cv::logo(&decs, names.len(), &keep, &h, threads),
+            };
             let train = if args.iter().any(|a| a == "--train") { Some(cv::train_fit(&decs, names.len(), &keep, &h).0) } else { None };
             let s = cv::summary(&decs, &preds, &base, train.as_deref());
             let tag = opt(&args, "--tag").unwrap_or("last".into());
@@ -175,52 +183,67 @@ fn run() {
             eprintln!("cv {:.0}s", t.elapsed().as_secs_f64());
         }
         Some("fit") => {
-            let (names, decs) = dataset::read(&data_dir(&args));
-            let keep = cv::keep(&names, &drops(&args));
-            let mut h = hyper(&args);
-            h.player_mult = player_mult(&args, &names);
-            let (preds, theta, m) = cv::train_fit(&decs, names.len(), &keep, &h);
-            let base = dataset::read_baselines(OUT);
-            let s = cv::summary(&decs, &preds, &base, None);
-            print_summary(&s, "training set");
-            let f = names.len();
-            let raw = |j: usize, x: f64| x / m.scale[j];
-            let mut weights = BTreeMap::new();
-            for j in 0..f {
-                if keep[j] && theta[j] != 0.0 {
-                    weights.insert(names[j].clone(), raw(j, theta[j]));
+            // One member per dataset: the main one, then --ensemble DIR,DIR (other redeals)
+            let mut dirs = vec![data_dir(&args)];
+            dirs.extend(opt(&args, "--ensemble").map(|l| l.split(',').map(String::from).collect::<Vec<_>>()).unwrap_or_default());
+            let mut members: Vec<(u64, BTreeMap<String, f64>, Vec<BTreeMap<String, f64>>)> = vec![];
+            let mut players: Vec<String> = vec![];
+            let mut first: Option<(Vec<String>, Vec<dataset::Decision>, Vec<bool>)> = None;
+            let h0 = hyper(&args);
+            for dir in &dirs {
+                let (names, decs) = dataset::read(dir);
+                let keep = cv::keep(&names, &drops(&args));
+                let mut h = h0.clone();
+                h.player_mult = player_mult(&args, &names);
+                let (preds, theta, m) = cv::train_fit(&decs, names.len(), &keep, &h);
+                let s = cv::summary(&decs, &preds, &dataset::read_baselines(OUT), None);
+                print_summary(&s, &format!("training set ({})", dir));
+                let f = names.len();
+                let raw = |j: usize, x: f64| x / m.scale[j];
+                let weights: BTreeMap<String, f64> = (0..f).filter(|&j| keep[j] && theta[j] != 0.0).map(|j| (names[j].clone(), raw(j, theta[j]))).collect();
+                let offsets: Vec<BTreeMap<String, f64>> = (0..m.players.len())
+                    .map(|p| (0..f).filter(|&j| keep[j] && theta[f * (1 + p) + j].abs() > 1e-9).map(|j| (names[j].clone(), raw(j, theta[f * (1 + p) + j]))).collect())
+                    .collect();
+                let dcfg: Value = std::fs::read_to_string(format!("{}/config.json", dir)).ok().and_then(|s| serde_json::from_str(&s).ok()).unwrap_or(Value::Null);
+                members.push((dcfg["seed"].as_u64().unwrap_or(0), weights, offsets));
+                players = m.players.clone();
+                if first.is_none() {
+                    first = Some((names, decs, keep));
                 }
             }
+            let (names, decs, keep) = first.unwrap();
             let version = format!("{:016x}", {
                 use std::hash::{Hash, Hasher};
                 let mut hs = std::collections::hash_map::DefaultHasher::new();
-                format!("{:?}{:?}", weights, h).hash(&mut hs);
+                format!("{:?}{:?}", members.iter().map(|m| &m.1).collect::<Vec<_>>(), h0).hash(&mut hs);
                 hs.finish()
             });
             let search_pick = names.iter().zip(&keep).any(|(n, k)| *k && n.starts_with("s:pick"));
             let dcfg: Value = std::fs::read_to_string(format!("{}/config.json", data_dir(&args))).ok().and_then(|s| serde_json::from_str(&s).ok()).unwrap_or(Value::Null);
             let copies = dcfg["copies"].as_u64().unwrap_or(1) as usize;
             let finish_steps = dcfg["finish_steps"].as_u64().map(|x| x as usize).unwrap_or(Config::default().finish_steps);
-            let shared = Shared { version: version.clone(), finish_steps, search_pick, copies, weights };
+            let more: Vec<Member> = members[1..].iter().map(|(seed, w, _)| Member { seed: *seed, weights: w.clone() }).collect();
+            let shared = Shared { version: version.clone(), finish_steps, search_pick, copies, weights: members[0].1.clone(), more };
             std::fs::create_dir_all(format!("{}/players", OUT)).unwrap();
             std::fs::write(format!("{}/shared.json", OUT), serde_json::to_string_pretty(&shared).unwrap()).unwrap();
             let deck_of: HashMap<&str, &str> = decs.iter().map(|d| (d.player.as_str(), d.deck.as_str())).collect();
             let deck_info: Value = std::fs::read_to_string(format!("{}/decks.json", PRIVATE)).ok().and_then(|s| serde_json::from_str(&s).ok()).unwrap_or(Value::Null);
-            for (p, name) in m.players.iter().enumerate() {
-                let mut offsets = BTreeMap::new();
-                for j in 0..f {
-                    let x = theta[f * (1 + p) + j];
-                    if keep[j] && x.abs() > 1e-9 {
-                        offsets.insert(names[j].clone(), raw(j, x));
-                    }
-                }
+            for (p, name) in players.iter().enumerate() {
                 let deck = deck_of[name.as_str()].to_string();
                 let hero = deck_info[&deck]["heroName"].as_str().unwrap_or("").to_string();
                 let label = format!("{} — {}", name, hero);
-                let pf = PlayerFile { shared: version.clone(), player: name.clone(), deck, hero, label, offsets };
+                let pf = PlayerFile {
+                    shared: version.clone(),
+                    player: name.clone(),
+                    deck,
+                    hero,
+                    label,
+                    offsets: members[0].2[p].clone(),
+                    more_offsets: members[1..].iter().map(|m| m.2[p].clone()).collect(),
+                };
                 std::fs::write(format!("{}/players/{}.json", OUT, file_name(&pf.label)), serde_json::to_string_pretty(&pf).unwrap()).unwrap();
             }
-            println!("fit: shared {} ({} weights), {} players -> {}/players", version, shared.weights.len(), m.players.len(), OUT);
+            println!("fit: shared {} ({} weights, {} members), {} players -> {}/players", version, shared.weights.len(), members.len(), players.len(), OUT);
         }
         Some("gate") => gate(&args, threads),
         Some("report") => report(&args),
@@ -382,11 +405,41 @@ fn report(args: &[String]) {
 /// decisions of the dataset, the agent, given the same random stream as the extraction, must
 /// pick a candidate the fitted model ranks first
 fn check(args: &[String], threads: usize) {
-    let (names, decs) = dataset::read(&data_dir(args));
-    let keep = cv::keep(&names, &drops(args));
-    let mut h = hyper(args);
-    h.player_mult = player_mult(args, &names);
-    let (preds, _, _) = cv::train_fit(&decs, names.len(), &keep, &h);
+    // The fitted ensemble's best candidate: each member trained on its dataset, scores averaged
+    let mut dirs = vec![data_dir(args)];
+    dirs.extend(opt(args, "--ensemble").map(|l| l.split(',').map(String::from).collect::<Vec<_>>()).unwrap_or_default());
+    let mut sum: Vec<Vec<f64>> = vec![];
+    let mut decs = vec![];
+    let mut labels: Vec<Vec<bool>> = vec![];
+    for dir in &dirs {
+        let (names, ds) = dataset::read(dir);
+        let keep = cv::keep(&names, &drops(args));
+        let mut h = hyper(args);
+        h.player_mult = player_mult(args, &names);
+        let (_, theta, m) = cv::train_fit(&ds, names.len(), &keep, &h);
+        let mut s = vec![];
+        for k in 0..m.ndec() {
+            m.scores(&theta, k, &mut s);
+            if sum.len() <= k {
+                sum.push(vec![0.0; s.len()]);
+            }
+            for (x, y) in sum[k].iter_mut().zip(&s) {
+                *x += y;
+            }
+        }
+        if decs.is_empty() {
+            labels = ds.iter().map(|d| d.labels.clone()).collect();
+            decs = ds;
+        }
+    }
+    let preds: Vec<altered_imitate::model::Pred> = sum
+        .iter()
+        .zip(&labels)
+        .map(|(s, l)| {
+            let best = (0..s.len()).fold(0, |b, k| if s[k] > s[b] { k } else { b });
+            altered_imitate::model::Pred { top1: l[best], top3: false, logp: None, best }
+        })
+        .collect();
     let shared: Shared = serde_json::from_str(&std::fs::read_to_string(format!("{}/shared.json", OUT)).unwrap()).unwrap();
     let files: Vec<PlayerFile> = std::fs::read_dir(format!("{}/players", OUT)).unwrap().flatten().filter_map(|f| serde_json::from_str(&std::fs::read_to_string(f.path()).ok()?).ok()).collect();
     let by_player: HashMap<&str, &PlayerFile> = files.iter().map(|p| (p.player.as_str(), p)).collect();
@@ -413,9 +466,10 @@ fn check(args: &[String], threads: usize) {
                 if let (Ok(Some(d)), Some(&(b, top1))) = (ready.try_decision(s.p), best.get(&(nr.table, k))) {
                     let cands = altered_ai::legal::candidates(&d);
                     use rand::SeedableRng;
-                    let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(nr.table as u64 * 7919 + k as u64);
+                    let base = nr.table as u64 * 7919 + k as u64;
+                    let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(base);
                     let obs = altered_ai::play::Observation::new(&ready, s.p as i64, &decks);
-                    let a = agents[(s.p - 2001) as usize].decide(&obs, &d, &mut rng);
+                    let a = agents[(s.p - 2001) as usize].decide_seeded(&obs, &d, base, &mut rng);
                     total += 1;
                     let canon = altered_ai::legal::canonical(&a);
                     if altered_ai::legal::canonical(&cands[b]) == canon {

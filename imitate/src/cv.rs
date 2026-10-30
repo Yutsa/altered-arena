@@ -75,6 +75,49 @@ pub fn logo(decs: &[Decision], nfeat: usize, keep: &[bool], h: &Hyper, threads: 
     out.into_iter().map(|p| p.unwrap()).collect()
 }
 
+/// Held-out predictions of an ensemble: one model per dataset (the same decisions, each with its
+/// own redeal of the hidden cards), candidate scores averaged
+pub fn logo_ensemble(sets: &[(Vec<String>, Vec<Decision>)], drop: &[String], h: &Hyper, threads: usize) -> Vec<Pred> {
+    let decs = &sets[0].1;
+    let players = players(decs);
+    let mut tables: Vec<i64> = decs.iter().map(|d| d.table).collect();
+    tables.sort();
+    tables.dedup();
+    let folds = par_map(&tables, threads, |&t| {
+        let test_idx: Vec<usize> = (0..decs.len()).filter(|&i| decs[i].table == t).collect();
+        let mut sum: Vec<Vec<f64>> = vec![vec![]; test_idx.len()];
+        let mut first: Option<model::Matrix> = None;
+        for (names, ds) in sets {
+            let keep = keep(names, drop);
+            let train: Vec<&Decision> = ds.iter().filter(|d| d.table != t).collect();
+            let test: Vec<&Decision> = test_idx.iter().map(|&i| &ds[i]).collect();
+            let mtrain = model::matrix(&train, names.len(), &keep, &players, None);
+            let theta = model::train(&mtrain, h);
+            let mtest = model::matrix(&test, names.len(), &keep, &players, Some(&mtrain.scale));
+            let mut s = vec![];
+            for k in 0..test.len() {
+                mtest.scores(&theta, k, &mut s);
+                if sum[k].is_empty() {
+                    sum[k] = vec![0.0; s.len()];
+                }
+                for (x, y) in sum[k].iter_mut().zip(&s) {
+                    *x += y / sets.len() as f64;
+                }
+            }
+            first.get_or_insert(mtest);
+        }
+        let m = first.unwrap();
+        (0..test_idx.len()).map(|k| (test_idx[k], model::pred_of(&m, k, &sum[k]))).collect::<Vec<_>>()
+    });
+    let mut out: Vec<Option<Pred>> = vec![None; decs.len()];
+    for f in folds {
+        for (i, p) in f {
+            out[i] = Some(p);
+        }
+    }
+    out.into_iter().map(|p| p.unwrap()).collect()
+}
+
 /// Predictions of the model trained on every decision (training-set agreement)
 pub fn train_fit(decs: &[Decision], nfeat: usize, keep: &[bool], h: &Hyper) -> (Vec<Pred>, Vec<f64>, model::Matrix) {
     let players = players(decs);
