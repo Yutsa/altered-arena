@@ -1,7 +1,7 @@
 {
  "cleanup_keep": 0.5,
  "copies": 1,
- "end_turn_bias": -1.0,
+ "end_turn_bias": -0.48057101720570317,
  "finish_steps": 12,
  "mana_cost": 0.1,
  "mana_prior": {
@@ -26,21 +26,22 @@
   "LY_Rare_PaperHerald": 0.25,
   "Unique:Mia, Danseuse \u00c9toile": 0.398
  },
+ "rollout_copies": 2,
  "rollout_steps": 80,
  "rollouts": 4,
  "weights": {
-  "board": 0.25,
-  "dusk_win": 5.0,
-  "empty_expedition": 1.0,
-  "hand": 0.3,
-  "landmark": 0.6,
-  "mana": 1.6,
-  "mana_late": 0.3,
-  "mana_ready": 0.15,
-  "mana_soft": 7.0,
-  "margin": 0.6,
-  "margin_cap": 3.0,
-  "progress": 12.0,
-  "reserve": 0.5
+  "board": 0.3554190226914373,
+  "dusk_win": 8.3379,
+  "empty_expedition": 0.9625826767674198,
+  "hand": 0.6482569917715869,
+  "landmark": 0.7530935444802883,
+  "mana": 2.9629842294812496,
+  "mana_late": 0.251813955706156,
+  "mana_ready": 0.17139251211474948,
+  "mana_soft": 8.889777867793969,
+  "margin": 0.6874361796153646,
+  "margin_cap": 2.5798010791912995,
+  "progress": 12.94033230665911,
+  "reserve": 0.3326052086324872
  }
 }

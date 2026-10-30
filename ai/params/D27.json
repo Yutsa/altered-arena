@@ -35,11 +35,12 @@
   "OD_Rare_TheReunion": 0.549,
   "Unique:Petit Poucet": 0.721
  },
+ "rollout_copies": 2,
  "rollout_steps": 80,
  "rollouts": 4,
  "weights": {
   "board": 0.25,
-  "dusk_win": 5.0,
+  "dusk_win": 7.5,
   "empty_expedition": 1.0,
   "hand": 0.3,
   "landmark": 0.6,

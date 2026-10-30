@@ -1,7 +1,7 @@
 {
  "cleanup_keep": 0.5,
  "copies": 1,
- "end_turn_bias": -1.0,
+ "end_turn_bias": -1.1237272067010537,
  "finish_steps": 12,
  "mana_cost": 0.1,
  "mana_prior": {
@@ -35,21 +35,22 @@
   "Unique:N\u00e9ph\u00e9l\u00e9": 0.331,
   "Unique:Reka Skipper": 0.061
  },
+ "rollout_copies": 2,
  "rollout_steps": 80,
  "rollouts": 4,
  "weights": {
-  "board": 0.25,
-  "dusk_win": 5.0,
-  "empty_expedition": 1.0,
-  "hand": 0.3,
-  "landmark": 0.6,
-  "mana": 1.6,
-  "mana_late": 0.3,
-  "mana_ready": 0.15,
-  "mana_soft": 7.0,
-  "margin": 0.6,
-  "margin_cap": 3.0,
-  "progress": 12.0,
-  "reserve": 0.5
+  "board": 0.2241882416631096,
+  "dusk_win": 8.0947,
+  "empty_expedition": 1.4845767162234391,
+  "hand": 0.27940382789996016,
+  "landmark": 0.6833711351731679,
+  "mana": 1.0974916014545708,
+  "mana_late": 0.26905698237318576,
+  "mana_ready": 0.10796585576146475,
+  "mana_soft": 4.985812047995973,
+  "margin": 0.7500422166642811,
+  "margin_cap": 2.388566234413303,
+  "progress": 18.577385280337406,
+  "reserve": 0.6490287627686682
  }
 }

@@ -1,7 +1,7 @@
 {
  "cleanup_keep": 0.5,
  "copies": 1,
- "end_turn_bias": -0.7530138085711249,
+ "end_turn_bias": -0.15722763490866487,
  "finish_steps": 12,
  "mana_cost": 0.1,
  "mana_prior": {
@@ -36,21 +36,22 @@
   "AX_Rare_SmolderingJinn": -0.12,
   "Unique:Thomas Edison": 0.246
  },
+ "rollout_copies": 2,
  "rollout_steps": 80,
  "rollouts": 4,
  "weights": {
-  "board": 0.22365280503542234,
-  "dusk_win": 3.5513995629265875,
-  "empty_expedition": 0.801349693451712,
-  "hand": 0.2421,
-  "landmark": 0.510255924381968,
-  "mana": 1.4953300762919184,
-  "mana_late": 0.40242797977534395,
-  "mana_ready": 0.10360106281588068,
-  "mana_soft": 8.18389993387708,
-  "margin": 0.4485708987100577,
-  "margin_cap": 4.630980026614715,
-  "progress": 21.676006040828163,
-  "reserve": 0.61609206308466
+  "board": 0.1564909383731357,
+  "dusk_win": 6.4455,
+  "empty_expedition": 0.7325565112105523,
+  "hand": 0.419383545627038,
+  "landmark": 0.46242701920942353,
+  "mana": 1.6781903709946906,
+  "mana_late": 0.4416454470738314,
+  "mana_ready": 0.10514596306562836,
+  "mana_soft": 11.021719023663051,
+  "margin": 0.5566621103099776,
+  "margin_cap": 4.877491075709165,
+  "progress": 11.855648958636106,
+  "reserve": 0.38851902474721195
  }
 }

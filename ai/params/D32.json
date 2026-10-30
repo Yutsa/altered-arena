@@ -1,7 +1,7 @@
 {
  "cleanup_keep": 0.5,
  "copies": 1,
- "end_turn_bias": -1.0,
+ "end_turn_bias": -0.8084950924092636,
  "finish_steps": 12,
  "mana_cost": 0.1,
  "mana_prior": {
@@ -38,21 +38,22 @@
   "YZ_Rare_MothLantern": -0.068,
   "YZ_Rare_WhiteFang": -0.108
  },
+ "rollout_copies": 2,
  "rollout_steps": 80,
  "rollouts": 4,
  "weights": {
-  "board": 0.25,
-  "dusk_win": 5.0,
-  "empty_expedition": 1.0,
-  "hand": 0.3,
-  "landmark": 0.6,
-  "mana": 1.6,
-  "mana_late": 0.3,
-  "mana_ready": 0.15,
-  "mana_soft": 7.0,
-  "margin": 0.6,
-  "margin_cap": 3.0,
-  "progress": 12.0,
-  "reserve": 0.5
+  "board": 0.22951076728188816,
+  "dusk_win": 7.0219,
+  "empty_expedition": 1.0267654749000226,
+  "hand": 0.3282213084482705,
+  "landmark": 0.2584277062994796,
+  "mana": 3.2298084800701505,
+  "mana_late": 0.4281075638297242,
+  "mana_ready": 0.09493225990159208,
+  "mana_soft": 5.334992739833904,
+  "margin": 0.43472531426339167,
+  "margin_cap": 2.927334550086359,
+  "progress": 9.82948707373546,
+  "reserve": 0.37031676016686377
  }
 }

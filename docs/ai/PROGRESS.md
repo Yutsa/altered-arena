@@ -5,7 +5,7 @@ Plan: `docs/plans/AI_TOURNAMENT.md`. Private data (replays, decklists, player na
 
 ## Current phase
 
-Phase F after pass 3 (A/B variants, evolution round 3, measure against `private/params_p3`).
+Pass 4 running (`private/run_pass.sh 4`, 12 threads).
 
 ## Done
 
@@ -88,6 +88,12 @@ Phase F after pass 3 (A/B variants, evolution round 3, measure against `private/
   comes back a third time among its last 8 decisions (the three traced seeds end normally). The
   last error (Mana Flare, a method missing in PHP too) is the engine's, as in pass 2.
   `no answer accepted` errors now carry the engine's first refusal message.
+- Phase F after pass 3 (A/B against `private/params_p3`, seed 730000, with the loop guard on both
+  sides): 2 determinisations in the rollouts (`rollout_copies` 2) 51.9 % [47.8, 55.9] kept (+25 %
+  CPU per game); progress weight x1.25 50.0 % rejected; Dusk weight x1.5 50.8 % [46.8, 54.9] kept;
+  end-of-turn bias x2 49.7 % rejected. Evolution round 3 changed 8 decks. The package (rollout
+  copies 2, Dusk x1.5, evolution) against the pass-3 parameters: **52.0 % [48.0, 56.0]** (seed
+  830000): kept, used by pass 4.
 
 ## Decisions
 
@@ -108,6 +114,9 @@ Phase F after pass 3 (A/B variants, evolution round 3, measure against `private/
   pairing (592 games), evolution with 2 candidates x 30 games per deck, the new parameters measured
   against the old on 8 games per pairing. The AI's simulation budget is unchanged so passes stay
   comparable.
+- 2026-10-30 08:55, at the user's request (relayed by the parent session): the CPU limit is lifted.
+  Runs from now on use the whole machine: normal priority, no `nice`/`taskpolicy`, `--threads 12`
+  (all cores). Results do not depend on the thread count (seeds are per game).
 - Shared-code acceptance rule (plan: not worse with 95 % confidence and better on average): the new
   version's win rate over the A/B > 50 % and the lower bound of its 95 % interval > 46 % (with ~600
   games the interval is +-4 points, so "not worse" means not below 50 % by more than the noise).
@@ -119,6 +128,6 @@ Phase F after pass 3 (A/B variants, evolution round 3, measure against `private/
 
 ## Next steps
 
-1. Phase F3: snapshot `private/params_p3`, variants (`rollout_copies` 2) + `aitool evolve 3`,
-   measure (seed 830000).
-2. Pass 4, phase F4, pass 5, then `docs/ai/REPORT.md` (`tools/ai/report_tables.py`).
+1. When pass 4 ends: `aitool agree 4 ai`, report with notes, commit.
+2. Phase F4: snapshot `private/params_p4`, variants + `aitool evolve 4`, measure (seed 840000).
+3. Pass 5, then `docs/ai/REPORT.md` (`tools/ai/report_tables.py`).

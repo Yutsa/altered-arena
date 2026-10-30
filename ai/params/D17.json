@@ -1,7 +1,7 @@
 {
  "cleanup_keep": 0.5,
  "copies": 1,
- "end_turn_bias": -1.0,
+ "end_turn_bias": -0.9626790114262361,
  "finish_steps": 12,
  "mana_cost": 0.1,
  "mana_prior": {
@@ -24,21 +24,22 @@
   "LY_Rare_TheSandman": -0.433,
   "Unique:Mia, Danseuse \u00c9toile": -0.027
  },
+ "rollout_copies": 2,
  "rollout_steps": 80,
  "rollouts": 4,
  "weights": {
-  "board": 0.25,
-  "dusk_win": 5.0,
-  "empty_expedition": 1.0,
-  "hand": 0.3,
-  "landmark": 0.6,
-  "mana": 1.6,
-  "mana_late": 0.3,
-  "mana_ready": 0.15,
-  "mana_soft": 7.0,
-  "margin": 0.6,
-  "margin_cap": 3.0,
-  "progress": 12.0,
-  "reserve": 0.5
+  "board": 0.30395544556291,
+  "dusk_win": 10.9976,
+  "empty_expedition": 0.5245038459923812,
+  "hand": 0.2850327744290251,
+  "landmark": 0.570886054817401,
+  "mana": 1.8521175084619106,
+  "mana_late": 0.3818538991721905,
+  "mana_ready": 0.16432250263216236,
+  "mana_soft": 11.060751669994206,
+  "margin": 0.44951358142969944,
+  "margin_cap": 2.2795553592592386,
+  "progress": 12.212943288695023,
+  "reserve": 0.5066763548801595
  }
 }

@@ -1,7 +1,7 @@
 {
  "cleanup_keep": 0.5,
  "copies": 1,
- "end_turn_bias": -1.0,
+ "end_turn_bias": -0.795189813348862,
  "finish_steps": 12,
  "mana_cost": 0.1,
  "mana_prior": {
@@ -48,21 +48,22 @@
   "Unique:Serveuse Reka": 0.465,
   "Unique:\u00c9cureuil Volant": -0.314
  },
+ "rollout_copies": 2,
  "rollout_steps": 80,
  "rollouts": 4,
  "weights": {
-  "board": 0.25,
-  "dusk_win": 5.0,
-  "empty_expedition": 1.0,
-  "hand": 0.3,
-  "landmark": 0.6,
-  "mana": 1.6,
-  "mana_late": 0.3,
-  "mana_ready": 0.15,
-  "mana_soft": 7.0,
-  "margin": 0.6,
-  "margin_cap": 3.0,
-  "progress": 12.0,
-  "reserve": 0.5
+  "board": 0.23965227531008765,
+  "dusk_win": 4.9309,
+  "empty_expedition": 0.9647209107291363,
+  "hand": 0.26132733088678306,
+  "landmark": 0.6149827587227297,
+  "mana": 2.123847390380918,
+  "mana_late": 0.27393808724173974,
+  "mana_ready": 0.09773183550530311,
+  "mana_soft": 7.496657301232622,
+  "margin": 0.42039011247276936,
+  "margin_cap": 1.6508283110131345,
+  "progress": 34.46473610550062,
+  "reserve": 0.41931510452219967
  }
 }

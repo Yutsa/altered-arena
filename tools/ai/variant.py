@@ -8,7 +8,7 @@ src, dst = sys.argv[1], sys.argv[2]
 sets = [a.split('=', 1) for a in sys.argv[3:]]
 # Defaults of the multiplied fields (search.rs Params, eval.rs Weights)
 DEFAULTS = {'weights.progress': 12.0, 'weights.dusk_win': 5.0, 'weights.margin': 0.6, 'weights.board': 0.25, 'weights.hand': 0.6,
-            'weights.reserve': 0.5, 'weights.mana': 1.6, 'weights.landmark': 0.6, 'weights.empty_expedition': 1.0}
+            'weights.reserve': 0.5, 'weights.mana': 1.6, 'weights.landmark': 0.6, 'weights.empty_expedition': 1.0, 'end_turn_bias': 0.0, 'cleanup_keep': 0.0, 'mana_target': 10.0}
 os.makedirs(dst, exist_ok=True)
 decks = json.load(open('server/goldens/tournament_decks.json'))
 for d in decks:

@@ -40,19 +40,20 @@
   "MU_Rare_WigwaggingKiwi": 0.011,
   "Unique:Karhu, Seigneur des Ours": 0.305
  },
+ "rollout_copies": 2,
  "rollout_steps": 80,
  "rollouts": 4,
  "weights": {
   "board": 0.27159256457165565,
-  "dusk_win": 3.9957753626715506,
+  "dusk_win": 5.9937,
   "empty_expedition": 0.8229706648171096,
   "hand": 0.3264,
   "landmark": 0.7085965307820193,
   "mana": 3.038429994140671,
-  "mana_late": 0.36212523297982196,
+  "mana_late": 0.3621252329798219,
   "mana_ready": 0.13167648373757918,
   "mana_soft": 6.221465534921401,
-  "margin": 0.9582015436932125,
+  "margin": 0.9582015436932124,
   "margin_cap": 2.5038388911057794,
   "progress": 14.777518464243553,
   "reserve": 0.5141639512482895

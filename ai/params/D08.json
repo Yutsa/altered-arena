@@ -1,7 +1,7 @@
 {
  "cleanup_keep": 0.5,
  "copies": 1,
- "end_turn_bias": -1.5908388657758215,
+ "end_turn_bias": -1.5908388657758217,
  "finish_steps": 12,
  "mana_cost": 0.1,
  "mana_prior": {
@@ -38,11 +38,12 @@
   "Unique:Ocelot Aiguilleur": -0.185,
   "Unique:Raij\u016b": 0.312
  },
+ "rollout_copies": 2,
  "rollout_steps": 80,
  "rollouts": 4,
  "weights": {
   "board": 0.3601458079383097,
-  "dusk_win": 4.102528757495763,
+  "dusk_win": 6.1538,
   "empty_expedition": 0.892301715347575,
   "hand": 0.4212,
   "landmark": 0.5582621468074113,

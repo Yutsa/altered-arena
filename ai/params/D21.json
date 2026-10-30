@@ -1,7 +1,7 @@
 {
  "cleanup_keep": 0.5,
  "copies": 1,
- "end_turn_bias": -1.0,
+ "end_turn_bias": -1.3896919322639079,
  "finish_steps": 12,
  "mana_cost": 0.1,
  "mana_prior": {
@@ -40,21 +40,22 @@
   "Unique:Crabe en Mue": 0.475,
   "Unique:Dawon": 0.075
  },
+ "rollout_copies": 2,
  "rollout_steps": 80,
  "rollouts": 4,
  "weights": {
-  "board": 0.25,
-  "dusk_win": 5.0,
-  "empty_expedition": 1.0,
-  "hand": 0.3,
-  "landmark": 0.6,
-  "mana": 1.6,
-  "mana_late": 0.3,
-  "mana_ready": 0.15,
-  "mana_soft": 7.0,
-  "margin": 0.6,
-  "margin_cap": 3.0,
-  "progress": 12.0,
-  "reserve": 0.5
+  "board": 0.2897748069174001,
+  "dusk_win": 8.6667,
+  "empty_expedition": 0.5237751295276936,
+  "hand": 0.24651926010254183,
+  "landmark": 0.6432183511987938,
+  "mana": 1.7931663608248223,
+  "mana_late": 0.3532490587109921,
+  "mana_ready": 0.12270209659316333,
+  "mana_soft": 8.416232463821578,
+  "margin": 0.35990432620594254,
+  "margin_cap": 2.650374689678122,
+  "progress": 10.498473317386019,
+  "reserve": 0.5519356266909039
  }
 }

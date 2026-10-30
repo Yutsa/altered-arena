@@ -1,7 +1,7 @@
 {
  "cleanup_keep": 0.5,
  "copies": 1,
- "end_turn_bias": -1.0,
+ "end_turn_bias": -0.6295340589737646,
  "finish_steps": 12,
  "mana_cost": 0.1,
  "mana_prior": {
@@ -40,21 +40,22 @@
   "Unique:Croc Blanc": 0.027,
   "Unique:Raksha": 0.161
  },
+ "rollout_copies": 2,
  "rollout_steps": 80,
  "rollouts": 4,
  "weights": {
-  "board": 0.25,
-  "dusk_win": 5.0,
-  "empty_expedition": 1.0,
-  "hand": 0.3,
-  "landmark": 0.6,
-  "mana": 1.6,
-  "mana_late": 0.3,
-  "mana_ready": 0.15,
-  "mana_soft": 7.0,
-  "margin": 0.6,
-  "margin_cap": 3.0,
-  "progress": 12.0,
-  "reserve": 0.5
+  "board": 0.14504626530346648,
+  "dusk_win": 9.1229,
+  "empty_expedition": 1.0107272606272557,
+  "hand": 0.29062190345557015,
+  "landmark": 0.7109630017433075,
+  "mana": 1.644741988906478,
+  "mana_late": 0.25317432417585656,
+  "mana_ready": 0.20932983414105835,
+  "mana_soft": 9.56759876344374,
+  "margin": 0.5544052531606937,
+  "margin_cap": 4.888422896919796,
+  "progress": 13.98237977260016,
+  "reserve": 0.2962994051379212
  }
 }

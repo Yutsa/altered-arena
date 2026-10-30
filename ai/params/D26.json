@@ -1,7 +1,7 @@
 {
  "cleanup_keep": 0.5,
  "copies": 1,
- "end_turn_bias": -1.0495073644196147,
+ "end_turn_bias": -1.049507364419615,
  "finish_steps": 12,
  "mana_cost": 0.1,
  "mana_prior": {
@@ -44,11 +44,12 @@
   "Unique:Mouffette Fumante": 0.375,
   "Unique:Plongeuse Serviable": -0.342
  },
+ "rollout_copies": 2,
  "rollout_steps": 80,
  "rollouts": 4,
  "weights": {
   "board": 0.1790872369924021,
-  "dusk_win": 6.453142581921235,
+  "dusk_win": 9.6797,
   "empty_expedition": 0.6972159810113632,
   "hand": 0.4646,
   "landmark": 0.6794891917833835,
