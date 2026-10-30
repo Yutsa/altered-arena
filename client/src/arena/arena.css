@@ -162,6 +162,63 @@
 /* Slots shrink when there is not enough room, so the cards overlap */
 .exp-slot { flex: 0 1 calc(var(--mat-card-w) + 10px); min-width: 14px; }
 .exp-slot:last-child { flex-shrink: 0; }
+
+/* An Ascended expedition: the zone turns to sky, the cards float above their shadows */
+.exp-cell.is-ascended {
+  background: linear-gradient(180deg, rgb(60 155 250 / 0.6) 0%, rgb(100 185 255 / 0.36) 55%, rgb(170 220 255 / 0.22) 100%);
+  box-shadow: inset 0 0 0 2px rgb(225 248 255 / 0.85), 0 0 34px rgb(150 220 255 / 0.55);
+}
+.exp-sky { position: absolute; inset: 0; border-radius: inherit; overflow: hidden; pointer-events: none; }
+.exp-sky i { position: absolute; border-radius: 50%; background: #fff; filter: blur(6px); opacity: 0.85; }
+.exp-sky i:nth-child(1) { left: -4%; bottom: -10%; width: 30%; height: 32%; }
+.exp-sky i:nth-child(2) { left: 20%; bottom: -12%; width: 26%; height: 26%; opacity: 0.7; }
+.exp-sky i:nth-child(3) { left: 42%; bottom: -10%; width: 32%; height: 30%; }
+.exp-sky i:nth-child(4) { left: 70%; bottom: -12%; width: 36%; height: 26%; opacity: 0.7; }
+.exp-sky i:nth-child(5) { left: 78%; top: 8%; width: 16%; height: 10%; opacity: 0.4; }
+.exp-cell.is-ascended .exp-slot { position: relative; animation: arena-float 2.4s ease-in-out infinite; }
+.exp-cell.is-ascended .exp-slot:nth-child(2n) { animation-delay: -1.2s; }
+.exp-cell.is-ascended .exp-slot:nth-child(3n) { animation-delay: -0.6s; }
+/* The shadow stays on the mat while its card floats */
+.exp-cell.is-ascended .exp-slot::before {
+  content: '';
+  position: absolute;
+  left: 12%;
+  width: calc(var(--mat-card-w) * 0.76);
+  bottom: calc(var(--mat-card-w) * -0.12);
+  height: calc(var(--mat-card-w) * 0.12);
+  border-radius: 50%;
+  background: rgb(20 10 40 / 0.5);
+  filter: blur(4px);
+  animation: arena-float-shadow 2.4s ease-in-out infinite;
+  animation-delay: inherit;
+}
+.exp-cell.is-ascended .mc { border-color: #e9fbff; box-shadow: 0 0 0 2px rgb(190 240 255 / 0.5), 0 0 18px rgb(170 230 255 / 0.6); }
+@keyframes arena-float { 50% { translate: 0 calc(var(--mat-card-w) * -0.06); } }
+@keyframes arena-float-shadow { 50% { translate: 0 calc(var(--mat-card-w) * 0.06); scale: 0.9; opacity: 0.8; } }
+.exp-ribbon {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  translate: -50% -50%;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+  padding: 0 0.9em;
+  height: 2.1em;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #f4fdff, #bfeaff);
+  color: #163a52;
+  font-size: var(--chip-font);
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  box-shadow: 0 4px 12px rgb(10 30 60 / 0.55), 0 0 0 2px rgb(22 58 82 / 0.35);
+  pointer-events: auto;
+}
+.exp-ribbon small { font-size: 0.92em; font-weight: 600; letter-spacing: 0.02em; text-transform: none; color: #2f5f7f; }
+.exp-ribbon svg { width: 2.1em; height: 0.9em; fill: currentColor; }
 .scout-zone {
   position: absolute;
   right: 0;
@@ -496,6 +553,7 @@
 .marker.theirs { box-shadow: 0 0 0 3px var(--opp), 0 4px 8px rgb(0 0 0 / 0.6); }
 .marker:disabled { cursor: default; }
 .marker.blocked img { filter: grayscale(0.8); }
+.marker.ascended { box-shadow: 0 0 0 3px #e9fbff, 0 0 16px 5px rgb(150 230 255 / 0.85); }
 .marker.selectable { box-shadow: 0 0 0 3px var(--cyan), 0 0 18px var(--cyan); animation: arena-target 1.2s infinite; }
 .marker.picked { box-shadow: 0 0 0 5px #fff, 0 0 22px var(--cyan); }
 .ghost-marker { border: 3px dashed #fff; background: rgb(255 255 255 / 0.2); }

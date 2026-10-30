@@ -58,13 +58,18 @@ export interface Forecast {
 
 /**
  * Dusk forecast: an expedition moves forward when, in at least one biome of its region, its
- * statistic is greater than the opposing expedition's (same side). Blocked expeditions stay.
+ * statistic is greater than the opposing expedition's (same side), or equal to it (and not 0) when
+ * it is Ascended. Blocked expeditions stay.
  */
 export function forecast(view: GameView, player: PlayerView, side: Side): Forecast {
   const exp = player.expeditions[side];
   const other = view.players.find((p) => p.id !== player.id)?.expeditions[side];
   const region = view.regions.find((r) => r.index === exp.position)?.biomes ?? null;
-  const winning = (region ?? []).filter((b) => exp.stats[b] > (other?.stats[b] ?? 0));
+  const winning = (region ?? []).filter((b) => {
+    const mine = exp.stats[b];
+    const theirs = other?.stats[b] ?? 0;
+    return mine > theirs || (!!exp.ascended && mine === theirs && mine >= 1);
+  });
   const advances = !exp.blocked && winning.length > 0 && view.phase !== 'ended';
   return { advances, winning, region, next: exp.position + (side === 'hero' ? 1 : -1) };
 }

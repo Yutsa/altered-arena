@@ -155,8 +155,10 @@ function ExpCell({ player, side, mine }: { player: PlayerView; side: Side; mine:
   const pickExp = useExpeditionPick(player, side);
   const pickLocation = useLocation(player, zone);
   const pick = pickExp?.pick ?? pickLocation;
+  const ascended = !!player.expeditions[side].ascended;
   const body = (
     <>
+      {ascended && <ExpSky />}
       <div className="exp-cards">
         {cards.map((c) => (
           <span key={c.id} className="exp-slot">
@@ -182,13 +184,46 @@ function ExpCell({ player, side, mine }: { player: PlayerView; side: Side; mine:
       )}
     </>
   );
-  const cls = `exp-cell exp-${side} ${pick ? 'selectable' : ''} ${pickExp?.picked ? 'picked' : ''}`;
+  const cls = `exp-cell exp-${side} ${pick ? 'selectable' : ''} ${pickExp?.picked ? 'picked' : ''} ${ascended ? 'is-ascended' : ''}`;
   return mine ? (
     <DropZone destination={zone} className={cls} label={side === 'hero' ? 'Hero expedition' : 'Companion expedition'}>
       {body}
     </DropZone>
   ) : (
     <div className={cls}>{body}</div>
+  );
+}
+
+/** A pair of wings: the mark of an Ascended expedition */
+export function Wings({ className }: { className?: string }) {
+  const wing = 'M24 15C19 6 10 2 1 3c3 2 5 4 7 6-3 0-5 1-6 3 3 1 6 1 9 1-2 1-4 3-4 5 5 1 12 0 17-3z';
+  return (
+    <svg className={className} viewBox="0 0 64 26" aria-hidden="true">
+      <path d={wing} />
+      <path d={wing} transform="translate(64 0) scale(-1 1)" />
+    </svg>
+  );
+}
+
+/**
+ * An Ascended expedition (Soar...) takes to the sky until Rest: its zone turns to sky with clouds
+ * along its bottom, its cards float above their shadows, and a ribbon names the state.
+ */
+function ExpSky() {
+  return (
+    <>
+      <span className="exp-sky" aria-hidden="true">
+        <i />
+        <i />
+        <i />
+        <i />
+        <i />
+      </span>
+      <span className="exp-ribbon" title="Ascended: until Rest, this expedition moves forward even when the opposing one matches it">
+        <Wings />
+        Ascended <small>until Rest</small>
+      </span>
+    </>
   );
 }
 
@@ -266,11 +301,11 @@ function Marker({ player, side, mine, other }: { player: PlayerView; side: Side;
   return (
     <button
       type="button"
-      className={`marker ${mine ? 'mine' : 'theirs'} ${pick ? 'selectable' : ''} ${pick?.picked ? 'picked' : ''} ${exp.blocked ? 'blocked' : ''}`}
+      className={`marker ${mine ? 'mine' : 'theirs'} ${pick ? 'selectable' : ''} ${pick?.picked ? 'picked' : ''} ${exp.blocked ? 'blocked' : ''} ${exp.ascended ? 'ascended' : ''}`}
       style={style}
       onClick={pick?.pick}
       disabled={!pick}
-      title={`${player.name}: ${side} expedition, region ${exp.position}${exp.blocked ? ' (blocked)' : ''}`}
+      title={`${player.name}: ${side} expedition, region ${exp.position}${exp.blocked ? ' (blocked)' : ''}${exp.ascended ? ' (Ascended)' : ''}`}
     >
       {player.faction ? <img src={`/img/tokens/${player.faction}-${side}.png`} alt="" draggable={false} /> : <span>{side[0].toUpperCase()}</span>}
     </button>

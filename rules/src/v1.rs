@@ -1027,6 +1027,7 @@ fn build_view(g: &mut Game, you: Option<PId>, game_id: &str) -> R<Value> {
                     "position": storm_tokens.get(&(pid, side.to_string())).copied().unwrap_or(if side == "hero" { 0 } else { 7 }),
                     "stats": {"forest": stat("forest"), "mountain": stat("mountain"), "ocean": stat("ocean")},
                     "blocked": php::truthy(php::get(php::get(&blocked, &pid.to_string()), loc)),
+                    "ascended": crate::models::player::is_ascended(g, pid, loc)?,
                 }),
             );
         }

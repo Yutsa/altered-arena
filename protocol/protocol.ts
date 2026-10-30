@@ -122,6 +122,8 @@ export interface ExpeditionView {
   position: number;
   stats: Record<Biome, number>;
   blocked: boolean;
+  /** Ascended (Soar...): until Rest, it moves forward even when the opposing expedition matches it */
+  ascended?: boolean;
 }
 
 export interface PlayerView {

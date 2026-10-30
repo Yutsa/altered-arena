@@ -148,9 +148,13 @@ class V1
 
     // Players
     $tokens = [];
+    $ascended = [];
     foreach ($g['meeples'] as $m) {
       if (in_array($m['type'], ['hero', 'companion']) && str_starts_with($m['location'], 'storm-')) {
         $tokens[(int) $m['pId']][$m['type']] = (int) substr($m['location'], 6);
+      }
+      if ($m['type'] == 'ascend') {
+        $ascended[(int) $m['pId']][$m['location']] = true;
       }
     }
     $players = [];
@@ -168,6 +172,7 @@ class V1
           'position' => $tokens[$pId][$side] ?? ($side == 'hero' ? 0 : 7),
           'stats' => self::biomes($g['biomes'][$pId][$loc] ?? []),
           'blocked' => (bool) ($g['blockedExpeditions'][$pId][$loc] ?? false),
+          'ascended' => $ascended[$pId][$loc] ?? false,
         ];
       }
       $players[] = [
