@@ -1,0 +1,15 @@
+[package]
+name = "altered-imitate"
+description = "Imitation AIs: a softmax over each decision's candidates, trained on the decisions of real players"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+
+[dependencies]
+altered-rules = { path = "../rules" }
+altered-ai = { path = "../ai" }
+altered-replay = { path = "../replay" }
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["preserve_order", "unbounded_depth"] }
+rand = "0.9"
+rand_chacha = "0.9"

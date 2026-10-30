@@ -70,11 +70,14 @@ pub struct Ai {
     pub sim_steps: usize,
     /// The last decisions answered (kind, prompt, choices), to notice a loop
     recent: Vec<String>,
+    /// The scores of the last `choose`: each candidate evaluated, its 1-ply score and its
+    /// rollout score (when it was rolled out)
+    pub last_scores: Vec<(Value, f64, Option<f64>)>,
 }
 
 impl Ai {
     pub fn new(label: &str, params: Params) -> Ai {
-        Ai { label: label.into(), params, sim_steps: 0, recent: vec![] }
+        Ai { label: label.into(), params, sim_steps: 0, recent: vec![], last_scores: vec![] }
     }
 }
 
@@ -195,6 +198,7 @@ impl Ai {
     }
 
     pub fn choose(&mut self, obs: &Observation, d: &Value, rng: &mut ChaCha8Rng) -> Value {
+        self.last_scores.clear();
         let mut cands = legal::candidates(d);
         if cands.is_empty() {
             return json!({"type": "pass"});
@@ -259,6 +263,7 @@ impl Ai {
         if evaluated.is_empty() {
             return legal::candidates(d).remove(0);
         }
+        self.last_scores = evaluated.iter().map(|(s, a)| (a.clone(), *s, None)).collect();
         // Turn decisions: the best candidates and the end of the turn, played on to the end of the day
         if d["kind"] == "turn" && self.params.rollouts > 0 && evaluated.len() > 1 {
             let mut order: Vec<usize> = (0..evaluated.len()).collect();
@@ -293,6 +298,7 @@ impl Ai {
                 }
                 // The 1-ply score breaks ties (and counts a little)
                 let score = total / ok as f64 + 0.1 * evaluated[k].0;
+                self.last_scores[k].2 = Some(score);
                 if trace {
                     eprintln!("   rollout {:8.2} {}", score, a);
                 }

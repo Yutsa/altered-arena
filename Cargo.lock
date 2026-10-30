@@ -20,6 +20,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "altered-imitate"
+version = "0.1.0"
+dependencies = [
+ "altered-ai",
+ "altered-replay",
+ "altered-rules",
+ "rand",
+ "rand_chacha",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "altered-replay"
 version = "0.1.0"
 dependencies = [

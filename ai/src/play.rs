@@ -50,6 +50,14 @@ impl<'a> Observation<'a> {
         crate::search::card_key(self.game, id)
     }
 
+    /// A property of a card `me` can see (its type, subtypes, faction...)
+    pub fn card_prop(&self, id: i64, key: &str) -> Option<Value> {
+        if sim::hidden_groups(self.game, self.me).iter().any(|g| g.contains(&id)) {
+            return None;
+        }
+        self.game.cards.get(&id)?.props.get(key).cloned()
+    }
+
     pub fn opponent(&self) -> PId {
         sim::other(self.game, self.me)
     }
