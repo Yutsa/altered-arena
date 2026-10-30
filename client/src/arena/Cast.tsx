@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import type { CardView } from '@protocol';
 import { useGameCtx } from '../game/GameContext';
 import { useCardPointer } from '../game/useCardPointer';
@@ -53,6 +53,12 @@ function FocusCard({ id, copy }: { id: number; copy: boolean }) {
   );
 }
 
+/**
+ * Targets known in advance, drawn as picked: in a replay, the answer that follows the view (the
+ * targets the player chose, whoever the player).
+ */
+export const ShownTargets = createContext<{ cards: number[]; keys: string[] } | null>(null);
+
 interface Arrow {
   key: string;
   d: string;
@@ -103,12 +109,13 @@ function targetEl(target: { card?: number; exp?: string }): HTMLElement | null {
  */
 export function TargetArrows() {
   const { decision, ui } = useGameCtx();
+  const shown = useContext(ShownTargets);
   const focus = useFocus();
   const kind = decision?.kind;
-  const active = !!focus && (kind === 'select' || kind === 'expedition');
+  const active = !!focus && (kind === 'select' || kind === 'expedition' || !!shown);
   const [arrows, setArrows] = useState<Arrow[]>([]);
-  const state = useRef({ decision, ui });
-  state.current = { decision, ui };
+  const state = useRef({ decision, ui, shown });
+  state.current = { decision, ui, shown };
 
   useEffect(() => {
     if (!active) {
@@ -136,15 +143,16 @@ export function TargetArrows() {
     let frame = 0;
     const tick = () => {
       frame = requestAnimationFrame(tick);
-      const { decision: d, ui: u } = state.current;
+      const { decision: d, ui: u, shown: s } = state.current;
       const from = document.querySelector<HTMLElement>('.cast-card')?.getBoundingClientRect();
-      if (!from || !d) return;
+      if (!from) return;
       // Sized on the card being cast, so that it follows the scale of the table
       const size = Math.max(16, from.width * 0.14);
-      const targets: { card?: number; exp?: string; picked: boolean }[] =
-        d.kind === 'select'
+      const targets: { card?: number; exp?: string; picked: boolean }[] = s
+        ? [...s.cards.map((card) => ({ card, picked: true })), ...s.keys.map((exp) => ({ exp, picked: true }))]
+        : d?.kind === 'select'
           ? u.picked.filter((id) => d.cardIds.includes(id)).map((card) => ({ card, picked: true }))
-          : d.kind === 'expedition'
+          : d?.kind === 'expedition'
             ? u.keys.map((exp) => ({ exp, picked: true }))
             : [];
       if (hover && !targets.some((t) => t.card === hover!.card && t.exp === hover!.exp)) targets.push({ ...hover, picked: false });

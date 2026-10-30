@@ -5,6 +5,7 @@ import { InspectProvider } from '../game/inspect';
 import { GameProvider } from '../game/GameContext';
 import { DragProvider } from '../game/drag';
 import { Arena } from '../arena/Arena';
+import { ShownTargets } from '../arena/Cast';
 import { Inspector } from '../components/Inspector';
 import { toast } from '../game/toasts';
 import type { AnswerBody } from '../game/useGame';
@@ -14,6 +15,19 @@ type ReplayInfo = { table: number; players: { name: string; faction: string; her
 type ReplayStep = { move: number; player: number; answer: Record<string, unknown> };
 
 const SPEEDS = [0.25, 0.5, 1, 2, 4];
+/** A view where targets are chosen stays at least this long in automatic play: the spell lands, then the arrows show */
+const TARGETING_MS = 900;
+
+/** The targets chosen by the answer that follows a view, if it chose any */
+function chosenTargets(step: ReplayStep | undefined): { cards: number[]; keys: string[] } | null {
+  const a = step?.answer;
+  if (a?.type === 'select' && Array.isArray(a.cardIds) && a.cardIds.length) return { cards: a.cardIds as number[], keys: [] };
+  if (a?.type === 'expedition' && Array.isArray(a.keys) && a.keys.length) return { cards: [], keys: a.keys as string[] };
+  return null;
+}
+
+/** The view shows a card resolving (a spell being cast, or the source of the decision) */
+const resolving = (v: GameView | undefined) => !!v && (v.cards.some((c) => c.zone === 'limbo') || v.decision?.sourceCardId !== undefined);
 
 /**
  * Replays (?replay): the BGA games the server has in its native replay format, played from one
@@ -116,9 +130,10 @@ function Viewer({ table, seat, file }: { table?: string; seat?: number; file?: s
       setPlaying(false);
       return;
     }
-    const t = setTimeout(() => setI((x) => Math.min(x + 1, views.length - 1)), 1000 / speed);
+    const targeting = resolving(views[i]) && !!chosenTargets(steps[i]);
+    const t = setTimeout(() => setI((x) => Math.min(x + 1, views.length - 1)), Math.max(1000 / speed, targeting ? TARGETING_MS : 0));
     return () => clearTimeout(t);
-  }, [playing, i, speed, views.length]);
+  }, [playing, i, speed, views, steps]);
 
   useEffect(() => {
     const k = (e: KeyboardEvent) => {
@@ -176,7 +191,9 @@ function Viewer({ table, seat, file }: { table?: string; seat?: number; file?: s
     <InspectProvider catalog={catalog} preferredRefs={refs}>
       <GameProvider view={view} catalog={catalog} log={log} sending={false} send={send}>
         <DragProvider>
-          <Arena onLeave={() => (location.search = '?replay')} connected extraTop={controls} />
+          <ShownTargets.Provider value={resolving(view) ? chosenTargets(steps[i]) : null}>
+            <Arena onLeave={() => (location.search = '?replay')} connected extraTop={controls} />
+          </ShownTargets.Provider>
         </DragProvider>
       </GameProvider>
       <Inspector />
