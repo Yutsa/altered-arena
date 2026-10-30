@@ -15,7 +15,7 @@ const HOVER_MS = 280;
  */
 export function useCardPointer(cardId: number) {
   const { aff, clickCard, inspectCard, decision, sending } = useGameCtx();
-  const { begin, move, end, drag } = useDrag();
+  const { begin, drag } = useDrag();
   const { hide } = useInspect();
   const st = useRef<{
     x: number;
@@ -56,11 +56,8 @@ export function useCardPointer(cardId: number) {
       },
       onPointerMove(e: PointerEvent) {
         const s = st.current;
-        if (!s || s.id !== e.pointerId) return;
-        if (s.dragging) {
-          move(e.clientX, e.clientY);
-          return;
-        }
+        // While dragging, the drag follows the pointer on the window
+        if (!s || s.id !== e.pointerId || s.dragging) return;
         if (Math.hypot(e.clientX - s.x, e.clientY - s.y) > DRAG_THRESHOLD) {
           clearTimeout(s.timer);
           if (draggable && !s.longPressed) {
@@ -76,13 +73,10 @@ export function useCardPointer(cardId: number) {
         const s = st.current;
         if (!s || s.id !== e.pointerId) return;
         clear();
-        if (s.dragging) end(true);
-        else if (!s.longPressed) clickCard(cardId);
+        if (!s.dragging && !s.longPressed) clickCard(cardId);
       },
       onPointerCancel() {
-        const s = st.current;
         clear();
-        if (s?.dragging) end(false);
       },
       onPointerEnter(e: PointerEvent) {
         if (e.pointerType !== 'mouse' || drag) return;

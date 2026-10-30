@@ -61,6 +61,9 @@ interface Motion {
  * place; dropped elsewhere, it goes back to its place. Drop zones are found with
  * elementsFromPoint. The ghost is moved in a requestAnimationFrame loop, written to the DOM
  * directly: a drag does not re-render the table on every move.
+ *
+ * Once a drag has begun, the pointer is followed on the window, not on the card: the drag ends
+ * whatever the pointer does (released anywhere, lost, the window left, Escape).
  */
 export function DragProvider({ children }: { children: ReactNode }) {
   const { byId, def, play } = useGameCtx();
@@ -70,6 +73,7 @@ export function DragProvider({ children }: { children: ReactNode }) {
   const [size, setSize] = useState(0);
   const home = useRef({ x: 0, y: 0 });
   const m = useRef<Motion>({ x: 0, y: 0, tx: 0, ty: 0, ry: 0, rx: 0, rz: 0, scale: 1, frame: 0 });
+  const unlisten = useRef<(() => void) | null>(null);
 
   const set = (s: DragState | null) => {
     dragRef.current = s;
@@ -117,6 +121,25 @@ export function DragProvider({ children }: { children: ReactNode }) {
       set({ cardId, destinations, over: null });
       m.current.frame = requestAnimationFrame(step);
       document.body.classList.add('is-dragging');
+      // Follow the pointer on the window until the drag ends
+      unlisten.current?.();
+      const onMove = (e: PointerEvent) => moveRef.current(e.clientX, e.clientY);
+      const onUp = () => endRef.current(true);
+      const onCancel = () => endRef.current(false);
+      const onKey = (e: KeyboardEvent) => e.key === 'Escape' && endRef.current(false);
+      window.addEventListener('pointermove', onMove);
+      window.addEventListener('pointerup', onUp);
+      window.addEventListener('pointercancel', onCancel);
+      window.addEventListener('blur', onCancel);
+      window.addEventListener('keydown', onKey);
+      unlisten.current = () => {
+        window.removeEventListener('pointermove', onMove);
+        window.removeEventListener('pointerup', onUp);
+        window.removeEventListener('pointercancel', onCancel);
+        window.removeEventListener('blur', onCancel);
+        window.removeEventListener('keydown', onKey);
+        unlisten.current = null;
+      };
     },
     [step],
   );
@@ -133,18 +156,23 @@ export function DragProvider({ children }: { children: ReactNode }) {
   const end = useCallback(
     (drop: boolean) => {
       const s = dragRef.current;
+      unlisten.current?.();
       document.body.classList.remove('is-dragging');
-      if (!s) return;
+      // Already ended (released twice, or released then cancelled)
+      if (!s || s.dropped || s.returning) return;
       if (drop && s.over) {
         const k = m.current;
         k.tx = k.x;
         k.ty = k.y;
         Object.assign(lastDrop, { cardId: s.cardId, x: k.x, y: k.y, at: performance.now() });
-        set({ ...s, destinations: [], dropped: true });
-        // The ghost stays where it was dropped until the new view moves the card
+        const dropped = { ...s, destinations: [], dropped: true };
+        set(dropped);
+        // The ghost stays where it was dropped until the new view moves the card; meanwhile
+        // another drag may have begun, which this must leave alone
         void play(s.cardId, s.over).finally(() => {
+          if (dragRef.current !== dropped) return;
           cancelAnimationFrame(m.current.frame);
-          if (dragRef.current?.cardId === s.cardId) set(null);
+          set(null);
         });
       } else {
         m.current.tx = home.current.x;
@@ -154,6 +182,11 @@ export function DragProvider({ children }: { children: ReactNode }) {
     },
     [play],
   );
+
+  const moveRef = useRef(move);
+  moveRef.current = move;
+  const endRef = useRef(end);
+  endRef.current = end;
 
   const value = useMemo(() => ({ drag, begin, move, end }), [drag, begin, move, end]);
   const card = drag ? byId.get(drag.cardId) : undefined;
