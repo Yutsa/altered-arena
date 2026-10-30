@@ -34,7 +34,8 @@ the weights. Families (prefix of the feature names):
 - `i:` / `f:` — the change of each evaluation term (`eval::Weights`: progress, Dusk wins,
   margins, board, empty expeditions, hand, Reserve, landmarks, Mana, ready Mana, deck, discard),
   for each side, right after the answer and once the fast policy has finished the action; `f:eval`
-  the change of the deck AI's evaluation; `f:win`.
+  the change of the deck AI's evaluation; `f:win`. `g:GROUP:` repeats them per decision group
+  (turn, Mana, target, choice...), so their weight can differ by kind of decision.
 - `a:` — the action class (kind and type: play, end of turn, support, exhaust, select, pass...),
   alone and with the prompt's class (its text with the numbers removed); `a:first` the first
   candidate (the simple bot's answer).
@@ -99,6 +100,14 @@ the softmax with `temperature`). The repeated effect-order guard of `search::Ai`
 Each AI plays N full games (default 20) against the deck AIs of other decks, mixed opponents,
 fixed seeds, seats alternated; the player's deck AI plays the same matchups. Reported: errors
 (panics, stuck games), refused answers, the win rate of both, and AIs under 15 % wins.
+
+## What did not help
+
+Tested and left out (held-out score equal or lower): the position changes averaged over several
+redeals, per game stage, best/worst marks of each change; the previous answer of the player;
+words of a choice's label; the expedition an invoked token goes to; Mana affordability; rollouts
+for every turn candidate; a hidden tanh layer; faction offsets between the shared model and the
+players; per-family regularization of the shared weights or of the offsets.
 
 ## Method of improvement
 

@@ -361,6 +361,17 @@ pub fn without_priors(mut p: search::Params) -> search::Params {
 }
 
 /// `pick`: the candidate the deck AI picks (`s:pick`), when it is a feature
+/// The action class of an answer (`turn:play`, `turn:stop`, `mana:select`, `target:pass`...)
+pub fn action_class(d: &Value, a: &Value) -> String {
+    let grp = group(d);
+    match (grp.as_str(), a["type"].as_str().unwrap_or("")) {
+        ("turn", "endTurn") | ("turn", "pass") => "turn:stop".to_string(),
+        (g, "pass") => format!("{}:pass", g),
+        (g, t) => format!("{}:{}", g, t),
+    }
+}
+
+/// `search`: the deck AI's view of the decision
 pub fn extract(obs: &Observation, d: &Value, cands: &[Value], rng: &mut ChaCha8Rng, cfg: &Config, search: Option<&SearchView>) -> Vec<Feats> {
     let pick = search.and_then(|s| s.pick);
     let best_ply = search.and_then(|s| s.ply.iter().flatten().cloned().reduce(f64::max));
@@ -422,11 +433,7 @@ pub fn extract(obs: &Observation, d: &Value, cands: &[Value], rng: &mut ChaCha8R
         let mut f: Feats = vec![];
         let ty = a["type"].as_str().unwrap_or("").to_string();
         // Action class
-        let class = match (grp.as_str(), ty.as_str()) {
-            ("turn", "endTurn") | ("turn", "pass") => "turn:stop".to_string(),
-            (g, "pass") => format!("{}:pass", g),
-            (g, t) => format!("{}:{}", g, t),
-        };
+        let class = action_class(d, a);
         f.push((format!("a:{}", class), 1.0));
         f.push((format!("a:{}[{}]", class, prompt), 1.0));
         if k == 0 {
@@ -619,7 +626,12 @@ pub fn extract(obs: &Observation, d: &Value, cands: &[Value], rng: &mut ChaCha8R
             out.push(f);
             continue;
         }
-        f.extend(acc.into_iter().map(|(n, v)| (n, v / ok as f32)));
+        let acc: Feats = acc.into_iter().map(|(n, v)| (n, v / ok as f32)).collect();
+        // The same changes per decision group (`g:GROUP:...`): their weight may differ
+        for (n, v) in &acc {
+            f.push((format!("g:{}:{}", grp, n), *v));
+        }
+        f.extend(acc);
         out.push(f);
     }
     out

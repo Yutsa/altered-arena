@@ -109,7 +109,7 @@ fn run() {
             let interner = Mutex::new(Interner::default());
             let res = cv::par_map(&files, threads, |f| dataset::decisions(f, &tables, &cfg, &interner, None));
             std::fs::create_dir_all(data_dir(&args)).unwrap();
-            std::fs::write(format!("{}/config.json", data_dir(&args)), format!("{{\"copies\": {}, \"finish_steps\": {}}}", cfg.copies, cfg.finish_steps)).unwrap();
+            std::fs::write(format!("{}/config.json", data_dir(&args)), serde_json::to_string(&json!({"copies": cfg.copies, "finish_steps": cfg.finish_steps})).unwrap()).unwrap();
             let mut decs = vec![];
             let mut skipped = dataset::Skipped::default();
             for (d, _, s) in res {

@@ -152,7 +152,7 @@ pub fn summary(decs: &[Decision], preds: &[Pred], base: &HashMap<(i64, usize), B
         all.add(p, b, t);
         s.players.entry(d.player.clone()).or_default().add(p, b, t);
         s.groups.entry(d.group.clone()).or_default().add(p, b, t);
-        s.days.entry(format!("day{}", d.day.min(5))).or_default().add(p, b, t);
+        s.days.entry(if d.day >= 5 { "day5+".to_string() } else { format!("day{}", d.day) }).or_default().add(p, b, t);
         s.player_groups.entry(d.player.clone()).or_default().entry(d.group.clone()).or_default().add(p, b, t);
         games.entry(d.player.clone()).or_default().push(d.table);
     }
