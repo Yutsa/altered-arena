@@ -78,7 +78,3 @@ export function regionCenter(i: number): number {
   return i <= 3 ? i + 1.5 : i + 2.5;
 }
 
-/** Number of regions between the two expeditions of a player (0: they met). */
-export function gap(player: PlayerView): number {
-  return Math.max(0, player.expeditions.companion.position - player.expeditions.hero.position);
-}

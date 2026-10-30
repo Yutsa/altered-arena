@@ -6,15 +6,16 @@ import { useDrag } from '../game/drag';
 import { hasActions } from '../game/decisions';
 import { STATUS_INFO } from '../game/keywords';
 import { artUrl } from '../api/catalog';
-import { BIOMES } from '../components/Card';
+import { BIOMES, statSizes } from '../components/Card';
 import { Glyph } from '../components/Glyph';
 
 type Fx = { key: number; text: string; up: boolean };
 
 /**
- * A card lying on the mat: its art, and its statistics in a column on the left. Boosted
- * statistics are drawn in green (lowered ones in red): nothing covers the art. Gains and losses
- * pop a short "+1" above the card.
+ * A card lying on the mat, drawn as a BGA mini card: its art, its costs on the faction badge at the
+ * top left, its statistics as pills in the biome colours on the left edge, its rarity gem on top.
+ * Boosted statistics are drawn in green (lowered ones in red): nothing covers the art. Gains and
+ * losses pop a short "+1" above the card.
  */
 export const MatCard = memo(function MatCard({ id, kind }: { id: number; kind: 'exp' | 'zone' | 'hero' }) {
   const { byId, def, aff, ui, send } = useGameCtx();
@@ -26,6 +27,9 @@ export const MatCard = memo(function MatCard({ id, kind }: { id: number; kind: '
   const fx = useStatFx(card);
   const [artFailed, setArtFailed] = useState(false);
   const isChar = !!card?.stats && (d?.type === 'character' || d?.type === 'token');
+  const token = d?.type === 'token' || !!card?.token;
+  const printed = kind !== 'hero' && !!d && d.type !== 'hero' && !token;
+  const sizes = d ? statSizes(d) : null;
   const counters = Object.entries(card?.counters ?? {}).filter(([, n]) => n > 0);
   const cls = [
     'mc',
@@ -56,22 +60,23 @@ export const MatCard = memo(function MatCard({ id, kind }: { id: number; kind: '
         <div className="mc-art mc-art-missing">{d.name}</div>
       )}
       {kind === 'hero' && d && <span className="mc-name">{d.name}</span>}
-      {isChar && d && (
-        <span className="mc-stats">
-          {BIOMES.map((b: Biome) => {
-            const base = d[b] ?? 0;
-            const cur = card!.stats![b];
-            return (
-              <span key={b} className={`mc-stat s-${b} ${cur > base ? 'up' : cur < base ? 'down' : ''}`}>
-                {cur}
-              </span>
-            );
-          })}
+      {printed && d.costHand !== undefined && (
+        <span className={`mc-costs f-${d.faction}`}>
+          <b className={`mc-cost-hand ${cmp(card?.costHand, d.costHand)}`}>{card?.costHand ?? d.costHand}</b>
+          <b className={`mc-cost-reserve ${cmp(card?.costReserve, d.costReserve)}`}>{card?.costReserve ?? d.costReserve}</b>
         </span>
       )}
-      {kind === 'zone' && card?.zone === 'reserve' && card.costReserve !== undefined && (
-        <span className={`mc-cost ${d?.costReserve !== undefined && card.costReserve < d.costReserve ? 'down' : ''}`}>{card.costReserve}</span>
-      )}
+      {printed && <span className="mc-gem" data-rarity={d.rarity} />}
+      {isChar &&
+        d &&
+        BIOMES.map((b: Biome) => {
+          const cur = card!.stats![b];
+          return (
+            <span key={b} className={`mc-stat s-${b} ${cmp(cur, d[b] ?? 0)}`} data-size={sizes![b]}>
+              {cur}
+            </span>
+          );
+        })}
       {(card?.statuses.length ?? 0) > 0 && (
         <span className="mc-status">
           {card!.statuses.map((s) => {
@@ -107,6 +112,11 @@ export const MatCard = memo(function MatCard({ id, kind }: { id: number; kind: '
     </div>
   );
 });
+
+function cmp(cur: number | undefined, base: number | undefined): '' | 'up' | 'down' {
+  if (cur === undefined || base === undefined || cur === base) return '';
+  return cur > base ? 'up' : 'down';
+}
 
 /**
  * The support ability of a card in Reserve, as on BGA: a tag in its faction colour at the bottom

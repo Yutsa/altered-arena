@@ -28,7 +28,7 @@ const WIDE: ArenaLayout = {
   vars: {
     '--mat-card-w': '112px',
     '--hero-w': '124px',
-    '--zone-card-w': '82px',
+    '--zone-card-w': '90px',
     '--card-hand-w': '150px',
     '--marker-size': '46px',
     '--tot-icon': '32px',
@@ -52,7 +52,7 @@ const PHONE: ArenaLayout = {
   vars: {
     '--mat-card-w': '62px',
     '--hero-w': '68px',
-    '--zone-card-w': '34px',
+    '--zone-card-w': '38px',
     '--card-hand-w': '74px',
     '--marker-size': '26px',
     '--tot-icon': '18px',

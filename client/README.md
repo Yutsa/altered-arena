@@ -76,7 +76,7 @@ src/
     Mat.tsx         mat rows: player zones (piles, Reserve, Landmarks), expedition bands (totals,
                     expeditions, hero card), the Tumult track (storm.jpg tiles, markers, forecast)
     MatCard.tsx     card on the mat: art, statistics column (green when boosted), "+1" effects
-    Hud.tsx         player chips (mana, hand, gap), day/phase, prompt, hand, phase banner
+    Hud.tsx         player chips, mana gauges, opponent's hand, day/phase, prompt, hand, phase banner
     TrackButton.tsx the round button in the middle of the track (end turn, confirm, pass)
     flights.ts      cards flying between zones (Web Animations, no React state)
     model.ts        pure: Tumult card per region pair, Dusk forecast, track geometry

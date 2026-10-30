@@ -5,7 +5,6 @@ import { BoardCard } from '../components/BoardCard';
 import { CardListModal } from '../components/Picker';
 import { DecisionBar } from '../components/DecisionBar';
 import { MatCard } from './MatCard';
-import { gap, forecast } from './model';
 
 const PHASES: { phase: Phase; label: string; icon: string }[] = [
   { phase: 'morning', label: 'Morning', icon: 'dawn' },
@@ -56,10 +55,6 @@ export function PlayerChip({ player, mine, className }: { player: PlayerView; mi
   const { view, decision, send, you } = useGameCtx();
   const waiting = view.waitingFor.includes(player.id);
   const pickable = decision?.kind === 'player' && decision.players.includes(player.id);
-  const g = gap(player);
-  const h = forecast(view, player, 'hero');
-  const c = forecast(view, player, 'companion');
-  const after = Math.max(0, g - (h.advances ? 1 : 0) - (c.advances ? 1 : 0));
   return (
     <div
       className={`chip player-chip ${className} ${mine ? 'mine' : 'theirs'} ${waiting ? 'waiting' : ''} ${pickable ? 'selectable' : ''}`}
@@ -70,10 +65,6 @@ export function PlayerChip({ player, mine, className }: { player: PlayerView; mi
         {player.bot && <small> bot</small>}
       </span>
       {mine && you === null && <span className="pc-tag">Hand {player.handCount}</span>}
-      <span className="pc-gap" title="Regions between the two expeditions (0: they meet)">
-        Gap <b key={g}>{g}</b>
-        {after !== g && <small> → {after}</small>}
-      </span>
       {player.passed && <span className="pc-tag">Passed</span>}
       {waiting && !mine && <span className="pc-tag thinking">thinking…</span>}
     </div>

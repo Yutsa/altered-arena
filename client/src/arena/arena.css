@@ -94,7 +94,7 @@
 .zone-cards { display: flex; gap: 8px; }
 .zone-slot {
   width: var(--zone-card-w);
-  aspect-ratio: 362 / 505;
+  aspect-ratio: 1;
   border-radius: 8px;
   border: 2px dashed rgb(243 233 210 / 0.5);
 }
@@ -219,21 +219,29 @@
 
 /* ---------------------------------------------------------------- cards on the mat */
 .mc {
+  /* One pixel of a BGA mini card (107 px wide): costs, statistics and gem are placed in these */
+  --m: calc(100cqw / 107);
+  container-type: inline-size;
   position: relative;
   width: var(--mat-card-w);
   aspect-ratio: 362 / 505;
   border-radius: 8px;
-  border: 2px solid var(--cream);
+  border: 2px solid #16131f;
   background: #1a1830;
   box-shadow: 0 6px 12px rgb(20 10 40 / 0.6);
   cursor: pointer;
   transition: transform 0.15s, rotate 0.25s, scale 0.25s, box-shadow 0.15s, border-color 0.15s, filter 0.2s;
   -webkit-tap-highlight-color: transparent;
 }
-.mc-zone { width: var(--zone-card-w); border-radius: 7px; }
+/* Reserve and Landmarks: square cards showing the top of the art, as on BGA */
+.mc-zone { width: var(--zone-card-w); aspect-ratio: 1; border-radius: 8px; }
+.mc-zone .mc-art { object-position: 50% 12%; }
+.mc-zone.is-exhausted { scale: 1; }
 .mc-hero { width: var(--hero-w); border-color: var(--gold); box-shadow: 0 0 0 3px rgb(30 20 50 / 0.6), 0 10px 18px rgb(0 0 0 / 0.6); }
 .band-mine .mc-hero { border-color: #9ff0cf; }
-/* Uniques: a golden edge, as on BGA */
+/* Edge by rarity, as on BGA: dark for commons, white for rares, golden for uniques */
+.mc[data-rarity='rare'] { border-color: #f4f1ea; }
+.mc[data-rarity='exalted'] { border-color: #d9b8ff; }
 .mc[data-rarity='unique'] { border-color: #ffe454; box-shadow: 0 0 8px 2px #d0bd23, 0 6px 12px rgb(20 10 40 / 0.6); }
 .mc-art { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; border-radius: 6px; pointer-events: none; }
 .mc-art-missing {
@@ -255,49 +263,86 @@
   font: 600 calc(var(--hero-w) * 0.1) / 1.1 var(--font-title);
   text-transform: uppercase;
 }
-.mc-stats {
+/* Costs (BGA mini card): the faction badge at the top left, hand cost big, reserve cost small */
+.mc-costs {
   position: absolute;
-  left: 4%;
-  top: 20%;
-  display: flex;
-  flex-direction: column;
-  gap: 4%;
-  width: 30%;
+  z-index: 3;
+  top: calc(-11 * var(--m));
+  left: calc(-14 * var(--m));
+  width: calc(50 * var(--m));
+  height: calc(45 * var(--m));
+  background: url('/img/card/costs.png') 0 0 / 100% 600% no-repeat;
+  pointer-events: none;
 }
-.mc-stat {
-  display: block;
-  border-radius: 5px;
-  background: rgb(18 14 36 / 0.9);
-  border-left: 4px solid;
-  font: 700 calc(var(--mat-card-w) * 0.18) / 1.3 var(--font-title);
-  text-align: center;
-  color: #fff;
-}
-.mc-zone .mc-stat { font-size: calc(var(--zone-card-w) * 0.16); border-left-width: 3px; border-radius: 3px; }
-.mc-stat.s-forest { border-color: var(--b-forest); }
-.mc-stat.s-mountain { border-color: var(--b-mountain); }
-.mc-stat.s-ocean { border-color: var(--b-ocean); }
-.mc-stat.up { color: #7dff8c; }
-.mc-stat.down { color: #ff8a8a; }
-.mc-cost {
+.mc-costs.f-BR { background-position-y: 20%; }
+.mc-costs.f-LY { background-position-y: 40%; }
+.mc-costs.f-MU { background-position-y: 60%; }
+.mc-costs.f-OD { background-position-y: 80%; }
+.mc-costs.f-YZ { background-position-y: 100%; }
+.mc-costs b {
   position: absolute;
-  top: 4%;
-  left: 4%;
-  width: 30%;
-  aspect-ratio: 1;
-  border-radius: 50%;
+  width: calc(19 * var(--m));
+  height: calc(19 * var(--m));
   display: grid;
   place-items: center;
-  background: #2f72b5;
-  border: 2px solid #fff;
-  font: 700 calc(var(--zone-card-w) * 0.2) / 1 var(--font-title);
+  font: 700 calc(15 * var(--m)) / 1 'HapticPro', var(--font-title);
+  color: #fff;
+  text-shadow: 0 0 calc(3 * var(--m)) #000;
 }
-.mc-cost.down { background: #2b8a3e; }
-.mc-status { position: absolute; right: 4%; bottom: 4%; display: flex; gap: 2px; }
+.mc-cost-hand { top: calc(9 * var(--m)); left: calc(9 * var(--m)); font-size: calc(16 * var(--m)) !important; }
+.mc-cost-reserve { top: calc(22 * var(--m)); left: calc(26 * var(--m)); font-size: calc(13 * var(--m)) !important; }
+.mc-costs .down { color: #8dff9a; }
+.mc-costs .up { color: #ff9c9c; }
+
+/* Statistics: pills in the biome colours, coming out of the left edge */
+.mc-stat {
+  position: absolute;
+  z-index: 3;
+  left: calc(-6 * var(--m));
+  box-sizing: content-box;
+  width: calc(20 * var(--m));
+  height: calc(17 * var(--m));
+  padding-left: calc(4 * var(--m));
+  border-radius: calc(6 * var(--m));
+  font: 700 calc(13 * var(--m)) / calc(18 * var(--m)) 'HapticPro', var(--font-title);
+  color: #fff;
+  text-shadow: 0 0 calc(4 * var(--m)) #000, 0 0 calc(4 * var(--m)) #000;
+  box-shadow: 0 0 calc(4 * var(--m)) calc(2 * var(--m)) rgb(0 0 0 / 0.85);
+  pointer-events: none;
+}
+.mc-stat[data-size='0'] { width: calc(11 * var(--m)); }
+.mc-stat[data-size='1'] { width: calc(13 * var(--m)); }
+.mc-stat[data-size='3'] { width: calc(27 * var(--m)); }
+.mc-stat.s-forest { top: calc(37 * var(--m)); background: #abb648; border-bottom-right-radius: calc(2 * var(--m)); }
+.mc-stat.s-mountain { top: calc(57 * var(--m)); background: #af7b51; border-top-right-radius: calc(2 * var(--m)); border-bottom-right-radius: calc(2 * var(--m)); }
+.mc-stat.s-ocean { top: calc(77 * var(--m)); background: #6b93c0; border-top-right-radius: calc(2 * var(--m)); }
+.mc-stat.s-forest[data-size='0'] { background: #bdbeb5; }
+.mc-stat.s-mountain[data-size='0'] { background: #ad9684; }
+.mc-stat.s-ocean[data-size='0'] { background: #a4b4c7; }
+/* Boosted statistics in green, lowered ones in red: a ring and the number */
+.mc-stat.up { color: #c8ffb0; box-shadow: 0 0 0 calc(1.5 * var(--m)) #7dff8c, 0 0 calc(6 * var(--m)) calc(2 * var(--m)) rgb(60 220 100 / 0.8); }
+.mc-stat.down { color: #ffd0d0; box-shadow: 0 0 0 calc(1.5 * var(--m)) #ff6b6b, 0 0 calc(6 * var(--m)) calc(2 * var(--m)) rgb(220 60 60 / 0.8); }
+
+/* Rarity gem, top centre */
+.mc-gem {
+  position: absolute;
+  z-index: 3;
+  top: calc(-5 * var(--m));
+  left: calc(50% - 14 * var(--m));
+  width: calc(27 * var(--m));
+  height: calc(15 * var(--m));
+  background: url('/img/card/rarity-gems.png') 0 0 / 100% 400% no-repeat;
+  pointer-events: none;
+}
+.mc-gem[data-rarity='rare'] { background-position-y: 33.33%; }
+.mc-gem[data-rarity='unique'] { background-position-y: 66.67%; }
+.mc-gem[data-rarity='exalted'] { background-position-y: 100%; }
+.mc-status { position: absolute; z-index: 3; right: 4%; top: 12%; display: flex; flex-direction: column; gap: 2px; }
 .mc-status img { width: calc(var(--mat-card-w) * 0.2); height: calc(var(--mat-card-w) * 0.2); filter: drop-shadow(0 1px 2px #000); }
 .mc-status b { font-size: 10px; background: rgb(0 0 0 / 0.7); border-radius: 4px; padding: 0 3px; }
 .mc-counters { position: absolute; right: 5%; bottom: 5%; display: flex; gap: 3px; }
 .mc-hero .mc-counters { right: auto; left: 5%; }
+.mc-zone .mc-counters { bottom: auto; top: 40%; }
 .mc-counter {
   min-width: 1.9em;
   padding: 1px 6px;
@@ -521,8 +566,6 @@
 .pc-name small { font-family: var(--font-text); font-size: 0.7em; opacity: 0.7; }
 .pc-tag { padding: 2px 6px; border-radius: 6px; background: rgb(255 255 255 / 0.12); font-size: 0.85em; }
 .pc-tag.thinking { animation: blink 1.2s infinite; }
-.pc-gap { color: #d6deef; }
-.pc-gap b { font-family: var(--font-title); font-size: 1.15em; display: inline-block; animation: arena-num 0.3s ease-out; }
 /* Mana gauges on the mat (BGA), beside the totals of each player's expeditions */
 .totals-cell { display: flex; align-items: center; justify-content: center; gap: calc(var(--mana-w) * 0.22); }
 .mana-bar {

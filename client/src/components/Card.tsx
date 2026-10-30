@@ -91,7 +91,7 @@ function flavorIfFitting(def: CardDef, token: boolean): string {
 }
 
 /** Relative sizes of the statistics (BGA getBiomesUISizes): 0 for 0, then smaller / middle / larger */
-function statSizes(def: CardDef): Record<Biome, number> {
+export function statSizes(def: CardDef): Record<Biome, number> {
   const v = { forest: def.forest ?? 0, mountain: def.mountain ?? 0, ocean: def.ocean ?? 0 };
   const sorted = [v.forest, v.mountain, v.ocean].sort((a, b) => a - b);
   const mid = sorted[1] === 0 ? sorted[2] : sorted[1];
