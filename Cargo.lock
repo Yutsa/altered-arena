@@ -56,10 +56,13 @@ dependencies = [
 name = "arena-server"
 version = "0.1.0"
 dependencies = [
+ "altered-ai",
+ "altered-imitate",
  "altered-replay",
  "altered-rules",
  "axum",
  "mimalloc",
+ "rand_chacha",
  "serde",
  "serde_json",
  "tokio",

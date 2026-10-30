@@ -337,8 +337,22 @@ export type Answer = { decisionId: string } & (
 );
 
 export interface NewGame {
-  players: { name: string; bot?: boolean; deck?: string }[]; // deck: DeckSummary id, else chosen in game
+  // deck: DeckSummary id, else chosen in game. ai: for a bot seat, the AiSummary id of the AI that plays it
+  // (the simple bot by default); an AI plays its own deck under its own name (deck and name are ignored)
+  players: { name: string; bot?: boolean; deck?: string; ai?: string }[];
   seed?: number;
+}
+
+/** GET /api/v1/ais: the AIs a bot seat can play */
+export interface AiSummary {
+  id: string;
+  /** "player — hero" for an imitation AI */
+  label: string;
+  /** simple: the engine's bot; imitation: imitates a tournament player on their deck; deck: the deck's own AI */
+  kind: 'simple' | 'imitation' | 'deck';
+  /** The deck the AI plays (tournament deck id) and its hero */
+  deck?: string;
+  hero?: string;
 }
 
 export interface GameCreated {

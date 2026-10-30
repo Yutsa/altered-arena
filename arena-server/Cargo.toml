@@ -8,6 +8,9 @@ license.workspace = true
 [dependencies]
 altered-rules = { path = "../rules" }
 altered-replay = { path = "../replay" }
+altered-ai = { path = "../ai" }
+altered-imitate = { path = "../imitate" }
+rand_chacha = "0.9"
 axum = "0.8"
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time", "fs", "signal"] }
 tower-http = { version = "0.6", features = ["fs", "cors", "compression-gzip"] }

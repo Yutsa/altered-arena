@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import type { PlayerId } from '@protocol';
+import type { AiSummary, PlayerId } from '@protocol';
 import { useCatalog, useDecks } from '../api/catalog';
 import { api, ApiError } from '../api/client';
 import { InspectProvider } from '../game/inspect';
@@ -25,7 +25,14 @@ export function Lobby({ onJoin }: { onJoin: (gameId: string, player: PlayerId, t
   const [joinId, setJoinId] = useState('');
   const [joinPlayer, setJoinPlayer] = useState<PlayerId>(2001);
   const [joinToken, setJoinToken] = useState('');
+  const [ais, setAis] = useState<AiSummary[] | null>(null);
+  const [ai, setAi] = useState('simple');
   const last = lastGame();
+
+  useEffect(() => {
+    api.ais().then(setAis, () => setAis(null));
+  }, []);
+  const opponent = ais?.find((a) => a.id === ai);
 
   const fail = (e: unknown) => toast(e instanceof ApiError ? e.message : String(e));
 
@@ -35,7 +42,7 @@ export function Lobby({ onJoin }: { onJoin: (gameId: string, player: PlayerId, t
     saveName(name);
     saveDeck(deck);
     try {
-      const g = await api.createGame({ players: [{ name: name || 'Player', deck }, { name: 'Bot', bot: true }] });
+      const g = await api.createGame({ players: [{ name: name || 'Player', deck }, { name: 'Bot', bot: true, ai }] });
       onJoin(g.gameId, g.players[0].id, g.players[0].token);
     } catch (e) {
       fail(e);
@@ -149,6 +156,30 @@ export function Lobby({ onJoin }: { onJoin: (gameId: string, player: PlayerId, t
               <span>Your name</span>
               <input value={name} onChange={(e) => setName(e.target.value)} maxLength={24} />
             </label>
+            {mode === 'bot' && ais && ais.length > 1 && (
+              <label className="field">
+                <span>Opponent{opponent?.hero ? ` (plays its own deck: ${opponent.hero})` : ''}</span>
+                <select value={ai} onChange={(e) => setAi(e.target.value)}>
+                  {(
+                    [
+                      ['simple', 'Bot'],
+                      ['imitation', 'Imitation AIs (tournament players)'],
+                      ['deck', 'Deck AIs'],
+                    ] as [AiSummary['kind'], string][]
+                  ).map(([kind, group]) => (
+                    <optgroup key={kind} label={group}>
+                      {ais
+                        .filter((a) => a.kind === kind)
+                        .map((a) => (
+                          <option key={a.id} value={a.id}>
+                            {a.label}
+                          </option>
+                        ))}
+                    </optgroup>
+                  ))}
+                </select>
+              </label>
+            )}
             <h2>Choose a starter deck</h2>
             {decks && catalog ? (
               <DeckGrid decks={decks} catalog={catalog} selected={deck} onSelect={(d) => setDeck(d.id)} />

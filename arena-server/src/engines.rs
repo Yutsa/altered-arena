@@ -3,6 +3,7 @@
 //! The engine runs requests as PHP does: whole chains of states recursively (jumpToState is
 //! re-entrant), so its calls run on worker threads with large stacks (`EnginePool`).
 
+use altered_ai::legal;
 use altered_rules::arena::NewPlayer;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -18,6 +19,19 @@ pub struct SeatInfo {
     pub bot: bool,
     #[serde(default)]
     pub token: String,
+    /// A bot seat the server plays with an AI (`ais`): the AI's id
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ai: Option<String>,
+}
+
+/// A seat of a new game
+pub struct NewSeat {
+    pub name: String,
+    pub bot: bool,
+    /// Starter deck id (protocol/data/decks.json), else chosen in game
+    pub deck: Option<String>,
+    /// An AI seat (a bot the server plays, not the engine): the AI's id and its decklist
+    pub ai: Option<(String, Value)>,
 }
 
 /// A game of the `rules` engine as the server keeps it (and saves it)
@@ -52,15 +66,29 @@ fn dice_from_seed(seed: u64) -> Vec<i64> {
 
 impl ServerGame {
     /// A new game: players 2001 and 2002, decks chosen in the lobby (else in game)
-    pub fn new(id: String, players: [(String, bool, Option<String>); 2], seed: u64) -> Result<ServerGame, String> {
-        let new: Vec<NewPlayer> = players.iter().map(|(name, bot, deck)| NewPlayer { name: name.clone(), bot: *bot, deck: deck.clone(), api_deck: None }).collect();
+    pub fn new(id: String, players: [NewSeat; 2], seed: u64) -> Result<ServerGame, String> {
+        // An AI seat is a player of the engine with the AI's deck, the server answers its decisions
+        let new: Vec<NewPlayer> = players
+            .iter()
+            .map(|p| match &p.ai {
+                Some((_, deck)) => NewPlayer { name: p.name.clone(), bot: false, deck: None, api_deck: Some(deck.clone()) },
+                None => NewPlayer { name: p.name.clone(), bot: p.bot, deck: p.deck.clone(), api_deck: None },
+            })
+            .collect();
         // The game id of the arena seeds the randomness of each act (Arena::seedRng)
         let game_id = (seed & 0x7FFF_FFFF) as i64;
         let game = altered_rules::Game::create(game_id, &new, &dice_from_seed(seed)).map_err(|e| e.0)?;
         let seats = players
             .iter()
             .enumerate()
-            .map(|(i, (_, bot, _))| SeatInfo { id: 2001 + i as u32, name: game.players.get(&(2001 + i as i64)).map(|p| p.name.clone()).unwrap_or_default(), bot: *bot, token: String::new() })
+            .map(|(i, p)| SeatInfo {
+                id: 2001 + i as u32,
+                // The engine keeps only letters, digits, spaces, _ and - of a name: an AI's label ("player — hero") stays the server's
+                name: if p.ai.is_some() { p.name.clone() } else { game.players.get(&(2001 + i as i64)).map(|p| p.name.clone()).unwrap_or_default() },
+                bot: p.bot || p.ai.is_some(),
+                token: String::new(),
+                ai: p.ai.as_ref().map(|(id, _)| id.clone()),
+            })
             .collect();
         Ok(ServerGame(Box::new(RulesGame { engine: "rules".into(), id, seats, game })))
     }
@@ -108,6 +136,36 @@ impl ServerGame {
         }
         // The game now waits for a player
         g.game.compact();
+    }
+
+    /// The AI seats: (seat index, player id, AI id)
+    pub fn ai_seats(&self) -> Vec<(usize, u32, String)> {
+        self.0.seats.iter().enumerate().filter_map(|(i, s)| Some((i, s.id, s.ai.clone()?))).collect()
+    }
+
+    /// A decision an AI seat has to take: (player id, decision)
+    pub fn ai_decision(&self) -> Option<(u32, Value)> {
+        let waiting = self.0.game.waiting_for();
+        let s = self.0.seats.iter().find(|s| s.ai.is_some() && waiting.contains(&s.id))?;
+        Some((s.id, self.0.game.try_decision(s.id).ok()??))
+    }
+
+    pub fn game(&self) -> &altered_rules::Game {
+        &self.0.game
+    }
+
+    /// The answer `a` of an AI seat to its decision `d`; refused, the first candidate the engine
+    /// accepts (as headless games do, `altered_ai::play::play_game`). Then the bots play.
+    pub fn ai_answer(&mut self, pid: u32, d: &Value, a: &Value) -> Result<(), String> {
+        let g = &mut self.0;
+        if let Err(e) = g.game.answer(pid, &legal::with_id(d, a)) {
+            eprintln!("game {}: AI answer refused ({}): {}", g.id, d["kind"], e.0);
+            if !legal::candidates(d).iter().any(|c| g.game.answer(pid, &legal::with_id(d, c)).is_ok()) {
+                return Err(format!("no answer accepted ({}): {}", d["kind"], e.0));
+            }
+        }
+        self.run_bots();
+        Ok(())
     }
 
     /// The GameView of a seat (None: spectator), serialized
@@ -194,5 +252,58 @@ impl EnginePool {
         });
         self.tx.lock().map_err(|_| "engine pool poisoned".to_string())?.send(job).map_err(|_| "engine pool stopped".to_string())?;
         rx.await.map_err(|_| "engine thread lost".to_string())?
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A full game against an AI seat, both seats answering their first legal candidate: the AI
+    /// seat's decisions come from `ai_decision` and go through `ai_answer` (needs the tournament
+    /// decklists, server/goldens/tournament_decks.json, which are not in git)
+    #[test]
+    fn game_with_an_ai_seat() {
+        let Ok(text) = std::fs::read_to_string("../server/goldens/tournament_decks.json") else {
+            eprintln!("skipped: no tournament decklists");
+            return;
+        };
+        let decks: Value = serde_json::from_str(&text).unwrap();
+        let deck = decks["D01"].clone();
+        std::thread::Builder::new()
+            .stack_size(256 << 20)
+            .spawn(move || {
+                let seats = [
+                    NewSeat { name: "Human".into(), bot: false, deck: Some("ax_1_sierra".into()), ai: None },
+                    NewSeat { name: "Player — Sierra & Oddball".into(), bot: true, deck: None, ai: Some(("deck:D01".into(), deck)) },
+                ];
+                let mut g = ServerGame::new("t".into(), seats, 7).unwrap();
+                g.run_bots();
+                g.set_tokens(|| "tok".into());
+                assert_eq!(g.ai_seats(), vec![(1, 2002, "deck:D01".to_string())]);
+                let seats = g.seats();
+                assert_eq!((seats[1].1.as_str(), seats[1].2, seats[1].3.as_str()), ("Player — Sierra & Oddball", true, ""));
+                let mut ai_answers = 0;
+                for _ in 0..3000 {
+                    if g.ended() {
+                        break;
+                    }
+                    if let Some((pid, d)) = g.ai_decision() {
+                        let a = legal::candidates(&d).into_iter().next().unwrap_or(json!({"type": "pass"}));
+                        g.ai_answer(pid, &d, &a).unwrap();
+                        ai_answers += 1;
+                        continue;
+                    }
+                    let d = g.game().try_decision(2001).unwrap().expect("a decision of the human seat");
+                    let ok = legal::candidates(&d).iter().any(|c| g.answer(0, &legal::with_id(&d, c)).is_ok());
+                    assert!(ok, "no answer accepted: {}", d);
+                    g.run_bots();
+                }
+                assert!(g.ended(), "the game did not end");
+                assert!(ai_answers > 10);
+            })
+            .unwrap()
+            .join()
+            .unwrap();
     }
 }

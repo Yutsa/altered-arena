@@ -4,6 +4,7 @@
 //!
 //! Usage: loadtest --games 1000 --pvp 0.5 --think-ms 1500 --duration 60 --url http://localhost:8090 --pid <server pid>
 //!   --pvp: share of games between two simulated humans (the rest are against the server bot)
+//!   --ai: the AI that plays the bot seats (`GET /api/v1/ais`), the simple bot by default
 
 use serde_json::{json, Value};
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -226,6 +227,7 @@ async fn main() {
     // The server runs in this docker container (CPU, memory and bytes sent read from its cgroup)
     let docker: String = arg("--docker", String::new());
     let ramp: u64 = arg("--ramp", 10);
+    let ai: String = arg("--ai", "simple".to_string());
 
     let client = reqwest::Client::builder().pool_max_idle_per_host(4096).timeout(Duration::from_secs(30)).build().unwrap();
     let stats = Arc::new(Stats {
@@ -280,7 +282,7 @@ async fn main() {
     let create_lat = Arc::new(Mutex::new(Vec::<u64>::new()));
     let mut handles = vec![];
     for i in 0..games {
-        let (client, url, stats, decks, create_lat) = (client.clone(), url.clone(), stats.clone(), decks.clone(), create_lat.clone());
+        let (client, url, stats, decks, create_lat, ai) = (client.clone(), url.clone(), stats.clone(), decks.clone(), create_lat.clone(), ai.clone());
         let delay = Duration::from_millis(ramp * 1000 * i as u64 / games.max(1) as u64);
         let is_pvp = (i as f64) < pvp * games as f64;
         handles.push(tokio::spawn(async move {
@@ -289,7 +291,7 @@ async fn main() {
             while Instant::now() < until {
                 let d0 = decks[(i + round as usize) % decks.len()]["id"].clone();
                 let d1 = decks[(i * 7 + 3 + round as usize) % decks.len()]["id"].clone();
-                let body = json!({"players": [{"name": "Load A", "deck": d0}, {"name": "Load B", "deck": d1, "bot": !is_pvp}]});
+                let body = json!({"players": [{"name": "Load A", "deck": d0}, {"name": "Load B", "deck": d1, "bot": !is_pvp, "ai": ai}]});
                 let t = Instant::now();
                 let Ok(r) = client.post(format!("{}/api/v1/games", url)).json(&body).send().await else {
                     stats.errors.fetch_add(1, Ordering::Relaxed);

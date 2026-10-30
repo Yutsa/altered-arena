@@ -41,6 +41,14 @@ and reloaded on demand), `ENGINE_THREADS` (threads running the engine, default: 
 `/api/debug/*`, the hidden state of a game — never in production), `MIMALLOC_PURGE_DELAY=0`
 (recommended: frees memory sooner).
 
+Bot opponents (`GET /api/v1/ais`, picked in the lobby's "Play vs Bot"): the simple bot, and, when
+the files are there, the imitation AIs of the tournament players (`IMITATION_DIR`,
+private/tournament-617607/imitation: `shared.json` and `players/*.json`, see docs/ai/IMITATION.md)
+and the deck AIs (`AI_PARAMS_DIR`, ai/params), on the tournament decklists (`TOURNAMENT_DECKS`,
+server/goldens/tournament_decks.json). They are read when a game starts, so a refit needs no
+restart. An AI plays its own deck; the server plays its decisions in the background (0.1–0.5 s of
+CPU each for an imitation AI, on the engine threads).
+
 Deployment: from the parent folder (it holds AlteredBGA, whose card art goes in the image),
 `docker build -t altered-arena -f altered-arena/Dockerfile .`, then
 `docker run -p 8080:8080 -v arena-data:/data altered-arena`. Performance and sizing:

@@ -1,4 +1,5 @@
 import type {
+  AiSummary,
   Answer,
   CardCatalog,
   DeckSummary,
@@ -60,6 +61,8 @@ async function request<T>(path: string, init?: RequestInit, token?: string | nul
 export const api = {
   cards: () => request<CardCatalog>('/cards'),
   decks: () => request<DeckSummary[]>('/decks'),
+  /** The AIs a bot seat can play */
+  ais: () => request<AiSummary[]>('/ais'),
   createGame: (game: NewGame) => request<GameCreated>('/games', { method: 'POST', body: JSON.stringify(game) }),
   /** With `since`, the server waits (up to ~20 s) for a view newer than `since`. */
   view: (gameId: string, player: PlayerId | null, token: string | null | undefined, since?: number, signal?: AbortSignal) =>

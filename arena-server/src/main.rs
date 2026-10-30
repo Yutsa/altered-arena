@@ -7,13 +7,15 @@
 //! Environment: PORT (8080), CLIENT_DIR (client/dist), ART_DIR (../AlteredBGA/img/illustrations),
 //! PROTOCOL_DIR (protocol/data), DATA_DIR (data), PERSIST_SECS (10), ARENA_DEBUG (debug routes),
 //! ENGINE_THREADS (number of threads running the rules engine `rules/`, default: CPUs),
-//! ENGINE_STACK_MB (their stack size, 256).
+//! ENGINE_STACK_MB (their stack size, 256), IMITATION_DIR, AI_PARAMS_DIR and TOURNAMENT_DECKS (the
+//! AIs a bot seat can play, see `ais`).
 //! Recommended: MIMALLOC_PURGE_DELAY=0 (returns freed memory to the OS sooner).
 
 /// Faster than the system allocator for many small allocations, and less fragmentation
 #[global_allocator]
 static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
+mod ais;
 mod engines;
 mod replays;
 
@@ -22,11 +24,14 @@ use axum::http::{header, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
 use axum::{Json, Router};
-use engines::{EnginePool, ServerGame};
+use altered_ai::play::{Agent, Observation, SimpleBot};
+use engines::{EnginePool, NewSeat, ServerGame};
+use rand_chacha::rand_core::SeedableRng;
+use rand_chacha::ChaCha8Rng;
 use serde::Deserialize;
 use serde_json::{json, Value};
 use std::collections::{HashMap, HashSet};
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tokio::sync::{Mutex, Notify, RwLock};
@@ -39,12 +44,36 @@ struct GameEntry {
     changed: Notify,
     /// Last request on this game (unix seconds), to unload idle games from memory
     last_access: AtomicU64,
+    /// The game has AI seats (`kick_ais`)
+    has_ai: bool,
+    ai: Arc<std::sync::Mutex<AiPlayers>>,
+    /// A task plays the AI seats' decisions
+    ai_running: AtomicBool,
+    /// Counts the requests to play them
+    ai_kicks: AtomicU64,
 }
 
 impl GameEntry {
     fn new(game: ServerGame) -> Arc<GameEntry> {
-        Arc::new(GameEntry { game: Arc::new(Mutex::new(game)), changed: Notify::new(), last_access: AtomicU64::new(now()) })
+        Arc::new(GameEntry {
+            has_ai: !game.ai_seats().is_empty(),
+            game: Arc::new(Mutex::new(game)),
+            changed: Notify::new(),
+            last_access: AtomicU64::new(now()),
+            ai: Default::default(),
+            ai_running: AtomicBool::new(false),
+            ai_kicks: AtomicU64::new(0),
+        })
     }
+}
+
+/// The AI players of a game, built at their first decision (again after a reload)
+#[derive(Default)]
+struct AiPlayers {
+    agents: HashMap<u32, Box<dyn Agent>>,
+    /// Each seat's decklist (an AI's own; a human's is not read)
+    decks: [Value; 2],
+    rng: Option<ChaCha8Rng>,
 }
 
 #[derive(Clone)]
@@ -66,6 +95,7 @@ struct AppState {
     cards_json: Vec<u8>,
     decks_json: Vec<u8>,
     data_dir: std::path::PathBuf,
+    ais: ais::AiDirs,
 }
 
 type Shared = Arc<AppState>;
@@ -118,6 +148,7 @@ async fn main() {
         cards_json: std::fs::read(format!("{}/cards.json", protocol_dir)).expect("protocol/data/cards.json"),
         decks_json: std::fs::read(format!("{}/decks.json", protocol_dir)).expect("protocol/data/decks.json"),
         data_dir: data_dir.clone(),
+        ais: ais::AiDirs::from_env(),
     });
     altered_rules::managers::cards::classes();
 
@@ -137,6 +168,7 @@ async fn main() {
         .route("/api/health", get(health))
         .route("/api/v1/cards", get(cards))
         .route("/api/v1/decks", get(decks))
+        .route("/api/v1/ais", get(list_ais))
         .route("/api/v1/games", post(create_game))
         .route("/api/v1/games/{id}", get(view_game))
         .route("/api/v1/games/{id}/answer", post(answer))
@@ -208,6 +240,15 @@ async fn decks(State(s): State<Shared>) -> Response {
     ([(header::CONTENT_TYPE, "application/json")], s.decks_json.clone()).into_response()
 }
 
+/// The AIs a bot seat can play (read from their files at each request)
+async fn list_ais(State(s): State<Shared>) -> Response {
+    let s2 = s.clone();
+    match tokio::task::spawn_blocking(move || s2.ais.list()).await {
+        Ok(v) => Json(v).into_response(),
+        Err(e) => error(StatusCode::INTERNAL_SERVER_ERROR, e.to_string(), false),
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Engine calls
 // ---------------------------------------------------------------------------
@@ -243,6 +284,8 @@ struct NewPlayer {
     #[serde(default)]
     bot: bool,
     deck: Option<String>,
+    /// A bot seat: the AI that plays it (`GET /api/v1/ais`), the simple bot by default
+    ai: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -262,7 +305,7 @@ fn clean_name(n: Option<&str>, i: usize) -> String {
 
 /// Creates a game on an engine thread, lets the bots play, gives each human seat a secret
 /// token (returned only to whoever created the game, or to the matched player) and registers it
-async fn insert_game(s: &Shared, id: String, players: [(String, bool, Option<String>); 2], seed: u64) -> Result<Value, String> {
+async fn insert_game(s: &Shared, id: String, players: [NewSeat; 2], seed: u64) -> Result<Value, String> {
     let game = s
         .pool
         .run(move || -> Result<ServerGame, String> {
@@ -284,8 +327,10 @@ async fn insert_game(s: &Shared, id: String, players: [(String, bool, Option<Str
             v
         })
         .collect();
-    s.games.write().await.insert(id.clone(), GameEntry::new(game));
+    let e = GameEntry::new(game);
+    s.games.write().await.insert(id.clone(), e.clone());
     s.dirty.lock().await.insert(id.clone());
+    kick_ais(s, &id, &e);
     Ok(json!({"gameId": id, "players": players}))
 }
 
@@ -309,19 +354,28 @@ async fn create_game(State(s): State<Shared>, Json(req): Json<NewGame>) -> Respo
     if req.players.len() != 2 {
         return error(StatusCode::BAD_REQUEST, "A game needs 2 players", true);
     }
-    for p in &req.players {
+    let mut seats = vec![];
+    for (i, p) in req.players.iter().enumerate() {
         if let Some(d) = &p.deck {
             if !known_deck(d) {
                 return error(StatusCode::BAD_REQUEST, format!("Unknown deck {}", d), true);
             }
         }
+        let mut seat = NewSeat { name: clean_name(p.name.as_deref(), i), bot: p.bot, deck: p.deck.clone(), ai: None };
+        // An AI plays its own deck, under its own name
+        if let Some(ai) = p.ai.clone().filter(|a| p.bot && a != ais::SIMPLE) {
+            let s2 = s.clone();
+            let ai2 = ai.clone();
+            let Ok(Some((name, deck))) = tokio::task::spawn_blocking(move || s2.ais.describe(&ai2)).await else {
+                return error(StatusCode::BAD_REQUEST, format!("Unknown AI {}", ai), true);
+            };
+            seat = NewSeat { name, bot: true, deck: None, ai: Some((ai, deck)) };
+        }
+        seats.push(seat);
     }
-    let cfg = |i: usize| {
-        let p = &req.players[i];
-        (clean_name(p.name.as_deref(), i), p.bot, p.deck.clone())
-    };
+    let seats: [NewSeat; 2] = seats.try_into().unwrap_or_else(|_| unreachable!());
     let id = new_game_id(&s);
-    match insert_game(&s, id, [cfg(0), cfg(1)], req.seed.unwrap_or_else(seed)).await {
+    match insert_game(&s, id, seats, req.seed.unwrap_or_else(seed)).await {
         Ok(v) => Json(v).into_response(),
         Err(e) => error(StatusCode::INTERNAL_SERVER_ERROR, e, false),
     }
@@ -358,8 +412,10 @@ async fn entry(s: &Shared, id: &str) -> Option<Arc<GameEntry>> {
     }
     let bytes = tokio::fs::read(s.data_dir.join("games").join(format!("{}.json", id))).await.ok()?;
     let game = ServerGame::load(&bytes)?;
-    let mut games = s.games.write().await;
-    Some(games.entry(id.to_string()).or_insert_with(|| GameEntry::new(game)).clone())
+    let e = s.games.write().await.entry(id.to_string()).or_insert_with(|| GameEntry::new(game)).clone();
+    // An AI may have a decision pending
+    kick_ais(s, id, &e);
+    Some(e)
 }
 
 /// Unloads saved games nobody looked at for a while: 1 minute once ended, 30 minutes otherwise
@@ -422,6 +478,7 @@ async fn answer(
     match res {
         Ok(Ok(Ok(view))) => {
             e.changed.notify_waiters();
+            kick_ais(&s, &id, &e);
             s.dirty.lock().await.insert(id);
             json_bytes(view)
         }
@@ -433,6 +490,94 @@ async fn answer(
         }
         Ok(Err(refused)) => error(StatusCode::from_u16(refused.status).unwrap_or(StatusCode::BAD_REQUEST), refused.msg, refused.user),
     }
+}
+
+// ---------------------------------------------------------------------------
+// AI seats: the server plays their decisions in the background, one at a time
+// ---------------------------------------------------------------------------
+
+/// Starts the task that plays the AI seats' decisions until none is pending (unless it runs)
+fn kick_ais(s: &Shared, id: &str, e: &Arc<GameEntry>) {
+    if !e.has_ai {
+        return;
+    }
+    e.ai_kicks.fetch_add(1, Ordering::SeqCst);
+    if e.ai_running.swap(true, Ordering::SeqCst) {
+        return;
+    }
+    let (s, id, e) = (s.clone(), id.to_string(), e.clone());
+    tokio::spawn(async move {
+        loop {
+            let kicks = e.ai_kicks.load(Ordering::SeqCst);
+            match ai_step(&s, &e).await {
+                Ok(true) => {
+                    e.changed.notify_waiters();
+                    s.dirty.lock().await.insert(id.clone());
+                    continue;
+                }
+                Ok(false) => {}
+                Err(err) => eprintln!("game {}: AI: {}", id, err),
+            }
+            e.ai_running.store(false, Ordering::SeqCst);
+            // A kick during the last step (an answer that gave an AI a decision): look again
+            if e.ai_kicks.load(Ordering::SeqCst) == kicks || e.ai_running.swap(true, Ordering::SeqCst) {
+                break;
+            }
+        }
+    });
+}
+
+/// One decision of an AI seat (false: none pending). The AI thinks on a copy of the game, without
+/// its lock (an imitation AI takes up to a second): views and the other player go on meanwhile.
+/// Its answer is played if the decision is still current, else the next step decides again.
+async fn ai_step(s: &Shared, e: &Arc<GameEntry>) -> Result<bool, String> {
+    let pending = with_game(s, e, false, |g| g.ai_decision().map(|(pid, d)| (pid, d, g.game().clone(), g.ai_seats()))).await?;
+    let Some((pid, d, game, seats)) = pending else { return Ok(false) };
+    let (players, s2, d2) = (e.ai.clone(), s.clone(), d.clone());
+    let decided = s
+        .pool
+        .run(move || {
+            let mut guard = players.lock().unwrap_or_else(|p| p.into_inner());
+            let p = &mut *guard;
+            if !p.agents.contains_key(&pid) {
+                for (seat, seat_pid, ai) in &seats {
+                    let agent = s2.ais.agent(ai).unwrap_or_else(|err| {
+                        eprintln!("AI {}: {} (the simple bot plays instead)", ai, err);
+                        Box::new(SimpleBot)
+                    });
+                    p.decks[*seat] = s2.ais.describe(ai).map(|(_, deck)| deck).unwrap_or_default();
+                    p.agents.insert(*seat_pid, agent);
+                }
+            }
+            let rng = p.rng.get_or_insert_with(|| ChaCha8Rng::seed_from_u64(seed()));
+            let obs = Observation::new(&game, pid as i64, &p.decks);
+            match p.agents.get_mut(&pid) {
+                Some(agent) => {
+                    let agent = agent.as_mut();
+                    // A panic of the AI: it is built again at its next decision
+                    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| agent.decide(&obs, &d2, rng))).map_err(|_| ())
+                }
+                None => Err(()),
+            }
+            .map_err(|_| {
+                p.agents.remove(&pid);
+            })
+        })
+        .await;
+    // The AI failed: the simple bot's answer
+    let a = match decided {
+        Ok(Ok(a)) => a,
+        _ => {
+            eprintln!("AI of player {}: no answer to a {} decision, the simple bot answers", pid, d["kind"]);
+            altered_ai::legal::candidates(&d).into_iter().next().unwrap_or(json!({"type": "pass"}))
+        }
+    };
+    with_game(s, e, true, move |g| match g.ai_decision() {
+        Some((p, current)) if p == pid && current["id"] == d["id"] => g.ai_answer(pid, &d, &a),
+        _ => Ok(()),
+    })
+    .await??;
+    Ok(true)
 }
 
 // ---------------------------------------------------------------------------
@@ -459,7 +604,11 @@ async fn join_queue(State(s): State<Shared>, Json(req): Json<JoinQueue>) -> Resp
     match waiting {
         Some((other_id, other)) => {
             let id = new_game_id(&s);
-            let created = match insert_game(&s, id.clone(), [(other.name.clone(), false, other.deck.clone()), (name.clone(), false, req.deck.clone())], seed()).await {
+            let seats = [
+                NewSeat { name: other.name.clone(), bot: false, deck: other.deck.clone(), ai: None },
+                NewSeat { name: name.clone(), bot: false, deck: req.deck.clone(), ai: None },
+            ];
+            let created = match insert_game(&s, id.clone(), seats, seed()).await {
                 Ok(v) => v,
                 Err(e) => return error(StatusCode::INTERNAL_SERVER_ERROR, e, false),
             };
