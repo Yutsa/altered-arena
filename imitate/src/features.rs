@@ -39,11 +39,13 @@ pub struct Config {
     pub search_pick: bool,
     /// Redealt copies the position features are averaged over
     pub copies: usize,
+    /// Mixed into the redeal's random seed (another seed, another redeal of the hidden cards)
+    pub seed: u64,
 }
 
 impl Default for Config {
     fn default() -> Self {
-        Config { finish_steps: 12, weights: Weights::default(), dest_features: true, search_pick: true, copies: 1 }
+        Config { finish_steps: 12, weights: Weights::default(), dest_features: true, search_pick: true, copies: 1, seed: 0 }
     }
 }
 

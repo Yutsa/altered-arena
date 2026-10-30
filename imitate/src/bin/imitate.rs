@@ -106,6 +106,12 @@ fn run() {
             if let Some(c) = opt(&args, "--copies") {
                 cfg.copies = c.parse().unwrap();
             }
+            if let Some(c) = opt(&args, "--seed") {
+                cfg.seed = c.parse().unwrap();
+            }
+            if let Some(c) = opt(&args, "--finish") {
+                cfg.finish_steps = c.parse().unwrap();
+            }
             let interner = Mutex::new(Interner::default());
             let res = cv::par_map(&files, threads, |f| dataset::decisions(f, &tables, &cfg, &interner, None));
             std::fs::create_dir_all(data_dir(&args)).unwrap();
@@ -194,7 +200,8 @@ fn run() {
             let search_pick = names.iter().zip(&keep).any(|(n, k)| *k && n.starts_with("s:pick"));
             let dcfg: Value = std::fs::read_to_string(format!("{}/config.json", data_dir(&args))).ok().and_then(|s| serde_json::from_str(&s).ok()).unwrap_or(Value::Null);
             let copies = dcfg["copies"].as_u64().unwrap_or(1) as usize;
-            let shared = Shared { version: version.clone(), finish_steps: Config::default().finish_steps, search_pick, copies, weights };
+            let finish_steps = dcfg["finish_steps"].as_u64().map(|x| x as usize).unwrap_or(Config::default().finish_steps);
+            let shared = Shared { version: version.clone(), finish_steps, search_pick, copies, weights };
             std::fs::create_dir_all(format!("{}/players", OUT)).unwrap();
             std::fs::write(format!("{}/shared.json", OUT), serde_json::to_string_pretty(&shared).unwrap()).unwrap();
             let deck_of: HashMap<&str, &str> = decs.iter().map(|d| (d.player.as_str(), d.deck.as_str())).collect();
@@ -217,6 +224,7 @@ fn run() {
         }
         Some("gate") => gate(&args, threads),
         Some("report") => report(&args),
+        Some("check") => check(&args, threads),
         _ => eprintln!("usage: imitate extract | baseline | cv | fit | gate"),
     }
 }
@@ -368,4 +376,58 @@ fn report(args: &[String]) {
     }
     std::fs::write(format!("{}/REPORT.md", OUT), o).unwrap();
     println!("report -> {}/REPORT.md", OUT);
+}
+
+/// The exported AIs (`shared.json` + `players/`) against the model they come from: on the
+/// decisions of the dataset, the agent, given the same random stream as the extraction, must
+/// pick a candidate the fitted model ranks first
+fn check(args: &[String], threads: usize) {
+    let (names, decs) = dataset::read(&data_dir(args));
+    let keep = cv::keep(&names, &drops(args));
+    let mut h = hyper(args);
+    h.player_mult = player_mult(args, &names);
+    let (preds, _, _) = cv::train_fit(&decs, names.len(), &keep, &h);
+    let shared: Shared = serde_json::from_str(&std::fs::read_to_string(format!("{}/shared.json", OUT)).unwrap()).unwrap();
+    let files: Vec<PlayerFile> = std::fs::read_dir(format!("{}/players", OUT)).unwrap().flatten().filter_map(|f| serde_json::from_str(&std::fs::read_to_string(f.path()).ok()?).ok()).collect();
+    let by_player: HashMap<&str, &PlayerFile> = files.iter().map(|p| (p.player.as_str(), p)).collect();
+    let best: HashMap<(i64, usize), (usize, bool)> = decs.iter().zip(&preds).map(|(d, p)| ((d.table, d.step), (p.best, p.top1))).collect();
+    let tables = tables();
+    let n: usize = opt(args, "--files").and_then(|s| s.parse().ok()).unwrap_or(6);
+    let files_r: Vec<String> = replays().into_iter().take(n).collect();
+    let read_params = |d: &str| -> Params { std::fs::read_to_string(format!("ai/params/{}.json", d)).ok().and_then(|s| serde_json::from_str(&s).ok()).unwrap_or_default() };
+    let res = cv::par_map(&files_r, threads, |f| {
+        let nr = dataset::read_replay(f).unwrap();
+        let decks: [Value; 2] = [nr.decks[0].clone(), nr.decks[1].clone()];
+        let mut agents: Vec<Imitator> = (0..2)
+            .map(|s| {
+                let deck = tables.deck_of(nr.table, play::SEATS[s] as u32);
+                Imitator::new("check", &shared, by_player.get(nr.names[s].as_str()).copied(), Some(read_params(&deck)))
+            })
+            .collect();
+        let mut g = altered_replay::native::start(&nr).unwrap();
+        let (mut same, mut total, mut agree_real) = (0, 0, 0);
+        for (k, s) in nr.steps.iter().enumerate() {
+            if s.a["type"] != "act" {
+                let mut ready = g.clone();
+                dataset::prepare(&mut ready, s);
+                if let (Ok(Some(d)), Some(&(b, top1))) = (ready.try_decision(s.p), best.get(&(nr.table, k))) {
+                    let cands = altered_ai::legal::candidates(&d);
+                    use rand::SeedableRng;
+                    let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(nr.table as u64 * 7919 + k as u64);
+                    let obs = altered_ai::play::Observation::new(&ready, s.p as i64, &decks);
+                    let a = agents[(s.p - 2001) as usize].decide(&obs, &d, &mut rng);
+                    total += 1;
+                    let canon = altered_ai::legal::canonical(&a);
+                    if altered_ai::legal::canonical(&cands[b]) == canon {
+                        same += 1;
+                        agree_real += top1 as usize;
+                    }
+                }
+            }
+            altered_replay::native::apply(&mut g, s).unwrap();
+        }
+        (same, total, agree_real)
+    });
+    let (s, t): (usize, usize) = res.iter().fold((0, 0), |a, r| (a.0 + r.0, a.1 + r.1));
+    println!("check: the agent picks the fitted model's best candidate at {} of {} decisions ({:.1} %)", s, t, 100.0 * s as f64 / t.max(1) as f64);
 }

@@ -203,7 +203,7 @@ pub fn decisions(path: &str, tables: &Tables, cfg: &Config, interner: &Mutex<Int
                         base.push(Baseline { table: n.table, step: k, bot, ai });
                     } else {
                         let lab = labels(&ready, s.p, &cands, &s.a);
-                        let mut rng = ChaCha8Rng::seed_from_u64(n.table as u64 * 7919 + k as u64);
+                        let mut rng = ChaCha8Rng::seed_from_u64((n.table as u64 * 7919 + k as u64) ^ cfg.seed);
                         let obs = Observation::new(&ready, s.p as i64, &decks);
                         let seat = (s.p - 2001) as usize;
                         let pick = if cfg.search_pick { Some(features::search_pick(&mut ais[seat], &obs, &d, &cands, &mut rng)) } else { None };
