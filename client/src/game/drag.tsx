@@ -27,13 +27,26 @@ export const lastDrop: { cardId: number | null; x: number; y: number; at: number
 const DragCtx = createContext<DragCtxValue>({ drag: null, begin: () => {}, move: () => {}, end: () => {} });
 export const useDrag = () => useContext(DragCtx);
 
-/** Finds the drop zone under the pointer: the innermost element with data-drop among the allowed destinations. */
+/**
+ * Finds the drop zone under the pointer: the innermost element with data-drop among the allowed
+ * destinations. A spell is cast anywhere on the board (data-cast), except back on the hand.
+ */
 function dropAt(x: number, y: number, allowed: Destination[]): Destination | null {
   for (const el of document.elementsFromPoint(x, y)) {
-    const d = (el as HTMLElement).dataset?.drop as Destination | undefined;
+    const h = el as HTMLElement;
+    if (h.closest?.('.arena-hand')) return null;
+    const d = h.dataset?.drop as Destination | undefined;
     if (d && allowed.includes(d)) return d;
+    if (h.dataset?.cast !== undefined && allowed.includes('spell')) return 'spell';
   }
   return null;
+}
+
+/** Classes of the body during a drag: a spell is dragged, a spell is over the board */
+function bodyClasses(s: DragState | null) {
+  const spell = !!s && !s.dropped && !s.returning && s.destinations.includes('spell');
+  document.body.classList.toggle('drag-spell', spell);
+  document.body.classList.toggle('drag-cast', spell && s!.over === 'spell');
 }
 
 const clamp = (v: number, m: number) => Math.max(-m, Math.min(m, v));
@@ -100,6 +113,7 @@ export function DragProvider({ children }: { children: ReactNode }) {
   const set = (s: DragState | null) => {
     dragRef.current = s;
     setDrag(s);
+    bodyClasses(s);
   };
 
   // One frame of the ghost: it eases towards its target, and leans with its speed
@@ -146,7 +160,8 @@ export function DragProvider({ children }: { children: ReactNode }) {
     k.ry += (clamp(vx * 1.6, 28) * lean - k.ry) * 0.25;
     k.rx += (clamp(-vy * 1.3, 24) * lean - k.rx) * 0.25;
     k.rz += (clamp(vx * 0.7, 12) * lean - k.rz) * 0.25;
-    const scale = s.over ? 0.86 : 1.08;
+    // Over the board, a spell rises to be cast; any other card shrinks into its zone
+    const scale = s.over === 'spell' ? 1.16 : s.over ? 0.86 : 1.08;
     k.scale += (scale - k.scale) * 0.25;
     if (g) {
       g.style.visibility = 'visible';
@@ -244,10 +259,11 @@ export function DragProvider({ children }: { children: ReactNode }) {
         createPortal(
           <div
             ref={ghostRef}
-            className={`drag-ghost ${drag.over || drag.dropped ? 'over' : ''}`}
+            className={`drag-ghost ${drag.over || drag.dropped ? 'over' : ''} ${drag.over === 'spell' ? 'cast' : ''}`}
             style={{ ['--card-hand-w' as string]: `${size}px` } as CSSProperties}
           >
             <Card def={def(card)} card={card} size="hand" />
+            {drag.over === 'spell' && !drag.dropped && <span className="cast-tag">Release to cast</span>}
           </div>,
           document.body,
         )}

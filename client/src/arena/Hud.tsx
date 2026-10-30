@@ -5,7 +5,6 @@ import { BoardCard } from '../components/BoardCard';
 import { CardListModal } from '../components/Picker';
 import { DecisionBar } from '../components/DecisionBar';
 import { useDrag } from '../game/drag';
-import { MatCard } from './MatCard';
 
 const PHASES: { phase: Phase; label: string; icon: string }[] = [
   { phase: 'morning', label: 'Morning', icon: 'dawn' },
@@ -96,24 +95,11 @@ export function InfoChip({ onLeave, connected, onLog, unread, extra }: { onLeave
   );
 }
 
-/** The decision prompt, with the cards being played (limbo) in front of it. */
+/** The decision prompt (the card being cast is shown large beside the mat: Cast.tsx) */
 export function Prompt() {
-  const { view } = useGameCtx();
-  const limbo = view.cards.filter((c) => c.zone === 'limbo');
   return (
     <div className="prompt">
-      <DecisionBar
-        primaryOnTrack
-        before={
-          limbo.length > 0 && (
-            <span className="limbo">
-              {limbo.map((c) => (
-                <MatCard key={c.id} id={c.id} kind="zone" />
-              ))}
-            </span>
-          )
-        }
-      />
+      <DecisionBar primaryOnTrack />
     </div>
   );
 }

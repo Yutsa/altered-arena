@@ -6,6 +6,7 @@ import { useArenaLayout } from './layout';
 import { Mat } from './Mat';
 import { ArenaHand, InfoChip, OppHand, PhaseBanner, PlayerChip, Prompt, RotateHint } from './Hud';
 import { fly, snapshot, type Snapshot } from './flights';
+import { CastFocus, TargetArrows } from './Cast';
 import './arena.css';
 
 const coarse = typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches;
@@ -56,13 +57,13 @@ export function Arena({ onLeave, connected, extraTop }: { onLeave: () => void; c
 
   const stageStyle = { width: l.W, height: l.H, transform: `translate(-50%, -50%) scale(${scale})`, ...l.vars } as CSSProperties;
   return (
-    <div className={`arena layout-${l.mode}`} ref={rootRef}>
+    <div className={`arena layout-${l.mode}`} ref={rootRef} style={{ ['--stage-scale' as string]: scale } as CSSProperties}>
       <div className="arena-stage" style={stageStyle}>
         <div
           className="arena-scene"
           style={{ left: l.plane.left, top: l.plane.top, width: l.plane.w, height: l.plane.h, perspective: `${l.plane.perspective}px` }}
         >
-          <div className="arena-plane" style={{ transform: `rotateX(${l.plane.tilt}deg)` }}>
+          <div className="arena-plane" data-cast="" style={{ transform: `rotateX(${l.plane.tilt}deg)` }}>
             <Mat l={l} />
           </div>
         </div>
@@ -75,6 +76,8 @@ export function Arena({ onLeave, connected, extraTop }: { onLeave: () => void; c
         <PhaseBanner />
         {extraTop && <div className="arena-extra">{extraTop}</div>}
       </div>
+      <CastFocus />
+      <TargetArrows />
       <div className="arena-flights" ref={layerRef} aria-hidden="true" />
       <Log entries={log} you={you} open={logOpen} onClose={() => setLogOpen(false)} />
       <EndScreen onLeave={onLeave} />

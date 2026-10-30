@@ -32,7 +32,7 @@ function useExpeditionPick(player: PlayerView | undefined, side: Side) {
     if (decision.min === 1 && decision.max === 1) void send({ type: 'expedition', keys: [opt.key] });
     else setUI((u) => toggleKey(decision, u, opt.key));
   };
-  return { picked, pick };
+  return { key: opt.key, picked, pick };
 }
 
 // ---------------------------------------------------------------------------
@@ -172,7 +172,13 @@ function ExpCell({ player, side, mine }: { player: PlayerView; side: Side; mine:
         />
       )}
       {pick && (
-        <button type="button" className={`pick-overlay ${pickExp?.picked ? 'picked' : ''}`} onClick={pick} aria-label={`Choose the ${side} expedition`} />
+        <button
+          type="button"
+          className={`pick-overlay ${pickExp?.picked ? 'picked' : ''}`}
+          data-exp-key={pickExp?.key}
+          onClick={pick}
+          aria-label={`Choose the ${side} expedition`}
+        />
       )}
     </>
   );
