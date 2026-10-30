@@ -5,8 +5,8 @@ import { GameScreen } from './screens/GameScreen';
 import { Toasts } from './components/Toasts';
 import { saveToken, tokenOf } from './screens/storage';
 
-// Dev-only page replaying recorded GameViews (excluded from production builds)
-const ReplayScreen = import.meta.env.DEV ? lazy(() => import('./dev/ReplayScreen')) : null;
+// Replays of BGA games (and, for development, recorded GameViews)
+const ReplayScreen = lazy(() => import('./screens/ReplayScreen'));
 
 type Route = { name: 'lobby' } | { name: 'game'; gameId: string; player: PlayerId | null; token: string | null } | { name: 'replay' };
 
@@ -34,7 +34,7 @@ function parse(): Route {
     return { name: 'game', gameId: game, player, token };
   }
   if (game) return { name: 'game', gameId: game, player: null, token: null }; // spectator
-  if (q.has('replay') && ReplayScreen) return { name: 'replay' };
+  if (q.has('replay')) return { name: 'replay' };
   return { name: 'lobby' };
 }
 
@@ -64,7 +64,7 @@ export function App() {
         onSwitchPlayer={(p) => go(gameSearch(route.gameId, p, tokenOf(route.gameId, p)), true)}
       />
     );
-  else if (route.name === 'replay' && ReplayScreen)
+  else if (route.name === 'replay')
     screen = (
       <Suspense fallback={null}>
         <ReplayScreen />

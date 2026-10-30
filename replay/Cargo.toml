@@ -1,0 +1,13 @@
+[package]
+name = "altered-replay"
+description = "Replays of Board Game Arena games on the translated engine: each request is rebuilt from the notifications BGA recorded"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+
+[dependencies]
+altered-rules = { path = "../rules" }
+altered-ai = { path = "../ai" }
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["preserve_order", "unbounded_depth"] }
+rayon = "1"

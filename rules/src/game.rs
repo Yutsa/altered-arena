@@ -370,6 +370,11 @@ pub enum ShuffleHook {
     /// The orders PHP was given, in call order (replays); each is the list of ids after shuffle.
     /// A shuffle of other ids draws from the seeded generator and leaves the list as it is.
     Injected(VecDeque<Vec<i64>>),
+    /// BGA replays (Harness\Rng::$shuffle of the replay runner): the cards of the shuffled list
+    /// that the replay shows leaving the deck from the current move id (global 3) on come out in
+    /// that order, the others stay below them. `reveals`: (move id, card id) in the replay's order.
+    /// `applied` keeps every order made, for files that replay with `Injected`.
+    Revealed { reveals: std::sync::Arc<Vec<(i64, i64)>>, applied: Vec<Vec<i64>> },
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -601,6 +606,25 @@ impl Game {
                     *ids = q.pop_front().unwrap();
                     return;
                 }
+            }
+        }
+        if let ShuffleHook::Revealed { reveals, .. } = &self.shuffle_hook {
+            let now = self.fw_get(3).unwrap_or(0);
+            let mut known: Vec<i64> = vec![];
+            for &(m, id) in reveals.iter() {
+                if m >= now && ids.contains(&id) && !known.contains(&id) {
+                    known.push(id);
+                }
+            }
+            if !known.is_empty() {
+                // The top of a deck is its highest state, the last id of the list
+                let mut order: Vec<i64> = ids.iter().copied().filter(|id| !known.contains(id)).collect();
+                order.extend(known.iter().rev());
+                *ids = order.clone();
+                if let ShuffleHook::Revealed { applied, .. } = &mut self.shuffle_hook {
+                    applied.push(order);
+                }
+                return;
             }
         }
         self.mt().shuffle(ids);

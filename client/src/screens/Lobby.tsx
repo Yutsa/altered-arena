@@ -118,6 +118,9 @@ export function Lobby({ onJoin }: { onJoin: (gameId: string, player: PlayerId, t
               Resume game {last.gameId}
             </button>
           )}
+          <a className="btn ghost" href="?replay">
+            Replays
+          </a>
         </header>
 
         <div className="lobby-tabs" role="tablist">

@@ -15,6 +15,7 @@
 static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
 mod engines;
+mod replays;
 
 use axum::extract::{Path, Query, State};
 use axum::http::{header, StatusCode};
@@ -141,6 +142,8 @@ async fn main() {
         .route("/api/v1/games/{id}/answer", post(answer))
         .route("/api/v1/matchmaking", post(join_queue))
         .route("/api/v1/matchmaking/{ticket}", get(poll_queue).delete(leave_queue))
+        .route("/api/v1/replays", get(list_replays))
+        .route("/api/v1/replays/{table}", get(view_replay))
         .nest_service("/assets/cards", ServeDir::new(art_dir))
         .fallback_service(ServeDir::new(&client_dir).fallback(ServeFile::new(index)))
         // Views are small (a few KB): the fastest level keeps most of the gain for a fraction of the CPU
@@ -177,6 +180,28 @@ async fn health() -> Response {
 
 async fn cards(State(s): State<Shared>) -> Response {
     ([(header::CONTENT_TYPE, "application/json"), (header::CACHE_CONTROL, "public, max-age=3600")], s.cards_json.clone()).into_response()
+}
+
+async fn list_replays(State(s): State<Shared>) -> Response {
+    match s.pool.run(replays::list).await {
+        Ok(v) => Json(v).into_response(),
+        Err(e) => error(StatusCode::INTERNAL_SERVER_ERROR, e, false),
+    }
+}
+
+#[derive(Deserialize)]
+struct ReplayQuery {
+    /// 2001 or 2002 (that player's hidden cards are shown); none: spectator
+    seat: Option<u32>,
+}
+
+async fn view_replay(State(s): State<Shared>, Path(table): Path<String>, Query(q): Query<ReplayQuery>) -> Response {
+    let seat = q.seat.filter(|p| *p == 2001 || *p == 2002);
+    match s.pool.run(move || replays::views(&table, seat)).await {
+        Ok(Ok(v)) => Json(v).into_response(),
+        Ok(Err(e)) => error(StatusCode::NOT_FOUND, e, true),
+        Err(e) => error(StatusCode::INTERNAL_SERVER_ERROR, e, false),
+    }
 }
 
 async fn decks(State(s): State<Shared>) -> Response {
