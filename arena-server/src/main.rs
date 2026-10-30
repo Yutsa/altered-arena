@@ -44,7 +44,7 @@ struct GameEntry {
     changed: Notify,
     /// Last request on this game (unix seconds), to unload idle games from memory
     last_access: AtomicU64,
-    /// The game has AI seats (`kick_ais`)
+    /// The game has bot or AI seats (`kick_ais`)
     has_ai: bool,
     ai: Arc<std::sync::Mutex<AiPlayers>>,
     /// A task plays the AI seats' decisions
@@ -56,7 +56,7 @@ struct GameEntry {
 impl GameEntry {
     fn new(game: ServerGame) -> Arc<GameEntry> {
         Arc::new(GameEntry {
-            has_ai: !game.ai_seats().is_empty(),
+            has_ai: game.seats().iter().any(|seat| seat.2),
             game: Arc::new(Mutex::new(game)),
             changed: Notify::new(),
             last_access: AtomicU64::new(now()),
@@ -470,8 +470,8 @@ async fn answer(
         Err(r) => return r,
     };
     let res = with_game(&s, &e, true, move |g| {
+        // The bots answer next, one move at a time (`kick_ais`)
         g.answer(seat, &body)?;
-        g.run_bots();
         Ok::<_, engines::Refused>(g.view_json(Some(seat)))
     })
     .await;
@@ -493,10 +493,10 @@ async fn answer(
 }
 
 // ---------------------------------------------------------------------------
-// AI seats: the server plays their decisions in the background, one at a time
+// Bot and AI seats: the server plays their decisions in the background, one at a time
 // ---------------------------------------------------------------------------
 
-/// Starts the task that plays the AI seats' decisions until none is pending (unless it runs)
+/// Starts the task that plays the bot and AI seats' decisions until none is pending (unless it runs)
 fn kick_ais(s: &Shared, id: &str, e: &Arc<GameEntry>) {
     if !e.has_ai {
         return;
@@ -509,7 +509,7 @@ fn kick_ais(s: &Shared, id: &str, e: &Arc<GameEntry>) {
     tokio::spawn(async move {
         loop {
             let kicks = e.ai_kicks.load(Ordering::SeqCst);
-            match ai_step(&s, &e).await {
+            match bot_step(&s, &e).await {
                 Ok(true) => {
                     e.changed.notify_waiters();
                     s.dirty.lock().await.insert(id.clone());
@@ -527,12 +527,26 @@ fn kick_ais(s: &Shared, id: &str, e: &Arc<GameEntry>) {
     });
 }
 
+/// The pause before each move of a bot or an AI seat, so that the player sees them one by one
+const BOT_PACE: Duration = Duration::from_millis(800);
+
+/// One decision of a bot of the engine (the simple bot) or of an AI seat, at most one per
+/// `BOT_PACE` (false: none pending)
+async fn bot_step(s: &Shared, e: &Arc<GameEntry>) -> Result<bool, String> {
+    if with_game(s, e, false, |g| g.bot_pending()).await? {
+        tokio::time::sleep(BOT_PACE).await;
+        return with_game(s, e, true, |g| g.bot_step()).await;
+    }
+    ai_step(s, e).await
+}
+
 /// One decision of an AI seat (false: none pending). The AI thinks on a copy of the game, without
 /// its lock (an imitation AI takes up to a second): views and the other player go on meanwhile.
 /// Its answer is played if the decision is still current, else the next step decides again.
 async fn ai_step(s: &Shared, e: &Arc<GameEntry>) -> Result<bool, String> {
     let pending = with_game(s, e, false, |g| g.ai_decision().map(|(pid, d)| (pid, d, g.game().clone(), g.ai_seats()))).await?;
     let Some((pid, d, game, seats)) = pending else { return Ok(false) };
+    let paced = tokio::time::Instant::now() + BOT_PACE;
     let (players, s2, d2) = (e.ai.clone(), s.clone(), d.clone());
     let decided = s
         .pool
@@ -572,6 +586,7 @@ async fn ai_step(s: &Shared, e: &Arc<GameEntry>) -> Result<bool, String> {
             altered_ai::legal::candidates(&d).into_iter().next().unwrap_or(json!({"type": "pass"}))
         }
     };
+    tokio::time::sleep_until(paced).await;
     with_game(s, e, true, move |g| match g.ai_decision() {
         Some((p, current)) if p == pid && current["id"] == d["id"] => g.ai_answer(pid, &d, &a),
         _ => Ok(()),

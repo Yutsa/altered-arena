@@ -138,6 +138,25 @@ impl ServerGame {
         g.game.compact();
     }
 
+    /// A bot of the engine (the simple bot) has a decision to take
+    pub fn bot_pending(&self) -> bool {
+        let bots = self.0.game.bots();
+        self.0.game.waiting_for().iter().any(|p| bots.contains(&(*p as i64)))
+    }
+
+    /// One decision of a bot of the engine, so that the server can pace them (false: none taken)
+    pub fn bot_step(&mut self) -> bool {
+        let g = &mut self.0;
+        let played = g.game.run_bot_step().unwrap_or_else(|e| {
+            eprintln!("game {}: bots: {}", g.id, e);
+            false
+        });
+        if !played {
+            g.game.compact();
+        }
+        played
+    }
+
     /// The AI seats: (seat index, player id, AI id)
     pub fn ai_seats(&self) -> Vec<(usize, u32, String)> {
         self.0.seats.iter().enumerate().filter_map(|(i, s)| Some((i, s.id, s.ai.clone()?))).collect()
