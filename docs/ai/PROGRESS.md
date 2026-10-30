@@ -5,7 +5,7 @@ Plan: `docs/plans/AI_TOURNAMENT.md`. Private data (replays, decklists, player na
 
 ## Current phase
 
-F after pass 2 (A/B of `private/v2_landmark`, `v2_board`, `v2_mana8` against `private/params_p2`).
+Pass 3 running (`private/run_pass.sh 3`).
 
 ## Done
 
@@ -72,6 +72,15 @@ F after pass 2 (A/B of `private/v2_landmark`, `v2_board`, `v2_mana8` against `pr
   goldens 6526/6526).
 - Pass 2: 7400 games in 77 min on 4 threads, 1 error, favourite = real winner 41/74, Spearman
   0.57, agreement 42.7 % (cleanup decisions 20 % -> 38 %). Matz OD still last.
+- Phase F after pass 2 (A/B against `private/params_p2`, seed 710000): landmark weight x2 49.3 %
+  [45.3, 53.3] rejected; board weight x2 50.3 % [46.3, 54.4] and Mana target 8 50.3 % kept by the
+  rule; evolution round 2 changed 4 decks; the package (board x2, Mana target 8, evolution)
+  against the pass-2 parameters: 50.0 % [46.0, 54.0] (seed 810000): **rejected** (not > 50 %).
+  As games are deterministic per seed, a pass with unchanged parameters would repeat pass 2: more
+  variants are tried before pass 3 (seed 720000): hand weight x0.5 50.5 % [46.5, 54.5] kept,
+  Reserve weight x1.6 47.8 % rejected, 4 rollouts 51.5 % [47.5, 55.5] kept (+5 % CPU). The
+  package (hand x0.5, 4 rollouts) against the pass-2 parameters: 50.3 % [46.3, 54.4] (seed
+  820000): kept by the rule, but indistinguishable from no change. Pass 3 uses it.
 
 ## Decisions
 
@@ -103,8 +112,7 @@ F after pass 2 (A/B of `private/v2_landmark`, `v2_board`, `v2_mana8` against `pr
 
 ## Next steps
 
-1. Keep the F2 variants that pass the rule; `aitool evolve 2 --params <kept> --out
-   private/params_e2 --cands 2 --games 30 --margin 0.1`; measure against `private/params_p2`
-   (seed 810000); copy to `ai/params` if kept; commit.
-2. Pass 3 (`private/run_pass.sh 3`), agree, report with notes (`private/notes_N.md`).
+1. When pass 3 ends: `aitool agree 3 ai`, report with notes (`private/notes_3.md`), commit.
+2. Phase F3: snapshot `private/params_p3`, variants + `aitool evolve 3`, measure (seed 830000).
+3. Pass 4, phase F4, pass 5, `docs/ai/REPORT.md`.
 3. Same loop for passes 4..5, then `docs/ai/REPORT.md` (`tools/ai/report_tables.py`).

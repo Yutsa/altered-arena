@@ -1,44 +1,44 @@
 {
-  "weights": {
-    "progress": 12.0,
-    "dusk_win": 5.0,
-    "margin": 0.6,
-    "margin_cap": 3.0,
-    "board": 0.25,
-    "hand": 0.6,
-    "reserve": 0.5,
-    "mana": 1.6,
-    "mana_soft": 7.0,
-    "mana_late": 0.3,
-    "mana_ready": 0.15,
-    "landmark": 0.6,
-    "empty_expedition": 1.0
-  },
-  "copies": 1,
-  "max_candidates": 16,
-  "finish_steps": 12,
-  "end_turn_bias": -1.0,
-  "play_prior": {
-    "LY_Common_ClothCocoon": 0.197,
-    "LY_Common_CorruptedEsmeralda": -0.071,
-    "LY_Common_LyraContortionist": -0.455,
-    "LY_Rare_FragrantMeerkat": 0.697,
-    "LY_Rare_LakshmisOwl": 0.436,
-    "LY_Rare_Martengale": 0.197,
-    "LY_Rare_SmokingSkunk": 0.197,
-    "LY_Rare_TheSandman": -0.433,
-    "Unique:Mia, Danseuse Étoile": -0.027
-  },
-  "mana_prior": {
-    "LY_Common_CorruptedEsmeralda": -0.6,
-    "LY_Common_Esmeralda": 1.2,
-    "LY_Common_Hathor": 1.0,
-    "LY_Rare_TheSandman": -0.167,
-    "Unique:Mia, Danseuse Étoile": -0.6
-  },
-  "mana_target": 10.0,
-  "mana_cost": 0.1,
-  "rollouts": 3,
-  "rollout_steps": 80,
-  "cleanup_keep": 0.5
+ "cleanup_keep": 0.5,
+ "copies": 1,
+ "end_turn_bias": -1.0,
+ "finish_steps": 12,
+ "mana_cost": 0.1,
+ "mana_prior": {
+  "LY_Common_CorruptedEsmeralda": -0.6,
+  "LY_Common_Esmeralda": 1.2,
+  "LY_Common_Hathor": 1.0,
+  "LY_Rare_TheSandman": -0.167,
+  "Unique:Mia, Danseuse \u00c9toile": -0.6
+ },
+ "mana_target": 10.0,
+ "max_candidates": 16,
+ "play_prior": {
+  "LY_Common_ClothCocoon": 0.197,
+  "LY_Common_CorruptedEsmeralda": -0.071,
+  "LY_Common_LyraContortionist": -0.455,
+  "LY_Rare_FragrantMeerkat": 0.697,
+  "LY_Rare_LakshmisOwl": 0.436,
+  "LY_Rare_Martengale": 0.197,
+  "LY_Rare_SmokingSkunk": 0.197,
+  "LY_Rare_TheSandman": -0.433,
+  "Unique:Mia, Danseuse \u00c9toile": -0.027
+ },
+ "rollout_steps": 80,
+ "rollouts": 4,
+ "weights": {
+  "board": 0.25,
+  "dusk_win": 5.0,
+  "empty_expedition": 1.0,
+  "hand": 0.3,
+  "landmark": 0.6,
+  "mana": 1.6,
+  "mana_late": 0.3,
+  "mana_ready": 0.15,
+  "mana_soft": 7.0,
+  "margin": 0.6,
+  "margin_cap": 3.0,
+  "progress": 12.0,
+  "reserve": 0.5
+ }
 }
