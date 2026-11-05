@@ -15,6 +15,8 @@ export interface ArenaLayout {
   /** heights of the mat rows, top to bottom: opponent zone, opponent band, track, my band, my zone */
   rows: [number, number, number, number, number];
   trackH: number;
+  /** each player's tokens on a line of their own (the opponent's above), as on BGA; else one line */
+  twoLanes: boolean;
   vars: Record<string, string>;
 }
 
@@ -23,15 +25,16 @@ const WIDE: ArenaLayout = {
   W: 1440,
   H: 900,
   plane: { w: 1860, h: 1000, left: -210, top: -40, perspective: 1800, tilt: 30 },
-  rows: [190, 210, 110, 210, 280],
-  trackH: 96,
+  rows: [180, 192, 164, 192, 272],
+  trackH: 150,
+  twoLanes: true,
   vars: {
     '--mat-card-w': '112px',
     '--hero-w': '124px',
     '--zone-card-w': '90px',
     '--my-zone-card-w': '106px',
     '--hand-shift': '60px',
-    '--end-dock-top': '478px',
+    '--end-dock-top': '502px',
     '--card-hand-w': '150px',
     '--marker-size': '46px',
     '--tot-icon': '32px',
@@ -55,6 +58,7 @@ const PHONE: ArenaLayout = {
   plane: { w: 1080, h: 470, left: -118, top: -28, perspective: 1000, tilt: 30 },
   rows: [70, 120, 56, 120, 104],
   trackH: 50,
+  twoLanes: false,
   vars: {
     '--mat-card-w': '62px',
     '--hero-w': '68px',
