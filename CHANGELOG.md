@@ -1,0 +1,20 @@
+# Changelog
+
+## [0.2.0](https://github.com/Yutsa/altered-arena/compare/altered-arena-v0.1.0...altered-arena-v0.2.0) (2026-11-05)
+
+
+### Features
+
+* center the decision prompt and the effects queue above the hand ([1975e38](https://github.com/Yutsa/altered-arena/commit/1975e38d53de2eabc1054ea41a66ef091312dd53))
+* drop the hover tooltips of the client ([f58632b](https://github.com/Yutsa/altered-arena/commit/f58632ba15d76e03b0445c83eb97cff7a43aa281))
+* minimize the effects queue with a button instead of hovering the hand ([fc37ac3](https://github.com/Yutsa/altered-arena/commit/fc37ac3dad3c345541a631924cfec3c85890949d))
+* resolve identical effects of copies of a card without asking ([949f0a2](https://github.com/Yutsa/altered-arena/commit/949f0a2328d4ba08cab25757601d77a509639a9b))
+* show information prompts on the track and fit crowded zones and mana ([2cb292b](https://github.com/Yutsa/altered-arena/commit/2cb292b8d6c623d1bbb520410ed3ee300d5f7d0b))
+* show the opponent's spells beside the mat, then their targets, before their result ([d3b17ee](https://github.com/Yutsa/altered-arena/commit/d3b17eef82529bb28776c54715e2f49b377f8287))
+* take single-button decisions on the main action button ([0c8f423](https://github.com/Yutsa/altered-arena/commit/0c8f423aeefe935357c5a0513fca20cb14e8c98b))
+
+
+### Bug Fixes
+
+* offer the engine undo only when it takes something back ([9b09a89](https://github.com/Yutsa/altered-arena/commit/9b09a895bf4d9ecccec081d4861aa2d294b85156))
+* undo against bots goes back to the player's last choice ([dbf039b](https://github.com/Yutsa/altered-arena/commit/dbf039b2d50b643b8b620ca66f5d4a9647cc5954))
