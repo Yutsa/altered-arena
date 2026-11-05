@@ -116,17 +116,12 @@ impl AiDirs {
     }
 }
 
-/// The hero's name in a decklist (`cards` holds the hero, `hero` is its uid)
+/// The hero's name in a decklist (`cards` holds the hero, `hero` is its uid). Some decklists
+/// name another print of the hero (`ALT_CORE_P_AX_02_C` for the card `ALT_CORE_B_AX_02_C`):
+/// then the card of type hero.
 fn hero_name(deck: &Value) -> String {
-    deck["cards"]
-        .as_object()
-        .into_iter()
-        .flatten()
-        .map(|(_, c)| &c["card"]["properties"])
-        .find(|p| p["uid"] == deck["hero"])
-        .and_then(|p| p["name"].as_str())
-        .unwrap_or("")
-        .to_string()
+    let cards = || deck["cards"].as_object().into_iter().flatten().map(|(_, c)| &c["card"]["properties"]);
+    cards().find(|p| p["uid"] == deck["hero"]).or_else(|| cards().find(|p| p["type"] == "hero")).and_then(|p| p["name"].as_str()).unwrap_or("").to_string()
 }
 
 #[cfg(test)]
@@ -147,5 +142,11 @@ mod tests {
     fn hero_of_a_decklist() {
         let deck = json!({"hero": "H1", "cards": {"0": {"card": {"properties": {"uid": "C1", "name": "A card"}}}, "1": {"card": {"properties": {"uid": "H1", "name": "Sierra & Oddball"}}}}});
         assert_eq!(hero_name(&deck), "Sierra & Oddball");
+    }
+
+    #[test]
+    fn hero_of_a_decklist_naming_another_print() {
+        let deck = json!({"hero": "ALT_CORE_P_AX_02_C", "cards": {"0": {"card": {"properties": {"uid": "C1", "name": "A card", "type": "character"}}}, "1": {"card": {"properties": {"uid": "ALT_CORE_B_AX_02_C", "name": "Treyst & Rossum", "type": "hero"}}}}});
+        assert_eq!(hero_name(&deck), "Treyst & Rossum");
     }
 }
