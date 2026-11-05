@@ -34,6 +34,7 @@ export function useCardPointer(cardId: number, { touchElsewhere = false }: { tou
 
   const destinations = useGame((s) => (s.decision?.kind === 'turn' && !s.sending ? s.aff.get(cardId)?.destinations : undefined));
   const draggable = !!destinations?.length;
+  const selected = useGame((s) => s.ui.selected);
 
   const clear = () => {
     if (st.current?.timer) clearTimeout(st.current.timer);
@@ -86,7 +87,12 @@ export function useCardPointer(cardId: number, { touchElsewhere = false }: { tou
         const s = st.current;
         if (!s || s.id !== e.pointerId) return;
         clear();
-        if (!s.dragging && !s.longPressed) clickCard(cardId);
+        if (s.dragging || s.longPressed) return;
+        // A card lying in a zone the selected card can be played into (a Landmark already there...):
+        // the tap aims at the zone, whose DropZone plays the selected card, not at this card
+        const zone = (e.currentTarget as HTMLElement).parentElement?.closest('[data-drop]');
+        if (zone && selected !== null && selected !== cardId) return;
+        clickCard(cardId);
       },
       onPointerCancel() {
         clear();
