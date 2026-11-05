@@ -49,13 +49,20 @@ jobs:
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
 
+  ci:
+    name: CI
+    needs: release-please
+    if: needs.release-please.outputs.release_created == 'true'
+    uses: ./.github/workflows/ci.yml
+
   deploy:
     name: Build and deploy to VPS
-    needs: release-please
+    # A new release deploys once CI passed on it; "Run workflow" redeploys a released version
+    needs: [release-please, ci]
     if: >-
       always() && (
         github.event_name == 'workflow_dispatch' ||
-        needs.release-please.outputs.release_created == 'true'
+        (needs.release-please.outputs.release_created == 'true' && needs.ci.result == 'success')
       )
     runs-on: ubuntu-latest
     environment:
