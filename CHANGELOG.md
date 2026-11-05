@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.3.0](https://github.com/Yutsa/altered-arena/compare/v0.2.0...v0.3.0) (2026-11-05)
+
+
+### Features
+
+* play by touch on phones, and menus made for phones ([#7](https://github.com/Yutsa/altered-arena/issues/7)) ([20f2655](https://github.com/Yutsa/altered-arena/commit/20f2655d74efffbaf812fb7161ee114f69f0981b))
+
+
+### Bug Fixes
+
+* keep the sorted hand without gaps between groups ([#4](https://github.com/Yutsa/altered-arena/issues/4)) ([426d1ce](https://github.com/Yutsa/altered-arena/commit/426d1ce98b1a7b2bb20800757d9387965fe72da2))
+
+
+### Performance Improvements
+
+* **client:** fine-grained game state with zustand, structural sharing and React Compiler ([#8](https://github.com/Yutsa/altered-arena/issues/8)) ([ae14d2f](https://github.com/Yutsa/altered-arena/commit/ae14d2f96a6837da6067a9616fbdf897ad0a37a4))
+
 ## [0.2.0](https://github.com/Yutsa/altered-arena/compare/altered-arena-v0.1.0...altered-arena-v0.2.0) (2026-11-05)
 
 
