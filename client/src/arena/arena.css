@@ -631,10 +631,11 @@ body:has(.marker-ghost) { cursor: grabbing; }
 .ghost-marker { border: 3px dashed #fff; background: rgb(255 255 255 / 0.2); }
 .ghost-marker.theirs { border-color: #ffd0c4; }
 /* Desktop (layout.ts, twoLanes): a taller track, each player's tokens on a line of their own as on BGA,
-   the opponent's above and mine below, the biomes of each region and its terrain marker between them */
-.track.two-lanes .lane-theirs :is(.marker, .ghost-marker) { top: 24%; }
-.track.two-lanes .lane-mine :is(.marker, .ghost-marker) { top: 76%; }
-.track.two-lanes .region-chips { bottom: auto; top: 50%; translate: -50% -50%; }
+   the opponent's above and mine below, between the biomes of each region shown at both edges */
+.track.two-lanes .lane-theirs :is(.marker, .ghost-marker) { top: 34%; }
+.track.two-lanes .lane-mine :is(.marker, .ghost-marker) { top: 66%; }
+.track.two-lanes .region-chips.chips-top { bottom: auto; top: 3%; }
+.track.two-lanes .region-chips.chips-bottom { bottom: 3%; }
 /* The main action (end the turn, confirm, pass): a pill right of my band, under the track (the
    bottom-right corner is my Landmarks), with Undo and the minimized effects in a row under it */
 .end-dock { position: absolute; right: 20px; top: var(--end-dock-top); z-index: 16; display: flex; flex-direction: column; align-items: center; gap: calc(var(--marker-size) * 0.32); }

@@ -321,13 +321,12 @@ function Tile({ t, u, h, at }: { t: StormTile; u: number; h: number; at: number 
 const SHARED_SHIFT = 0.2;
 
 /**
- * On one line (phones), a token whose region also holds the other player's moves aside, and one in a
- * marked region moves right of the marker. On two lines (each player on their own), neither is needed.
+ * A token in a marked region moves right of the marker. On one line (phones), a token whose region
+ * also holds the other player's moves aside too; on two lines each player has a line of their own.
  */
 function shiftAt(view: GameView, player: PlayerView, region: number, mine: boolean, twoLanes: boolean) {
-  if (twoLanes) return 0;
   const o = view.players.find((p) => p.id !== player.id);
-  const shared = !!o && (o.expeditions.hero.position === region || o.expeditions.companion.position === region);
+  const shared = !twoLanes && !!o && (o.expeditions.hero.position === region || o.expeditions.companion.position === region);
   const marked = view.regions.some((r) => r.index === region && r.marker);
   return (shared ? (mine ? SHARED_SHIFT : -SHARED_SHIFT) : 0) + (marked ? MARKED_SHIFT : 0);
 }
@@ -375,8 +374,10 @@ function Ghost({ player, side, mine, twoLanes }: { player: PlayerView; side: Sid
 /**
  * Centre of the totals post on each end of the track, in track units from that end: on the cream
  * part of the end card, between the hero (companion) emblem and region 0 (7), so both stay visible.
+ * The larger post of the desktop track (two lines) sits nearer the end, over part of the emblem.
  */
 const POST_X = 0.715;
+const POST_X_WIDE = 0.6;
 
 /** One player's statistics in a post: a cell per biome, dimmed out of their region, lit where they win */
 function PostRow({ player, side, mine }: { player: PlayerView; side: Side; mine: boolean }) {
@@ -403,7 +404,7 @@ function PostRow({ player, side, mine }: { player: PlayerView; side: Side; mine:
  * The statistics of both expeditions of one side, as a post at that end of the track: the
  * opponent's on top, the biomes, mine below, so each biome reads as one column.
  */
-function TotalsPost({ side, u }: { side: Side; u: number }) {
+function TotalsPost({ side, u, x }: { side: Side; u: number; x: number }) {
   const { me, opp, you } = useGameCtx('me', 'opp', 'you');
   if (!me || !opp) return null;
   const mineId = you ?? me.id;
@@ -412,7 +413,7 @@ function TotalsPost({ side, u }: { side: Side; u: number }) {
   return (
     <div
       className={`totals-post post-${side}`}
-      style={{ left: (side === 'hero' ? POST_X : TRACK_UNITS - POST_X) * u }}
+      style={{ left: (side === 'hero' ? x : TRACK_UNITS - x) * u }}
       role="group"
       aria-label={`${side === 'hero' ? 'Hero' : 'Companion'} expeditions. ${label(opp)}. ${label(me)}.`}
     >
@@ -446,7 +447,7 @@ function MatTrack({ l }: { l: ArenaLayout }) {
           <Tile key={`2-${t[2].id}`} t={t[2]} u={u} h={h} at={4} />
           <Tile key={`3-${t[3].id}`} t={t[3]} u={u} h={h} at={6} />
           <Tile key={`4-${t[4].id}`} t={t[4]} u={u} h={h} at={8} />
-          <RegionMarkers regions={regions} u={u} centered={l.twoLanes} />
+          <RegionMarkers regions={regions} u={u} />
           {players.map((p) => {
             const mine = p.id === (you ?? me?.id);
             const same = p.expeditions.hero.position === p.expeditions.companion.position;
@@ -460,12 +461,13 @@ function MatTrack({ l }: { l: ArenaLayout }) {
             );
           })}
         </DropZone>
-        {regions.map((r) => {
+        {regions.flatMap((r) => {
           const biomes = regionBiomes(r);
-          // Face down: no biomes to show. On two lines a marked region shows its marker there instead
-          if (!biomes?.length || (l.twoLanes && r.marker)) return null;
-          return (
-            <span key={r.index} className="region-chips" style={{ left: regionCenter(r.index) * u }}>
+          // Face down: no biomes to show
+          if (!biomes?.length) return [];
+          // On two lines, at both edges of the track (by each player's line); on one, at the bottom
+          return (l.twoLanes ? ['top', 'bottom'] : ['bottom']).map((edge) => (
+            <span key={`${r.index}-${edge}`} className={`region-chips chips-${edge}`} style={{ left: regionCenter(r.index) * u }}>
               {biomes.map((b) => (
                 <span key={b} className={`tot-${b}`}>
                   <span className="tot-icon">
@@ -474,10 +476,10 @@ function MatTrack({ l }: { l: ArenaLayout }) {
                 </span>
               ))}
             </span>
-          );
+          ));
         })}
-        <TotalsPost side="hero" u={u} />
-        <TotalsPost side="companion" u={u} />
+        <TotalsPost side="hero" u={u} x={l.twoLanes ? POST_X_WIDE : POST_X} />
+        <TotalsPost side="companion" u={u} x={l.twoLanes ? POST_X_WIDE : POST_X} />
       </div>
     </div>
   );

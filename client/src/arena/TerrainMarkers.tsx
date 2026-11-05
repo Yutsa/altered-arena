@@ -121,7 +121,7 @@ export function HeroMarkers({ player }: { player: PlayerView }) {
   );
 }
 
-/** How far (in track units) the expedition tokens move right in a marked region, clear of the marker (on one line) */
+/** How far (in track units) the expedition tokens move right in a marked region, clear of the marker */
 export const MARKED_SHIFT = 0.14;
 
 /** The biomes a region has now: the marker's only, when it is marked */
@@ -134,7 +134,7 @@ export function regionBiomes(r: RegionView | undefined): Biome[] | null {
  * On the track: the marked regions (greyed, the marker in the middle), and at Noon the regions a
  * marker may go to, lit; the one under the dragged marker previews its new biome.
  */
-export function RegionMarkers({ regions, u, centered }: { regions: RegionView[]; u: number; centered: boolean }) {
+export function RegionMarkers({ regions, u }: { regions: RegionView[]; u: number }) {
   const { send } = useGameCtx('send');
   const mark = useMarkRegion();
   const held = useHeld();
@@ -145,14 +145,8 @@ export function RegionMarkers({ regions, u, centered }: { regions: RegionView[];
         .filter((r) => r.marker)
         .flatMap((r) => [
           <span key={`m${r.index}`} className="region-marked" style={span(r.index)} />,
-          // Between the two lines of tokens; on one line, on the left of the region: the expedition
-          // tokens there move to the right (MARKED_SHIFT)
-          <MarkerToken
-            key={`t${r.index}`}
-            biome={r.marker!.biome}
-            className="region-marker"
-            style={{ left: (regionCenter(r.index) - (centered ? 0 : 0.24)) * u }}
-          />,
+          // On the left of the region: the expedition tokens there move to the right (MARKED_SHIFT)
+          <MarkerToken key={`t${r.index}`} biome={r.marker!.biome} className="region-marker" style={{ left: (regionCenter(r.index) - 0.24) * u }} />,
         ])}
       {mark &&
         mark.regions.map((i) => {
