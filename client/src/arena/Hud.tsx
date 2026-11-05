@@ -169,12 +169,10 @@ const HAND_SORTS: { id: HandSort; label: string; short: string; hint: string }[]
 export const isHandSort = (s: unknown): s is HandSort => HAND_SORTS.some((o) => o.id === s);
 const TYPE_RANK: Record<string, number> = { spell: 0, character: 1, permanent: 2 };
 
-/** Places in the fan, in card widths from its centre: one step per card, a gap between groups */
-function fanLayout(groups: (string | number)[], spaced: boolean) {
-  const n = groups.length;
+/** Places in the fan, in card widths from its centre: one step per card, no gap between groups */
+function fanLayout(n: number) {
   const step = n > 6 ? 0.62 : 0.8;
-  const xs: number[] = [];
-  groups.forEach((g, i) => xs.push(i === 0 ? 0 : xs[i - 1] + step + (spaced && g !== groups[i - 1] ? 0.22 : 0)));
+  const xs = Array.from({ length: n }, (_, i) => i * step);
   const mid = n ? xs[n - 1] / 2 : 0;
   return { xs: xs.map((x) => x - mid), offs: xs.map((x) => (x - mid) / step), half: mid, spread: Math.min(6, 30 / Math.max(n, 1)) };
 }
@@ -218,19 +216,18 @@ export function ArenaHand({
   for (const id of [...arrival.current.keys()]) if (!ids.has(id)) arrival.current.delete(id);
   for (const c of held) if (!arrival.current.has(c.id)) arrival.current.set(c.id, arrivals.current++);
   const drawn = (c: CardView) => arrival.current.get(c.id) ?? 0;
-  const group = (c: CardView): string | number => {
+  const rank = (c: CardView): number => {
     if (sort === 'type') return TYPE_RANK[def(c)?.type ?? ''] ?? 3;
     if (sort === 'cost') return c.costHand ?? def(c)?.costHand ?? 99;
     return 0;
   };
-  const cards = [...held].sort((a, b) => (group(a) as number) - (group(b) as number) || drawn(a) - drawn(b));
+  const cards = [...held].sort((a, b) => rank(a) - rank(b) || drawn(a) - drawn(b));
 
   const out = drag && !drag.returning ? drag.cardId : null;
   const fanned = cards.filter((c) => c.id !== out);
-  const spaced = sort !== 'draw';
-  const fan = fanLayout(fanned.map(group), spaced);
+  const fan = fanLayout(fanned.length);
   // The card that left keeps the place it had, hidden
-  const whole = out !== null ? fanLayout(cards.map(group), spaced) : fan;
+  const whole = out !== null ? fanLayout(cards.length) : fan;
   // Room on the left: the outer card leans out (it turns about a point below it)
   let squeeze = 1;
   if (leftBound !== undefined && stageW && cardW && whole.half > 0) {
