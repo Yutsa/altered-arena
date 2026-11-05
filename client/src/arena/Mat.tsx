@@ -124,22 +124,27 @@ function ZoneSlots({ player, zone, mine, place }: { player: PlayerView; zone: 'r
 type ZonePlace = { style: CSSProperties; step?: number };
 
 const ZONE_GAP = 8;
-/** Reserve from 25% of the mat width, Landmarks up to 13% from its right edge (24% for the opponent on phones, clear of the info chip) */
-const RESERVE_LEFT = 0.25;
-const landmarkRight = (l: ArenaLayout, row: 0 | 4) => (l.mode === 'phone' && row === 0 ? 0.24 : 0.13);
+/**
+ * Left edge of the Reserve and right edge of the Landmarks, as fractions of the mat width. Mine are
+ * against my piles and near the right edge (the main button is above them, under the track); the
+ * opponent's start at 25% and stop at 13% (24% on phones, clear of the info chip).
+ */
+const reserveLeft = (l: ArenaLayout, row: 0 | 4) => (row === 0 ? 0.25 : l.mode === 'phone' ? 0.19 : 0.225);
+const landmarkRight = (l: ArenaLayout, row: 0 | 4) => (row === 0 ? (l.mode === 'phone' ? 0.24 : 0.13) : l.mode === 'phone' ? 0.12 : 0.105);
 
 /**
  * Reserve and Landmarks share the row between the piles and the right edge. When their cards do
  * not fit side by side (ten in each, rare but possible), each group gets a width in proportion to
- * its cards and they overlap to fit in it.
+ * its cards and they overlap to fit in it. My cards are larger than the opponent's (--my-zone-card-w).
  */
 function zonePlaces(l: ArenaLayout, row: 0 | 4, nReserve: number, nLandmarks: number): [ZonePlace, ZonePlace] {
+  const left = reserveLeft(l, row);
   const right = landmarkRight(l, row);
-  const reserve: ZonePlace = { style: { left: `${RESERVE_LEFT * 100}%` } };
+  const reserve: ZonePlace = { style: { left: `${left * 100}%` } };
   const landmarks: ZonePlace = { style: { right: `${right * 100}%` } };
-  const cw = parseFloat(l.vars['--zone-card-w']);
+  const cw = parseFloat(l.vars[row === 0 ? '--zone-card-w' : '--my-zone-card-w']);
   // Padding of both groups (4px each side) and a margin between them
-  const avail = (1 - RESERVE_LEFT - right) * l.plane.w - 16 - 3 * ZONE_GAP;
+  const avail = (1 - left - right) * l.plane.w - 16 - 3 * ZONE_GAP;
   const width = (n: number) => n * cw + Math.max(0, n - 1) * ZONE_GAP;
   if (width(nReserve) + width(nLandmarks) <= avail) return [reserve, landmarks];
   const step = (n: number) => (n > 1 ? Math.min(cw + ZONE_GAP, (avail * (n / (nReserve + nLandmarks)) - cw) / (n - 1)) : undefined);

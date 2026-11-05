@@ -41,7 +41,7 @@ export function Arena({
   // Undo: against bots, the server takes back my last move (the engine's undo is not offered)
   const undoBtn = undo;
   // Effects to resolve: the hand is not playable, it retracts. The queue's minimize button shrinks
-  // it into a badge right of the main button and brings the hand up; the badge brings the queue
+  // it into a badge under the main button and brings the hand up; the badge brings the queue
   // back. Minimized, it stays so through the next effects, until there are none left.
   const queueOn = !!effectQueue(decision);
   const [minimized, setMinimized] = useState(false);
@@ -143,12 +143,11 @@ export function Arena({
           </div>
         </div>
         {opp && <PlayerChip player={opp} mine={false} className="chip-opp" action={oppAction} />}
-        {/* Bottom left: my name, then the sort button (on phones my name is bottom right) */}
+        {/* Bottom left: my name (not on phones, where the room goes to my Landmarks), then the sort button */}
         <div className="me-dock" ref={meDockRef}>
           {me && l.mode === 'wide' && <PlayerChip player={me} mine={you !== null} className="chip-me" />}
           {me && you !== null && <HandSortButton sort={handSort} onChange={changeHandSort} />}
         </div>
-        {me && l.mode !== 'wide' && <PlayerChip player={me} mine={you !== null} className="chip-me" />}
         {opp && <OppHand player={opp} />}
         <InfoChip onLeave={onLeave} connected={connected} onLog={() => setLogOpen((o) => !o)} unread={unread} />
         <ArenaHand
@@ -164,22 +163,22 @@ export function Arena({
           <Prompt />
           <EffectQueue collapsed={minimized} onCollapse={() => setMinimized(true)} />
         </div>
+        {/* Right of my band, under the track: the main button, with Undo and the minimized effects under it */}
         <div className="end-dock">
-          {undoBtn && (
-            <span className="undo-dock">
-              <button type="button" className="undo-btn" disabled={undoBtn.disabled} onClick={undoBtn.onUndo} aria-label="Undo your last move">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <path d="M9 14 4 9l5-5" />
-                  <path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11" />
-                </svg>
-              </button>
-              <span className="undo-caption" aria-hidden="true">
-                Undo
-              </span>
-            </span>
-          )}
           <TrackButton />
-          {queueOn && minimized && <EffectQueueBadge onExpand={() => setMinimized(false)} />}
+          {(undoBtn || (queueOn && minimized)) && (
+            <div className="end-sub">
+              {undoBtn && (
+                <button type="button" className="undo-btn" disabled={undoBtn.disabled} onClick={undoBtn.onUndo} aria-label="Undo your last move" title="Undo">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M9 14 4 9l5-5" />
+                    <path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11" />
+                  </svg>
+                </button>
+              )}
+              {queueOn && minimized && <EffectQueueBadge onExpand={() => setMinimized(false)} />}
+            </div>
+          )}
         </div>
         <TrackNotice at={trackAt} />
         <PhaseBanner />

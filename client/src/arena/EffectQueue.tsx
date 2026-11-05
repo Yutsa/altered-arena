@@ -27,7 +27,7 @@ const triggeredBy = (c: ChoiceOption) => (c.resolvesTo ? (/\[\[([^\]]+)\]\]/.exe
  * Effects that triggered together, beside End turn: one portrait per effect, the effect under the
  * pointer told above them and its card lit on the board. A click resolves that effect; the next
  * decision brings the effects left. Its minimize button (`onCollapse`) shrinks it into a badge
- * right of the main button (EffectQueueBadge, a click on it brings the queue back), the hand
+ * under the main button (EffectQueueBadge, a click on it brings the queue back), the hand
  * comes up to be looked at.
  */
 export function EffectQueue({ collapsed, onCollapse }: { collapsed: boolean; onCollapse: () => void }) {

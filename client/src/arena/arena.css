@@ -84,8 +84,9 @@
 }
 .zone-top .zone-piles,
 .zone-top .zone-group { bottom: 10%; }
-.zone-bottom .zone-piles,
-.zone-bottom .zone-group { top: 6%; }
+.zone-bottom .zone-piles { top: 6%; }
+/* My Reserve and Landmarks: larger cards, raised so the screen's bottom edge cuts less of them */
+.zone-bottom .zone-group { top: -3%; --zone-card-w: var(--my-zone-card-w); }
 .zone-piles { left: 10.5%; }
 .zone-group { flex-direction: column; align-items: flex-start; padding: 4px; border-radius: 10px; }
 .zone-label {
@@ -629,10 +630,10 @@ body:has(.marker-ghost) { cursor: grabbing; }
 .marker.picked { box-shadow: 0 0 0 5px #fff, 0 0 22px var(--cyan); }
 .ghost-marker { border: 3px dashed #fff; background: rgb(255 255 255 / 0.2); }
 .ghost-marker.theirs { border-color: #ffd0c4; }
-/* The main action (end the turn, confirm, pass): a pill in the bottom-right corner, by the hand */
-.end-dock { position: absolute; right: 22px; bottom: 22px; z-index: 16; display: flex; align-items: center; gap: calc(var(--marker-size) * 0.32); }
-/* Against bots: a round secondary button left of the main one, apart from it */
-.undo-dock { display: flex; flex-direction: column; align-items: center; gap: calc(var(--marker-size) * 0.1); margin-top: calc(var(--marker-size) * 0.3); }
+/* The main action (end the turn, confirm, pass): a pill right of my band, under the track (the
+   bottom-right corner is my Landmarks), with Undo and the minimized effects in a row under it */
+.end-dock { position: absolute; right: 20px; top: var(--end-dock-top); z-index: 16; display: flex; flex-direction: column; align-items: center; gap: calc(var(--marker-size) * 0.32); }
+.end-sub { display: flex; align-items: center; justify-content: center; gap: calc(var(--marker-size) * 0.45); }
 .undo-btn {
   width: calc(var(--marker-size) * 1.05);
   height: calc(var(--marker-size) * 1.05);
@@ -652,7 +653,8 @@ body:has(.marker-ghost) { cursor: grabbing; }
 .undo-btn:not(:disabled):active { transform: scale(0.94); }
 .undo-btn:disabled { filter: grayscale(0.6) brightness(0.7); cursor: default; }
 .undo-caption { font: 600 calc(var(--marker-size) * 0.2) / 1 var(--font-title); letter-spacing: 0.12em; text-transform: uppercase; color: #c9c3ef; }
-.layout-phone .end-dock { right: 8px; bottom: 34px; }
+.layout-phone .end-dock { right: 6px; }
+.layout-phone .track-btn { min-width: 84px; height: 34px; }
 .track-btn {
   min-width: calc(var(--marker-size) * 4);
   height: calc(var(--marker-size) * 1.45);
@@ -710,7 +712,6 @@ body:has(.marker-ghost) { cursor: grabbing; }
 .layout-phone .chip { padding: 3px 8px; gap: 6px; border-radius: 11px; }
 /* Phones: the chips at the top sit close to the edge, in the strip of sky above the tilted mat, and
    mine in the bottom right corner, clear of my Landmarks */
-.layout-phone .chip-me { left: auto; right: 2px; bottom: 2px; padding: 2px 7px; }
 .layout-phone .chip-opp,
 .layout-phone .info-chip { top: 2px; padding-block: 1px; }
 .layout-phone .chip-opp { left: 8px; }
@@ -1041,7 +1042,8 @@ body.drag-spell .arena .track-drop .drop-label { display: none; }
 /* My hand, fanned at the bottom */
 .arena-hand {
   position: absolute;
-  left: 50%;
+  /* Right of centre: clear of my Reserve, which is against my piles */
+  left: calc(50% + var(--hand-shift, 0px));
   bottom: 0;
   width: 0;
   height: 0;
@@ -1419,7 +1421,7 @@ body.drag-spell .arena .track-drop .drop-label { display: none; }
 .eq-item.resolving::after { content: ''; position: absolute; inset: -6px; border-radius: 50%; border: 3px dashed #ffd27a; animation: eq-spin 1.2s linear infinite; }
 @keyframes eq-spin { to { rotate: 360deg; } }
 .eq-noart { display: grid; place-items: center; width: 100%; height: 100%; color: #ffe6a8; }
-/* The queue minimized: a round button right of the main one, in .end-dock */
+/* The queue minimized: a round button under the main one, beside Undo (.end-sub) */
 .eq-badge {
   position: relative;
   flex: none;
