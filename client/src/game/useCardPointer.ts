@@ -1,6 +1,6 @@
 import { useRef, type MouseEvent, type PointerEvent } from 'react';
 import { useGameCtx } from './GameContext';
-import { useDrag } from './drag';
+import { holdTouch, useDrag } from './drag';
 import { useInspect } from './inspect';
 
 const DRAG_THRESHOLD = 8;
@@ -12,8 +12,11 @@ const HOVER_MS = 280;
  * - click / tap: the decision action (select, pick...) or inspect
  * - drag (playable cards): drag and drop onto a destination
  * - long press (touch) or hover (mouse): large readable version
+ *
+ * `touchElsewhere`: touches are handled by a parent (the hand, which follows the finger across its
+ * cards): only the mouse is handled here.
  */
-export function useCardPointer(cardId: number) {
+export function useCardPointer(cardId: number, { touchElsewhere = false }: { touchElsewhere?: boolean } = {}) {
   const { aff, clickCard, inspectCard, decision, sending } = useGameCtx();
   const { begin, drag } = useDrag();
   const { hide } = useInspect();
@@ -23,7 +26,9 @@ export function useCardPointer(cardId: number) {
     id: number;
     dragging: boolean;
     longPressed: boolean;
+    touch: boolean;
     timer?: number;
+    release?: () => void;
   } | null>(null);
   const hoverTimer = useRef<number | undefined>(undefined);
 
@@ -32,6 +37,7 @@ export function useCardPointer(cardId: number) {
 
   const clear = () => {
     if (st.current?.timer) clearTimeout(st.current.timer);
+    st.current?.release?.();
     st.current = null;
   };
 
@@ -40,9 +46,14 @@ export function useCardPointer(cardId: number) {
     handlers: {
       onPointerDown(e: PointerEvent) {
         if (e.button !== 0) return;
+        const touch = e.pointerType !== 'mouse';
+        if (touch && touchElsewhere) return;
         clearTimeout(hoverTimer.current);
-        const s = { x: e.clientX, y: e.clientY, id: e.pointerId, dragging: false, longPressed: false, timer: undefined as number | undefined };
-        if (e.pointerType !== 'mouse') {
+        clear();
+        const s: NonNullable<typeof st.current> = { x: e.clientX, y: e.clientY, id: e.pointerId, dragging: false, longPressed: false, touch };
+        // A finger on a card that can be dragged: the page must not scroll under it
+        if (touch && draggable) s.release = holdTouch();
+        if (touch) {
           s.timer = window.setTimeout(() => {
             if (st.current && !st.current.dragging) {
               st.current.longPressed = true;
@@ -62,10 +73,12 @@ export function useCardPointer(cardId: number) {
           clearTimeout(s.timer);
           if (draggable && !s.longPressed) {
             s.dragging = true;
+            s.release?.();
+            s.release = undefined;
             hide();
-            begin(cardId, destinations!, e.clientX, e.clientY, e.currentTarget as HTMLElement);
+            begin(cardId, destinations!, e.clientX, e.clientY, e.currentTarget as HTMLElement, s.touch);
           } else if (!s.longPressed) {
-            st.current = null; // a scroll gesture, not a tap
+            clear(); // a scroll gesture, not a tap
           }
         }
       },

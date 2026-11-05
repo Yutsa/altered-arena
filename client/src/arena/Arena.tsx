@@ -48,7 +48,7 @@ export function Arena({
   useEffect(() => {
     if (!queueOn) setMinimized(false);
   }, [queueOn]);
-  const { layout: l, scale, portrait } = useArenaLayout();
+  const { layout: l, scale, portrait, center } = useArenaLayout();
   // Order of my hand, remembered on this device
   const [handSort, setHandSort] = useState<HandSort>(() => {
     const s = savedHandSort();
@@ -130,7 +130,7 @@ export function Arena({
   }, [logOpen, lastSeq]);
   const unread = log.filter((e) => e.seq > seen).length;
 
-  const stageStyle = { width: l.W, height: l.H, transform: `translate(-50%, -50%) scale(${scale})`, ...l.vars } as CSSProperties;
+  const stageStyle = { left: center.x, top: center.y, width: l.W, height: l.H, transform: `translate(-50%, -50%) scale(${scale})`, ...l.vars } as CSSProperties;
   return (
     <div className={`arena layout-${l.mode}`} ref={rootRef} style={{ ['--stage-scale' as string]: scale } as CSSProperties}>
       <div className="arena-stage" ref={stageRef} style={stageStyle}>

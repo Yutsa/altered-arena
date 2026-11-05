@@ -7,6 +7,8 @@
   color: #fff;
   user-select: none;
   -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
   --cyan: #7fe3ff;
   --me: #5ee0b0;
   --opp: #ff8a70;
@@ -1009,6 +1011,11 @@ body.drag-spell .arena .track-drop .drop-label { display: none; }
   .ah-slot:hover { transform: translateY(calc(var(--card-hand-w) * -0.62)) scale(1.12) rotate(0deg); z-index: 50 !important; }
 }
 .ah-slot.lifted { transform: translateY(calc(var(--card-hand-w) * -0.5)) rotate(0deg); z-index: 40 !important; }
+/* Touch: the card under the finger rises (the large version is drawn above it: .hand-peek) */
+.ah-slot { touch-action: none; -webkit-touch-callout: none; }
+.ah-slot.focus { transform: translateY(calc(var(--card-hand-w) * -0.32)) rotate(0deg); z-index: 45 !important; transition-duration: 0.08s; }
+.ah-slot.focus .card { box-shadow: 0 0 0 2px #ffd27a, 0 0 18px rgb(255 210 122 / 0.7); }
+.arena-hand.touching { z-index: 17; }
 .layout-phone .ah-slot { bottom: calc(var(--card-hand-w) * -0.7); }
 
 .arena-extra {
@@ -1433,3 +1440,15 @@ body.drag-spell .arena .track-drop .drop-label { display: none; }
 .hs-check { width: 1.15em; height: 1.15em; flex: none; color: var(--gold); }
 .hs-label { display: block; font-weight: 600; }
 .hs-hint { display: block; margin-top: 2px; font-size: 0.8em; color: #c9c3ef; }
+
+/* The card under the finger in my hand, large above it */
+.hand-peek {
+  position: fixed;
+  z-index: 115;
+  translate: -50% 0;
+  pointer-events: none;
+  --card-zoom-w: min(240px, 34vw, 62dvh * 0.72);
+  filter: drop-shadow(0 14px 24px rgb(0 0 0 / 0.6));
+  animation: hand-peek-in 0.1s ease-out;
+}
+@keyframes hand-peek-in { from { opacity: 0; scale: 0.9; } }

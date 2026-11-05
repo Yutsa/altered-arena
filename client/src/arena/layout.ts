@@ -109,13 +109,42 @@ export function deckPatch(l: ArenaLayout, i: 0 | 4): CSSProperties {
  */
 export const HERO_X = 0.1975 + (1 - 0.1975 - 0.15) / 2;
 
-function pick(): { layout: ArenaLayout; scale: number; portrait: boolean } {
+/** Safe areas of the screen (notch, rounded corners, home indicator), from the CSS env() values */
+export interface Insets {
+  top: number;
+  right: number;
+  bottom: number;
+  left: number;
+}
+let probe: HTMLDivElement | null = null;
+function safeInsets(): Insets {
+  if (!probe) {
+    probe = document.createElement('div');
+    probe.style.cssText =
+      'position:fixed;visibility:hidden;pointer-events:none;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)';
+    document.body.appendChild(probe);
+  }
+  const cs = getComputedStyle(probe);
+  return { top: parseFloat(cs.paddingTop) || 0, right: parseFloat(cs.paddingRight) || 0, bottom: parseFloat(cs.paddingBottom) || 0, left: parseFloat(cs.paddingLeft) || 0 };
+}
+
+/**
+ * The stage fits inside the safe area (a phone in landscape has its notch on one side and the home
+ * indicator at the bottom: nothing to play there, and a swipe up from the bottom edge leaves the
+ * app). `center`: where the stage's centre is, in window px.
+ */
+function pick(): { layout: ArenaLayout; scale: number; portrait: boolean; center: { x: number; y: number } } {
   const vw = window.innerWidth;
   const vh = window.innerHeight;
   const portrait = vh > vw;
+  const i = safeInsets();
+  // Both sides keep the same margin, so the table stays centred whatever side the notch is on
+  const side = Math.max(i.left, i.right);
+  const w = vw - 2 * side;
+  const h = vh - i.top - i.bottom;
   const layout = (vh < 560 && !portrait) || vw < 760 ? PHONE : WIDE;
-  const scale = Math.min(vw / layout.W, vh / layout.H);
-  return { layout, scale, portrait };
+  const scale = Math.min(w / layout.W, h / layout.H);
+  return { layout, scale, portrait, center: { x: vw / 2, y: i.top + h / 2 } };
 }
 
 export function useArenaLayout() {

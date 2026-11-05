@@ -1,10 +1,13 @@
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import type { CardView, Phase, PlayerView } from '@protocol';
 import { useGameCtx } from '../game/GameContext';
 import { BoardCard } from '../components/BoardCard';
 import { CardListModal } from '../components/Picker';
 import { DecisionBar } from '../components/DecisionBar';
 import { useDrag } from '../game/drag';
+import { Card } from '../components/Card';
+import { useHandTouch } from './useHandTouch';
 
 const PHASES: { phase: Phase; label: string; icon: string }[] = [
   { phase: 'morning', label: 'Morning', icon: 'dawn' },
@@ -88,7 +91,40 @@ export function PlayerChip({ player, mine, className, action }: { player: Player
   );
 }
 
-/** Day and phase, log, connection, way back */
+/**
+ * Full screen, on the touch screens that allow it (Android: the address bar takes a sixth of a
+ * phone held in landscape). The table is turned to landscape at the same time, where it can be.
+ */
+const canFullscreen = typeof document !== 'undefined' && !!document.documentElement.requestFullscreen && window.matchMedia('(pointer: coarse)').matches;
+function FullscreenButton() {
+  const [on, setOn] = useState(() => !!document.fullscreenElement);
+  useEffect(() => {
+    const f = () => setOn(!!document.fullscreenElement);
+    document.addEventListener('fullscreenchange', f);
+    return () => document.removeEventListener('fullscreenchange', f);
+  }, []);
+  if (!canFullscreen) return null;
+  const toggle = async () => {
+    try {
+      if (document.fullscreenElement) await document.exitFullscreen();
+      else {
+        await document.documentElement.requestFullscreen({ navigationUI: 'hide' });
+        await (screen.orientation as ScreenOrientation & { lock?: (o: string) => Promise<void> }).lock?.('landscape').catch(() => {});
+      }
+    } catch {
+      // refused by the browser: nothing to do
+    }
+  };
+  return (
+    <button type="button" className="ic-btn ic-full" onClick={() => void toggle()} aria-label={on ? 'Exit full screen' : 'Full screen'}>
+      <svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        {on ? <path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5" /> : <path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" />}
+      </svg>
+    </button>
+  );
+}
+
+/** Day and phase, log, connection, full screen, way back */
 export function InfoChip({ onLeave, connected, onLog, unread, extra }: { onLeave: () => void; connected: boolean; onLog: () => void; unread: number; extra?: ReactNode }) {
   const { view } = useGameCtx();
   return (
@@ -105,6 +141,7 @@ export function InfoChip({ onLeave, connected, onLog, unread, extra }: { onLeave
         Log{unread > 0 && <span className="ic-badge">{unread > 99 ? '99+' : unread}</span>}
       </button>
       <span className={`conn ${connected ? 'ok' : 'down'}`} />
+      <FullscreenButton />
       <button type="button" className="ic-btn" onClick={onLeave} aria-label="Back to lobby">
         ✕
       </button>
@@ -178,7 +215,44 @@ function fanLayout(n: number) {
 }
 
 /**
- * My hand, fanned at the bottom; cards rise when hovered or tapped. A card being dragged leaves
+ * The card under the finger in my hand, shown large above it (touch screens have no hover). It
+ * follows its card in the fan, kept inside the window.
+ */
+function HandPeek({ id }: { id: number }) {
+  const { byId, def } = useGameCtx();
+  const ref = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    let raf = 0;
+    const follow = () => {
+      const box = ref.current;
+      const el = document.querySelector<HTMLElement>(`.arena-hand .ah-slot[data-hand-card="${id}"]`);
+      if (box && el) {
+        const r = el.getBoundingClientRect();
+        const w = box.offsetWidth;
+        const x = Math.max(8 + w / 2, Math.min(window.innerWidth - 8 - w / 2, r.left + r.width / 2));
+        box.style.left = `${x}px`;
+        box.style.bottom = `${Math.max(8, window.innerHeight - r.top + 6)}px`;
+        box.style.visibility = '';
+      }
+      raf = requestAnimationFrame(follow);
+    };
+    follow();
+    return () => cancelAnimationFrame(raf);
+  }, [id]);
+  const card = byId.get(id);
+  const d = def(card);
+  if (!d) return null;
+  return createPortal(
+    <div className="hand-peek" ref={ref} style={{ visibility: 'hidden' }} aria-hidden="true">
+      <Card def={d} card={card} size="zoom" />
+    </div>,
+    document.body,
+  );
+}
+
+/**
+ * My hand, fanned at the bottom; cards rise when hovered or tapped. On a touch screen the finger
+ * slides along it to read the cards, and raises one to drag it (useHandTouch). A card being dragged leaves
  * the fan, which closes up (and opens again if the card comes back). Sorted as the player chose;
  * a big hand closes up rather than reach the controls on its left (`leftBound`).
  */
@@ -206,6 +280,8 @@ export function ArenaHand({
 }) {
   const { me, zoneCards, ui, you, def } = useGameCtx();
   const { drag } = useDrag();
+  const handRef = useRef<HTMLDivElement>(null);
+  const touch = useHandTouch(handRef);
   // Draw order: the server lists the hand by card id, so the order of arrival is kept here (the
   // cards held when the table opens come in the server's order)
   const arrival = useRef(new Map<number, number>());
@@ -236,7 +312,14 @@ export function ArenaHand({
     squeeze = Math.max(0.3, Math.min(1, room / (whole.half * cardW)));
   }
   return (
-    <div className={`arena-hand ${retracted ? 'retracted' : ''} ${inactive ? 'inactive' : ''}`} aria-label="Your hand" onMouseEnter={onEnter} onMouseLeave={onLeave}>
+    <div
+      ref={handRef}
+      className={`arena-hand ${retracted ? 'retracted' : ''} ${inactive ? 'inactive' : ''} ${touch.focus !== null ? 'touching' : ''}`}
+      aria-label="Your hand"
+      onMouseEnter={onEnter}
+      onMouseLeave={onLeave}
+      onPointerDown={touch.onPointerDown}
+    >
       {cards.map((c, j) => {
         const l = c.id === out ? whole : fan;
         const i = c.id === out ? j : fanned.indexOf(c);
@@ -244,7 +327,8 @@ export function ArenaHand({
         return (
           <div
             key={c.id}
-            className={`ah-slot ${ui.selected === c.id ? 'lifted' : ''}`}
+            data-hand-card={c.id}
+            className={`ah-slot ${ui.selected === c.id ? 'lifted' : ''} ${touch.focus === c.id ? 'focus' : ''}`}
             style={{
               ['--x' as string]: `calc(var(--card-hand-w) * ${l.xs[i] * squeeze})`,
               ['--rot' as string]: `${off * l.spread}deg`,
@@ -252,10 +336,11 @@ export function ArenaHand({
               zIndex: i + 1,
             }}
           >
-            <BoardCard id={c.id} size="hand" />
+            <BoardCard id={c.id} size="hand" touchElsewhere />
           </div>
         );
       })}
+      {touch.peek && touch.focus !== null && touch.focus !== out && <HandPeek id={touch.focus} />}
     </div>
   );
 }

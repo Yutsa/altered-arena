@@ -10,10 +10,21 @@ import './BoardCard.css';
 export const cardTransition = { type: 'spring', stiffness: 420, damping: 36, mass: 0.9 } as const;
 
 /** A card of the game: animated between zones (shared layoutId), interactive. */
-export const BoardCard = memo(function BoardCard({ id, size, className }: { id: number; size: CardSize; className?: string }) {
+export const BoardCard = memo(function BoardCard({
+  id,
+  size,
+  className,
+  touchElsewhere = false,
+}: {
+  id: number;
+  size: CardSize;
+  className?: string;
+  /** Touches are handled by the parent (the hand): only the mouse is handled here */
+  touchElsewhere?: boolean;
+}) {
   const { byId, def, aff, ui, decision, manaPending, focusSource } = useGameCtx();
   const { drag } = useDrag();
-  const { draggable, handlers } = useCardPointer(id);
+  const { draggable, handlers } = useCardPointer(id, { touchElsewhere });
   const card = byId.get(id);
   const a = aff.get(id);
   // A card picked for the Mana zone turns face down, as it will be there (and stays so until it gets there)
@@ -41,7 +52,7 @@ export const BoardCard = memo(function BoardCard({ id, size, className }: { id: 
       animate={{ opacity: 1, scale: 1 }}
       className={cls}
       data-card-id={id}
-      style={{ touchAction: draggable ? 'none' : undefined }}
+      style={{ touchAction: draggable || touchElsewhere ? 'none' : undefined }}
       {...handlers}
     >
       <div className={`flip ${faceDown ? 'flipped' : ''}`}>

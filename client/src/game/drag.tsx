@@ -16,7 +16,8 @@ interface DragState {
 
 interface DragCtxValue {
   drag: DragState | null;
-  begin: (cardId: number, destinations: Destination[], x: number, y: number, from: HTMLElement) => void;
+  /** `touch`: the ghost is drawn above the finger (which would hide it), and larger */
+  begin: (cardId: number, destinations: Destination[], x: number, y: number, from: HTMLElement, touch?: boolean) => void;
   move: (x: number, y: number) => void;
   end: (drop: boolean) => void;
 }
@@ -50,6 +51,23 @@ function bodyClasses(s: DragState | null) {
 }
 
 const clamp = (v: number, m: number) => Math.max(-m, Math.min(m, v));
+
+/** Touch drags: the ghost is this much larger than the card in the hand, and sits above the finger */
+const TOUCH_GHOST_SCALE = 1.5;
+const TOUCH_GHOST_MAX_W = 140;
+
+/**
+ * Stops the browser from scrolling, zooming or going back while a finger drags a card. On iOS
+ * Safari touch-action alone is not enough (a pan cancels the pointer events): touchmove is
+ * cancelled as well. Returns the function that removes the listener.
+ */
+export function holdTouch(): () => void {
+  const stop = (e: TouchEvent) => {
+    if (e.cancelable) e.preventDefault();
+  };
+  window.addEventListener('touchmove', stop, { passive: false });
+  return () => window.removeEventListener('touchmove', stop);
+}
 
 /**
  * Where a card is drawn on the table: its centre, its width (without the rotation of the fan, and
@@ -109,6 +127,8 @@ export function DragProvider({ children }: { children: ReactNode }) {
   const source = useRef<HTMLElement | null>(null);
   const m = useRef<Motion>({ x: 0, y: 0, tx: 0, ty: 0, ry: 0, rx: 0, rz: 0, scale: 1, frame: 0 });
   const unlisten = useRef<(() => void) | null>(null);
+  /** Touch drags: how far above the finger the ghost's centre is (px) */
+  const lift = useRef(0);
 
   const set = (s: DragState | null) => {
     dragRef.current = s;
@@ -173,13 +193,16 @@ export function DragProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const begin = useCallback(
-    (cardId: number, destinations: Destination[], x: number, y: number, from: HTMLElement) => {
+    (cardId: number, destinations: Destination[], x: number, y: number, from: HTMLElement, touch = false) => {
       cancelAnimationFrame(m.current.frame);
       source.current = from;
       const home = homeOf(from)!;
+      const width = touch ? Math.max(home.width, Math.min(TOUCH_GHOST_MAX_W, home.width * TOUCH_GHOST_SCALE)) : home.width;
+      // The finger holds the card by its lower part: the card shows, and still reaches the zones near the hand
+      lift.current = touch ? width * (450 / 324) * 0.3 : 0;
       // The ghost starts on the card, as it is drawn on the table
-      m.current = { x: home.x, y: home.y, tx: x, ty: y, ry: 0, rx: 0, rz: home.rot, scale: 1, frame: 0 };
-      setSize(home.width);
+      m.current = { x: home.x, y: home.y, tx: x, ty: y - lift.current, ry: 0, rx: 0, rz: home.rot, scale: 1, frame: 0 };
+      setSize(width);
       set({ cardId, destinations, over: null });
       m.current.frame = requestAnimationFrame(step);
       document.body.classList.add('is-dragging');
@@ -189,6 +212,7 @@ export function DragProvider({ children }: { children: ReactNode }) {
       const onUp = () => endRef.current(true);
       const onCancel = () => endRef.current(false);
       const onKey = (e: KeyboardEvent) => e.key === 'Escape' && endRef.current(false);
+      const release = holdTouch();
       window.addEventListener('pointermove', onMove);
       window.addEventListener('pointerup', onUp);
       window.addEventListener('pointercancel', onCancel);
@@ -200,6 +224,7 @@ export function DragProvider({ children }: { children: ReactNode }) {
         window.removeEventListener('pointercancel', onCancel);
         window.removeEventListener('blur', onCancel);
         window.removeEventListener('keydown', onKey);
+        release();
         unlisten.current = null;
       };
     },
@@ -209,9 +234,11 @@ export function DragProvider({ children }: { children: ReactNode }) {
   const move = useCallback((x: number, y: number) => {
     const s = dragRef.current;
     if (!s || s.dropped || s.returning) return;
+    // A touch drag aims with the card, drawn above the finger
+    const cy = y - lift.current;
     m.current.tx = x;
-    m.current.ty = y;
-    const over = dropAt(x, y, s.destinations);
+    m.current.ty = cy;
+    const over = dropAt(x, cy, s.destinations) ?? (cy !== y ? dropAt(x, y, s.destinations) : null);
     if (over !== s.over) set({ ...s, over });
   }, []);
 
