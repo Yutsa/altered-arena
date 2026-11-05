@@ -18,3 +18,9 @@ result_large_err = "allow"
 [profile.release]
 lto = "thin"
 codegen-units = 4
+
+# CI: the release optimisations without LTO, which links each test binary for minutes
+[profile.ci]
+inherits = "release"
+lto = false
+codegen-units = 16

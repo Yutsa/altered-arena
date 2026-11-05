@@ -2,9 +2,10 @@
 //! the Rust translation: at every node, the player waited for, the decision asked and the state must
 //! be the same; then every recorded answer is applied to a copy of the game.
 //!
-//!   cargo run --release -p goldens -- [DIR] [--only SUBSTRING] [-v] [--create]
+//!   cargo run --release -p goldens -- [DIR] [--only SUBSTRING] [--shard I/N] [-v] [--create]
 //!
 //! DIR defaults to server/goldens. Prints the first difference of each failing file and a summary.
+//! --shard I/N: only the files I, I+N, I+2N... of the sorted list (I from 1), for parallel CI jobs.
 //! --create: whole games start from a game created by the translation (Game::create with the
 //! recorded game id, decks and dice), whose tables must be those PHP dumped after V1::createGame.
 
@@ -290,7 +291,20 @@ fn main() {
     // Whole games start from a game created by the translation instead of PHP's tables
     let create = args.iter().any(|a| a == "--create");
     let only = args.iter().position(|a| a == "--only").and_then(|i| args.get(i + 1)).cloned();
-    let dir = args.iter().find(|a| !a.starts_with('-') && Some(*a) != only.as_ref()).cloned().unwrap_or_else(|| "server/goldens".into());
+    let shard = args.iter().position(|a| a == "--shard").and_then(|i| args.get(i + 1)).cloned();
+    let (shard_i, shard_n) = match &shard {
+        Some(s) => {
+            let (i, n) = s.split_once('/').and_then(|(i, n)| Some((i.parse::<usize>().ok()?, n.parse::<usize>().ok()?))).expect("--shard I/N");
+            assert!(i >= 1 && i <= n, "--shard I/N: 1 <= I <= N");
+            (i - 1, n)
+        }
+        None => (0, 1),
+    };
+    let dir = args
+        .iter()
+        .find(|a| !a.starts_with('-') && Some(*a) != only.as_ref() && Some(*a) != shard.as_ref())
+        .cloned()
+        .unwrap_or_else(|| "server/goldens".into());
     let mut files: Vec<PathBuf> = vec![];
     for board in std::fs::read_dir(&dir).expect("golden directory").flatten() {
         for f in std::fs::read_dir(board.path()).into_iter().flatten().flatten() {
@@ -301,6 +315,7 @@ fn main() {
         }
     }
     files.sort();
+    let files: Vec<PathBuf> = files.into_iter().enumerate().filter(|(k, _)| k % shard_n == shard_i).map(|(_, p)| p).collect();
     let t = std::time::Instant::now();
     let results: Vec<(String, Report)> = files
         .par_iter()

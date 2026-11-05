@@ -17,13 +17,13 @@ Merging the release PR deploys the version to the VPS (`.github/workflows/releas
 ## Checks
 
 CI (`.github/workflows/ci.yml`) must pass to merge a PR, and runs again before a release deploys.
-Run the same checks before pushing:
+Run the same checks before pushing (the `ci` profile is release without LTO, much faster to build):
 
 ```bash
 cargo fmt --all --check
-cargo clippy --release --workspace --all-targets -- -D warnings
-cargo test --release --workspace
-cargo run --release -p goldens -- server/goldens
+cargo clippy --profile ci --workspace --all-targets -- -D warnings
+cargo test --profile ci --workspace
+cargo run --profile ci -p goldens -- server/goldens
 cd client && npm run typecheck && npm run build
 ```
 
