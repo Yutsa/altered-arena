@@ -374,10 +374,11 @@ function Ghost({ player, side, mine, twoLanes }: { player: PlayerView; side: Sid
 /**
  * Centre of the totals post on each end of the track, in track units from that end: on the cream
  * part of the end card, between the hero (companion) emblem and region 0 (7), so both stay visible.
- * The larger post of the desktop track (two lines) sits nearer the end, over part of the emblem.
+ * The emblem reaches about 0.37 unit from the end and the tokens of region 0 (7) start near 1.36:
+ * the larger post of the desktop track (two lines, 0.78 unit wide) is centred between them.
  */
 const POST_X = 0.715;
-const POST_X_WIDE = 0.6;
+const POST_X_WIDE = 0.86;
 
 /** One player's statistics in a post: a cell per biome, dimmed out of their region, lit where they win */
 function PostRow({ player, side, mine }: { player: PlayerView; side: Side; mine: boolean }) {
