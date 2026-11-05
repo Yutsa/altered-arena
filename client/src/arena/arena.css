@@ -545,6 +545,9 @@
 .post-num.win.me { background: var(--me); color: #0f2a20; box-shadow: 0 0 0 2px #fff, 0 0 10px var(--me); }
 .post-num.win.op { background: var(--opp); color: #3a140b; box-shadow: 0 0 0 2px #fff, 0 0 10px var(--opp); }
 .post-num.blocked { opacity: 0.35; text-decoration: line-through 2px #c92a2a; }
+/* On phones the post fits in the 50 px track (layout.ts: 3 × 13 px rows, 2 px gaps) */
+.layout-phone .totals-post { border-radius: 7px; box-shadow: 0 0 0 2px var(--cream), 0 2px 6px rgb(20 10 40 / 0.6); }
+.layout-phone .post-num { border-radius: 4px; }
 /* Terrain markers (Nadir): round biome tokens, as on BGA */
 .terrain-marker { display: grid; place-items: center; }
 .terrain-marker .tot-icon { border-width: 3px; box-shadow: 0 0 0 2px rgb(20 16 40 / 0.5), 0 4px 8px rgb(0 0 0 / 0.6); }
