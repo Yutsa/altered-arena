@@ -20,8 +20,8 @@ altered-arena/
 
 ## Run it
 
-Requirements: Rust (stable), Node 20+. Card art is read from a checkout of AlteredBGA next to this
-folder (`../AlteredBGA/img/illustrations`, override with `ART_DIR`).
+Requirements: Rust (stable), Node 20+. Card art is in `art/` (copied from AlteredBGA's
+`img/illustrations`, override with `ART_DIR`).
 
 ```bash
 cd client && npm install && npm run build && cd ..
@@ -34,7 +34,7 @@ Open http://localhost:8080, pick a starter deck, play against the bot, find an o
 Client development with hot reload: `cd client && ARENA_API=http://localhost:8080 npm run dev`
 (http://localhost:5173).
 
-Server settings (environment): `PORT` (8080), `CLIENT_DIR` (client/dist), `ART_DIR`,
+Server settings (environment): `PORT` (8080), `CLIENT_DIR` (client/dist), `ART_DIR` (art),
 `PROTOCOL_DIR` (protocol/data), `DECKS_API_URL` (https://decks.alteredcore.org: the Altered Reunion
 decks, `reunionDeck` of a new game), `DATA_DIR` (data: games are saved there every `PERSIST_SECS` (10)
 and reloaded on demand), `ENGINE_THREADS` (threads running the engine, default: one per CPU) and
@@ -50,8 +50,7 @@ server/goldens/tournament_decks.json). They are read when a game starts, so a re
 restart. An AI plays its own deck; the server plays its decisions in the background (0.1–0.5 s of
 CPU each for an imitation AI, on the engine threads).
 
-Deployment: from the parent folder (it holds AlteredBGA, whose card art goes in the image),
-`docker build -t altered-arena -f altered-arena/Dockerfile .`, then
+Deployment: `docker build -t altered-arena .`, then
 `docker run -p 8080:8080 -v arena-data:/data altered-arena`. Performance and sizing:
 `docs/PERFORMANCE.md` (OVH VPS-1, 2 vCores and 4 GB: about 1500–6000 simultaneous games at a
 realistic pace depending on the vCore speed, with `PERSIST_SECS=60`).
@@ -105,5 +104,6 @@ See `docs/STATUS.md` for where things stand.
 | `cd client && npm run check:decisions -- --server URL` | games played by the client's own decision logic |
 | `./target/release/loadtest --games 1000 --pid PID` | load test, see `docs/PERFORMANCE.md` |
 | `php tools/export_cards.php` (in the PHP container) then `tools/build_catalog.py` | refresh card data from AlteredBGA |
+| `rm -rf art && mkdir art && git -C ../AlteredBGA archive master img/illustrations \| tar -x -C art --strip-components=2` | refresh the card art (`art/`) from AlteredBGA, with the card data |
 | `php tools/api_decks.php export DIR` (in the PHP container), copy `flow.min.json` and `refs.min.json` to `rules/data` | refresh the Unique effect tables (FlowConvertor) and the card references of API decks |
 | `php tools/api_decks.php uniques\|cardclass\|decks` (in the PHP container) | record the goldens of Uniques, card references and games with a Reunion deck (`server/goldens/{uniques,cardclass,apidecks}/`) |

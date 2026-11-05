@@ -14,7 +14,7 @@ starters = json.load(open(os.path.join(src, 'starters.min.json')))
 RARITY = {0: 'common', 1: 'rare', 2: 'unique', 3: 'exalted'}
 KEYWORDS = ['fleeting', 'anchored', 'asleep', 'gigantic', 'tough', 'defender', 'eternal', 'seasoned', 'scout', 'cooldown']
 
-ART = os.path.join(os.path.dirname(ROOT), 'AlteredBGA', 'img', 'illustrations')
+ART = os.path.join(ROOT, 'art')
 art_index = {}
 if os.path.isdir(ART):
     for folder in os.listdir(ART):

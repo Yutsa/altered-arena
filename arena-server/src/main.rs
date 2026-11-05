@@ -5,7 +5,7 @@
 //! rooms (a game against a friend, `rooms`), and
 //! the web client (CLIENT_DIR) with the card art (ART_DIR) as static files.
 //!
-//! Environment: PORT (8080), CLIENT_DIR (client/dist), ART_DIR (../AlteredBGA/img/illustrations),
+//! Environment: PORT (8080), CLIENT_DIR (client/dist), ART_DIR (art),
 //! PROTOCOL_DIR (protocol/data), DATA_DIR (data), PERSIST_SECS (10), ARENA_DEBUG (debug routes),
 //! ENGINE_THREADS (number of threads running the rules engine `rules/`, default: CPUs),
 //! ENGINE_STACK_MB (their stack size, 256), IMITATION_DIR, AI_PARAMS_DIR and TOURNAMENT_DECKS (the
@@ -140,7 +140,7 @@ async fn main() {
     let env = |k: &str, d: &str| std::env::var(k).unwrap_or_else(|_| d.to_string());
     let port = env("PORT", "8080");
     let client_dir = env("CLIENT_DIR", "client/dist");
-    let art_dir = env("ART_DIR", "../AlteredBGA/img/illustrations");
+    let art_dir = env("ART_DIR", "art");
     let protocol_dir = env("PROTOCOL_DIR", "protocol/data");
     let data_dir = std::path::PathBuf::from(env("DATA_DIR", "data"));
     let _ = std::fs::create_dir_all(data_dir.join("games"));

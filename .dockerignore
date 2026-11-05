@@ -1,0 +1,10 @@
+.git
+target
+**/node_modules
+client/dist
+data
+private
+traces
+perf
+server
+docs
