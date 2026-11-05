@@ -213,3 +213,33 @@ button.xp-chip:hover { box-shadow: 0 0 0 1px var(--xp-gold), 0 4px 12px rgb(21 4
 .xp-modal .reunion-summary.ok { box-shadow: inset 0 0 0 2px var(--xp-teal); }
 .xp-modal .lobby-error { color: #9b2c1f; }
 .xp-modal .spinner { border-color: rgb(21 48 60 / 0.2); border-top-color: var(--xp-teal); }
+
+/* Phones held in landscape: a thin rail of icons, the page beside it */
+@media (max-height: 560px) and (min-width: 761px) {
+  .xp-rail { flex-basis: calc(72px + env(safe-area-inset-left)); padding-left: env(safe-area-inset-left); }
+  .xp-rail-logo { padding: 10px 0; font-size: 24px; }
+  .xp-rail-item { padding: 10px 4px; gap: 4px; font-size: 11px; }
+  .xp-rail-item svg { width: 22px; height: 22px; }
+  .xp-main { gap: 12px; padding: 12px max(16px, env(safe-area-inset-right)) 12px 16px; }
+  .xp-head h1 { font-size: 28px; }
+}
+/* Phones held upright: the bar of the screens under the notch */
+@media (max-width: 760px) {
+  .xp-rail { top: 0; padding-top: env(safe-area-inset-top); }
+  .xp-head h1 { font-size: 30px; }
+  .xp-chip { padding: 4px 12px 4px 4px; gap: 8px; }
+  .xp-chip strong { max-width: 130px; }
+  .xp-chip .xp-por { width: 32px; height: 32px; }
+}
+
+/* The deck dialog on a phone in landscape: name and deck source on one line, the decks below */
+@media (max-height: 560px) and (min-width: 601px) {
+  .xp-modal .modal-head { padding: 6px 8px 4px 16px; }
+  .xp-modal .modal-title { font-size: 20px; }
+  .xp-modal .modal-body { padding: 10px 16px; gap: 10px; display: grid; grid-template-columns: minmax(0, 260px) 1fr; align-items: end; }
+  .xp-modal .modal-body > :not(.xp-field, .deck-source) { grid-column: 1 / -1; }
+  .xp-modal .xp-field input { min-height: 38px; }
+  .xp-modal .tab { min-height: 38px; }
+  .xp-modal .modal-foot { padding: 6px 16px calc(6px + env(safe-area-inset-bottom)); }
+  .xp-modal .xp-btn { min-height: 38px; }
+}

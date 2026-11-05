@@ -177,3 +177,46 @@
   .play-ai-list { max-height: 320px; }
 }
 .play-self-hint { font-size: 14px; line-height: 1.45; }
+
+/*
+ * Phones (upright or in landscape): the four modes are small tabs, the chosen mode right under
+ * them, and its main button stays at the bottom of the screen while the page scrolls.
+ */
+@media (max-width: 760px), (max-height: 560px) {
+  .play-grid { flex-direction: column; flex-wrap: nowrap; gap: 12px; }
+  .play-modes { flex: none; min-width: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .play-mode { min-height: 0; gap: 8px; padding: 10px 12px; align-items: flex-start; }
+  .play-mini, .play-mode .xp-muted { display: none; }
+  .play-mode-text { gap: 2px; }
+  .play-mode .xp-tag { font-size: 10px; letter-spacing: 0.16em; }
+  .play-mode-title { font-size: 17px; }
+  .play-panel { flex: none; overflow: visible; }
+  .play-stage { --card-h: 120px; padding: 12px; gap: 16px; border-radius: 4px 4px 0 0; }
+  .play-stage figcaption { font-size: 12px; }
+  .stage-vs { font-size: 20px; padding-bottom: 30px; }
+  .play-controls { padding: 12px; gap: 12px; }
+  .play-deck { flex-basis: 100%; }
+  .play-deck-row > .xp-muted { font-size: 13px; }
+  .play-opt { flex-basis: 30%; padding: 8px 10px; }
+  .play-opt small { font-size: 12px; }
+  .play-ai-list { max-height: none; overflow: visible; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
+  /* The main button sticks to the bottom of the screen, above the home indicator */
+  .play-controls > .xp-btn.big {
+    position: sticky;
+    bottom: calc(10px + env(safe-area-inset-bottom));
+    z-index: 2;
+    min-height: 54px;
+    padding: 10px 20px;
+    font-size: 21px;
+    box-shadow: inset 0 0 0 1px #fff3d6, 0 0 0 1px #a8853f, 0 8px 24px rgb(21 48 60 / 0.35);
+  }
+}
+/* Phones in landscape: the four modes on one line, a lower stage */
+@media (max-height: 560px) and (min-width: 600px) {
+  .play-modes { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .play-stage { --card-h: 92px; padding: 8px; }
+  .play-stage figure { flex-direction: row; gap: 10px; }
+  .play-stage figcaption { align-items: flex-start; text-align: left; }
+  .stage-vs { padding-bottom: 0; }
+  .play-deck { flex-basis: 280px; }
+}

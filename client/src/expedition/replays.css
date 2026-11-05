@@ -65,3 +65,8 @@
   .rp-event { grid-column: 1 / -1; flex-direction: row; align-items: center; gap: 8px; }
   .rp-detail { position: static; min-height: 0; max-width: none; }
 }
+@media (max-width: 560px) {
+  .rp-search { margin-left: 0; flex-basis: 100%; }
+  .rp-search input { width: 100%; max-width: none; }
+  .rp-tabs { gap: 18px; }
+}

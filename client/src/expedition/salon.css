@@ -42,3 +42,22 @@
 .salon-card.back { border-color: var(--xp-surface); }
 .salon-error { margin: 0; color: #9b2c1f; font-weight: 600; text-align: center; }
 .salon-note { margin: 0; text-align: center; font-size: 14px; line-height: 1.5; color: var(--xp-ink-2); }
+
+/* Phones: both seats side by side and small, the room's link and buttons under them (upright) or
+   between them (landscape) */
+@media (max-width: 760px), (max-height: 560px) {
+  .salon { display: grid; grid-template-columns: 1fr 1fr; align-items: start; justify-items: center; gap: 16px 12px; }
+  .salon > .salon-middle { grid-column: 1 / -1; order: 3; width: 100%; }
+  .salon-card { width: min(36vw, 150px); border-width: 4px; }
+  .salon-card.empty { gap: 8px; padding: 8px; font-size: 13px; }
+  .salon-card.empty strong { font-size: 16px; }
+  .salon-seat { gap: 8px; }
+  .salon-seat figcaption strong { font-size: 15px; }
+  .salon-vs { display: none; }
+  .salon-box { padding: 14px; }
+}
+@media (max-height: 560px) and (min-width: 600px) {
+  .salon { grid-template-columns: auto minmax(0, 380px) auto; align-items: center; }
+  .salon > .salon-middle { grid-column: auto; order: 0; }
+  .salon-card { width: 110px; }
+}
