@@ -1,0 +1,692 @@
+{
+  "date": "2026-11-05T15:07:27.538Z",
+  "cpu": 6,
+  "profiles": {
+    "desktop": {
+      "w": 1440,
+      "h": 900,
+      "dpr": 1,
+      "touch": false
+    },
+    "phone": {
+      "w": 915,
+      "h": 412,
+      "dpr": 2,
+      "touch": true
+    }
+  },
+  "results": {
+    "desktop": {
+      "runs": [
+        {
+          "idle": {
+            "presented": 0,
+            "partial": 0,
+            "dropped": 0,
+            "total": 0,
+            "work": {
+              "script": 0,
+              "style": 0,
+              "layout": 0,
+              "paint": 0,
+              "paints": 0,
+              "raster": 0
+            },
+            "droppedPct": 0,
+            "partialPct": 0
+          },
+          "hand": {
+            "presented": 187,
+            "partial": 0,
+            "dropped": 1,
+            "total": 188,
+            "work": {
+              "script": 399,
+              "style": 112,
+              "layout": 62,
+              "paint": 215,
+              "paints": 240,
+              "raster": 229
+            },
+            "droppedPct": 0.5,
+            "partialPct": 0
+          },
+          "drag card": {
+            "presented": 250,
+            "partial": 0,
+            "dropped": 0,
+            "total": 250,
+            "work": {
+              "script": 540,
+              "style": 91,
+              "layout": 109,
+              "paint": 270,
+              "paints": 86,
+              "raster": 67
+            },
+            "droppedPct": 0,
+            "partialPct": 0
+          },
+          "play card": {
+            "presented": 89,
+            "partial": 4,
+            "dropped": 0,
+            "total": 93,
+            "work": {
+              "script": 147,
+              "style": 95,
+              "layout": 43,
+              "paint": 165,
+              "paints": 350,
+              "raster": 110
+            },
+            "droppedPct": 0,
+            "partialPct": 4.3
+          },
+          "bot turn": {
+            "presented": 233,
+            "partial": 2,
+            "dropped": 0,
+            "total": 235,
+            "work": {
+              "script": 183,
+              "style": 135,
+              "layout": 50,
+              "paint": 243,
+              "paints": 522,
+              "raster": 102
+            },
+            "droppedPct": 0,
+            "partialPct": 0.9
+          }
+        },
+        {
+          "idle": {
+            "presented": 0,
+            "partial": 0,
+            "dropped": 0,
+            "total": 0,
+            "work": {
+              "script": 0,
+              "style": 0,
+              "layout": 0,
+              "paint": 0,
+              "paints": 0,
+              "raster": 0
+            },
+            "droppedPct": 0,
+            "partialPct": 0
+          },
+          "hand": {
+            "presented": 183,
+            "partial": 0,
+            "dropped": 1,
+            "total": 184,
+            "work": {
+              "script": 381,
+              "style": 93,
+              "layout": 76,
+              "paint": 221,
+              "paints": 239,
+              "raster": 218
+            },
+            "droppedPct": 0.5,
+            "partialPct": 0
+          },
+          "drag card": {
+            "presented": 250,
+            "partial": 0,
+            "dropped": 0,
+            "total": 250,
+            "work": {
+              "script": 574,
+              "style": 93,
+              "layout": 125,
+              "paint": 272,
+              "paints": 86,
+              "raster": 59
+            },
+            "droppedPct": 0,
+            "partialPct": 0
+          },
+          "play card": {
+            "presented": 88,
+            "partial": 5,
+            "dropped": 0,
+            "total": 93,
+            "work": {
+              "script": 187,
+              "style": 90,
+              "layout": 50,
+              "paint": 146,
+              "paints": 327,
+              "raster": 115
+            },
+            "droppedPct": 0,
+            "partialPct": 5.4
+          },
+          "bot turn": {
+            "presented": 230,
+            "partial": 4,
+            "dropped": 0,
+            "total": 234,
+            "work": {
+              "script": 190,
+              "style": 152,
+              "layout": 81,
+              "paint": 270,
+              "paints": 650,
+              "raster": 140
+            },
+            "droppedPct": 0,
+            "partialPct": 1.7
+          }
+        },
+        {
+          "idle": {
+            "presented": 0,
+            "partial": 0,
+            "dropped": 0,
+            "total": 0,
+            "work": {
+              "script": 0,
+              "style": 0,
+              "layout": 0,
+              "paint": 0,
+              "paints": 0,
+              "raster": 0
+            },
+            "droppedPct": 0,
+            "partialPct": 0
+          },
+          "hand": {
+            "presented": 186,
+            "partial": 1,
+            "dropped": 2,
+            "total": 189,
+            "work": {
+              "script": 394,
+              "style": 102,
+              "layout": 63,
+              "paint": 229,
+              "paints": 243,
+              "raster": 208
+            },
+            "droppedPct": 1.1,
+            "partialPct": 0.5
+          },
+          "drag card": {
+            "presented": 250,
+            "partial": 0,
+            "dropped": 0,
+            "total": 250,
+            "work": {
+              "script": 554,
+              "style": 102,
+              "layout": 113,
+              "paint": 256,
+              "paints": 84,
+              "raster": 55
+            },
+            "droppedPct": 0,
+            "partialPct": 0
+          },
+          "play card": {
+            "presented": 90,
+            "partial": 4,
+            "dropped": 0,
+            "total": 94,
+            "work": {
+              "script": 90,
+              "style": 56,
+              "layout": 18,
+              "paint": 70,
+              "paints": 161,
+              "raster": 49
+            },
+            "droppedPct": 0,
+            "partialPct": 4.3
+          }
+        }
+      ],
+      "worst": {
+        "idle": {
+          "presented": 0,
+          "partial": 0,
+          "dropped": 0,
+          "total": 0,
+          "work": {
+            "script": 0,
+            "style": 0,
+            "layout": 0,
+            "paint": 0,
+            "paints": 0,
+            "raster": 0
+          },
+          "droppedPct": 0,
+          "partialPct": 0
+        },
+        "hand": {
+          "presented": 186,
+          "partial": 1,
+          "dropped": 2,
+          "total": 189,
+          "work": {
+            "script": 394,
+            "style": 102,
+            "layout": 63,
+            "paint": 229,
+            "paints": 243,
+            "raster": 208
+          },
+          "droppedPct": 1.1,
+          "partialPct": 0.5
+        },
+        "drag card": {
+          "presented": 250,
+          "partial": 0,
+          "dropped": 0,
+          "total": 250,
+          "work": {
+            "script": 540,
+            "style": 91,
+            "layout": 109,
+            "paint": 270,
+            "paints": 86,
+            "raster": 67
+          },
+          "droppedPct": 0,
+          "partialPct": 0
+        },
+        "play card": {
+          "presented": 88,
+          "partial": 5,
+          "dropped": 0,
+          "total": 93,
+          "work": {
+            "script": 187,
+            "style": 90,
+            "layout": 50,
+            "paint": 146,
+            "paints": 327,
+            "raster": 115
+          },
+          "droppedPct": 0,
+          "partialPct": 5.4
+        },
+        "bot turn": {
+          "presented": 230,
+          "partial": 4,
+          "dropped": 0,
+          "total": 234,
+          "work": {
+            "script": 190,
+            "style": 152,
+            "layout": 81,
+            "paint": 270,
+            "paints": 650,
+            "raster": 140
+          },
+          "droppedPct": 0,
+          "partialPct": 1.7
+        }
+      },
+      "composite": {
+        "layers": 20,
+        "screens": 6.3
+      }
+    },
+    "phone": {
+      "runs": [
+        {
+          "idle": {
+            "presented": 0,
+            "partial": 0,
+            "dropped": 0,
+            "total": 0,
+            "work": {
+              "script": 0,
+              "style": 0,
+              "layout": 0,
+              "paint": 0,
+              "paints": 0,
+              "raster": 0
+            },
+            "droppedPct": 0,
+            "partialPct": 0
+          },
+          "hand": {
+            "presented": 69,
+            "partial": 0,
+            "dropped": 0,
+            "total": 69,
+            "work": {
+              "script": 224,
+              "style": 30,
+              "layout": 32,
+              "paint": 52,
+              "paints": 77,
+              "raster": 14
+            },
+            "droppedPct": 0,
+            "partialPct": 0
+          },
+          "drag card": {
+            "presented": 562,
+            "partial": 0,
+            "dropped": 0,
+            "total": 562,
+            "work": {
+              "script": 637,
+              "style": 147,
+              "layout": 166,
+              "paint": 476,
+              "paints": 40,
+              "raster": 53
+            },
+            "droppedPct": 0,
+            "partialPct": 0
+          },
+          "drag spell": {
+            "presented": 426,
+            "partial": 0,
+            "dropped": 0,
+            "total": 426,
+            "work": {
+              "script": 262,
+              "style": 109,
+              "layout": 6,
+              "paint": 373,
+              "paints": 10,
+              "raster": 4
+            },
+            "droppedPct": 0,
+            "partialPct": 0
+          },
+          "play card": {
+            "presented": 92,
+            "partial": 1,
+            "dropped": 0,
+            "total": 93,
+            "work": {
+              "script": 112,
+              "style": 77,
+              "layout": 32,
+              "paint": 144,
+              "paints": 351,
+              "raster": 67
+            },
+            "droppedPct": 0,
+            "partialPct": 1.1
+          },
+          "bot turn": {
+            "presented": 234,
+            "partial": 0,
+            "dropped": 0,
+            "total": 234,
+            "work": {
+              "script": 112,
+              "style": 74,
+              "layout": 29,
+              "paint": 182,
+              "paints": 390,
+              "raster": 68
+            },
+            "droppedPct": 0,
+            "partialPct": 0
+          }
+        },
+        {
+          "idle": {
+            "presented": 0,
+            "partial": 0,
+            "dropped": 0,
+            "total": 0,
+            "work": {
+              "script": 0,
+              "style": 0,
+              "layout": 0,
+              "paint": 0,
+              "paints": 0,
+              "raster": 0
+            },
+            "droppedPct": 0,
+            "partialPct": 0
+          },
+          "hand": {
+            "presented": 68,
+            "partial": 0,
+            "dropped": 0,
+            "total": 68,
+            "work": {
+              "script": 191,
+              "style": 14,
+              "layout": 27,
+              "paint": 56,
+              "paints": 75,
+              "raster": 15
+            },
+            "droppedPct": 0,
+            "partialPct": 0
+          },
+          "bot turn": {
+            "presented": 233,
+            "partial": 2,
+            "dropped": 0,
+            "total": 235,
+            "work": {
+              "script": 164,
+              "style": 109,
+              "layout": 64,
+              "paint": 170,
+              "paints": 420,
+              "raster": 53
+            },
+            "droppedPct": 0,
+            "partialPct": 0.9
+          }
+        },
+        {
+          "idle": {
+            "presented": 0,
+            "partial": 0,
+            "dropped": 0,
+            "total": 0,
+            "work": {
+              "script": 0,
+              "style": 0,
+              "layout": 0,
+              "paint": 0,
+              "paints": 0,
+              "raster": 0
+            },
+            "droppedPct": 0,
+            "partialPct": 0
+          },
+          "hand": {
+            "presented": 69,
+            "partial": 0,
+            "dropped": 0,
+            "total": 69,
+            "work": {
+              "script": 210,
+              "style": 23,
+              "layout": 27,
+              "paint": 50,
+              "paints": 75,
+              "raster": 14
+            },
+            "droppedPct": 0,
+            "partialPct": 0
+          },
+          "drag card": {
+            "presented": 432,
+            "partial": 0,
+            "dropped": 0,
+            "total": 432,
+            "work": {
+              "script": 584,
+              "style": 105,
+              "layout": 155,
+              "paint": 355,
+              "paints": 44,
+              "raster": 58
+            },
+            "droppedPct": 0,
+            "partialPct": 0
+          },
+          "drag spell": {
+            "presented": 420,
+            "partial": 0,
+            "dropped": 0,
+            "total": 420,
+            "work": {
+              "script": 251,
+              "style": 118,
+              "layout": 6,
+              "paint": 361,
+              "paints": 10,
+              "raster": 3
+            },
+            "droppedPct": 0,
+            "partialPct": 0
+          },
+          "play card": {
+            "presented": 92,
+            "partial": 1,
+            "dropped": 0,
+            "total": 93,
+            "work": {
+              "script": 96,
+              "style": 49,
+              "layout": 25,
+              "paint": 100,
+              "paints": 292,
+              "raster": 51
+            },
+            "droppedPct": 0,
+            "partialPct": 1.1
+          },
+          "bot turn": {
+            "presented": 232,
+            "partial": 2,
+            "dropped": 0,
+            "total": 234,
+            "work": {
+              "script": 117,
+              "style": 79,
+              "layout": 49,
+              "paint": 154,
+              "paints": 490,
+              "raster": 46
+            },
+            "droppedPct": 0,
+            "partialPct": 0.9
+          }
+        }
+      ],
+      "worst": {
+        "idle": {
+          "presented": 0,
+          "partial": 0,
+          "dropped": 0,
+          "total": 0,
+          "work": {
+            "script": 0,
+            "style": 0,
+            "layout": 0,
+            "paint": 0,
+            "paints": 0,
+            "raster": 0
+          },
+          "droppedPct": 0,
+          "partialPct": 0
+        },
+        "hand": {
+          "presented": 69,
+          "partial": 0,
+          "dropped": 0,
+          "total": 69,
+          "work": {
+            "script": 224,
+            "style": 30,
+            "layout": 32,
+            "paint": 52,
+            "paints": 77,
+            "raster": 14
+          },
+          "droppedPct": 0,
+          "partialPct": 0
+        },
+        "drag card": {
+          "presented": 562,
+          "partial": 0,
+          "dropped": 0,
+          "total": 562,
+          "work": {
+            "script": 637,
+            "style": 147,
+            "layout": 166,
+            "paint": 476,
+            "paints": 40,
+            "raster": 53
+          },
+          "droppedPct": 0,
+          "partialPct": 0
+        },
+        "drag spell": {
+          "presented": 426,
+          "partial": 0,
+          "dropped": 0,
+          "total": 426,
+          "work": {
+            "script": 262,
+            "style": 109,
+            "layout": 6,
+            "paint": 373,
+            "paints": 10,
+            "raster": 4
+          },
+          "droppedPct": 0,
+          "partialPct": 0
+        },
+        "play card": {
+          "presented": 92,
+          "partial": 1,
+          "dropped": 0,
+          "total": 93,
+          "work": {
+            "script": 112,
+            "style": 77,
+            "layout": 32,
+            "paint": 144,
+            "paints": 351,
+            "raster": 67
+          },
+          "droppedPct": 0,
+          "partialPct": 1.1
+        },
+        "bot turn": {
+          "presented": 233,
+          "partial": 2,
+          "dropped": 0,
+          "total": 235,
+          "work": {
+            "script": 164,
+            "style": 109,
+            "layout": 64,
+            "paint": 170,
+            "paints": 420,
+            "raster": 53
+          },
+          "droppedPct": 0,
+          "partialPct": 0.9
+        }
+      },
+      "composite": {
+        "layers": 17,
+        "screens": 5.4
+      }
+    }
+  }
+}
