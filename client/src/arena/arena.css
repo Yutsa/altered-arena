@@ -682,9 +682,13 @@ body:has(.marker-ghost) { cursor: grabbing; }
 }
 .chip-opp { left: 12px; top: 10px; }
 .chip-me { left: 12px; bottom: 12px; }
-.layout-phone .chip-me { left: auto; right: 8px; bottom: 6px; }
-.layout-phone .chip-opp { left: 8px; top: 2px; }
 .layout-phone .chip { padding: 3px 8px; gap: 6px; border-radius: 11px; }
+/* Phones: the chips hang from the top edge, in the strip of sky above the tilted mat, and mine sits
+   in the bottom right corner, clear of my Landmarks */
+.layout-phone .chip-me { left: auto; right: 2px; bottom: 2px; padding: 2px 7px; }
+.layout-phone .chip-opp,
+.layout-phone .info-chip { top: 0; border-top: 0; border-radius: 0 0 10px 10px; padding-block: 1px 2px; }
+.layout-phone .chip-opp { left: 8px; }
 .player-chip.mine { border-color: rgb(94 224 176 / 0.7); }
 .player-chip.waiting.theirs { border-color: var(--opp); }
 .player-chip.selectable { cursor: pointer; box-shadow: 0 0 0 3px var(--cyan), 0 0 20px var(--cyan); }
@@ -794,7 +798,7 @@ body:has(.marker-ghost) { cursor: grabbing; }
 }
 
 .info-chip { right: 12px; top: 10px; }
-.layout-phone .info-chip { right: 6px; top: 2px; padding-block: 2px; }
+.layout-phone .info-chip { right: 6px; }
 .ic-day { font: 700 calc(var(--chip-font) * 1.15) / 1 var(--font-title); color: #ffd98a; }
 .ic-phases { display: flex; gap: 2px; }
 .ic-phases img { width: 1.6em; height: 1.6em; opacity: 0.3; filter: grayscale(1); transition: all 0.3s; }
@@ -816,7 +820,7 @@ body:has(.marker-ghost) { cursor: grabbing; }
   font-size: var(--chip-font);
 }
 .ic-btn svg { display: block; width: 1.2em; height: 1.2em; }
-.layout-phone .ic-btn { padding: 2px 8px; }
+.layout-phone .ic-btn { padding: 1px 7px; border-radius: 6px; }
 .ic-badge { margin-left: 4px; padding: 0 5px; border-radius: 8px; background: var(--opp); color: #111; font-size: 0.8em; font-weight: 700; }
 .conn { width: 8px; height: 8px; border-radius: 50%; background: #69db7c; }
 .conn.down { background: #ff6b6b; animation: blink 1s infinite; }
