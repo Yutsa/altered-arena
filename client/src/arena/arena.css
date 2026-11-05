@@ -1460,3 +1460,12 @@ body.drag-spell .arena .track-drop .drop-label { display: none; }
   animation: hand-peek-in 0.1s ease-out;
 }
 @keyframes hand-peek-in { from { opacity: 0; scale: 0.9; } }
+
+/* Touch screens: over the Cast zone the green zone says it all. No glow on the tilted mat, no
+   blurred halo and no shadow filters on the ghost: a phone's GPU recomputed them on every frame of
+   the drag (the halo breathing inside the ghost's filters), the drag slowed down over Cast only. */
+@media (pointer: coarse) {
+  body.drag-cast .arena-plane::after { opacity: 0; animation: none; }
+  .drag-ghost.cast { filter: none; }
+  .drag-ghost.cast::before { content: none; }
+}
