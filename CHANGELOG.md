@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.5.0](https://github.com/Yutsa/altered-arena/compare/v0.4.0...v0.5.0) (2026-11-05)
+
+
+### Features
+
+* **client:** end of the day in steps (Dusk, hero, companion, Night) ([#14](https://github.com/Yutsa/altered-arena/issues/14)) ([3f2135b](https://github.com/Yutsa/altered-arena/commit/3f2135bf3832bee27b0decd62f6c1daf8b2e30fe))
+* **client:** taller desktop track, a line of tokens per player, larger totals ([#15](https://github.com/Yutsa/altered-arena/issues/15)) ([da9af6c](https://github.com/Yutsa/altered-arena/commit/da9af6c502ea9a0f6c1f006db4f3303e399aa85a))
+
 ## [0.4.0](https://github.com/Yutsa/altered-arena/compare/v0.3.0...v0.4.0) (2026-11-05)
 
 
