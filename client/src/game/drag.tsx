@@ -16,6 +16,11 @@ interface DragState {
   touch?: boolean;
   /** a spell held by a finger over the Cancel zone */
   cancelling?: boolean;
+  /**
+   * a spell held by a finger over the Cast zone. Not `over`: nothing else on the table reacts (the
+   * spell's drop zone on the tilted mat lit up, which a phone repainted on every frame)
+   */
+  casting?: boolean;
 }
 
 /**
@@ -263,9 +268,10 @@ export function DragProvider({ children }: { children: ReactNode }) {
     if (touchSpell(s)) {
       // The Cast and Cancel zones are large: the card or the finger may be on them
       const zone = spellZoneAt(x, cy) ?? spellZoneAt(x, y);
-      const over = zone === 'cast' ? 'spell' : zone === 'cancel' ? null : dropAt(x, cy, s.destinations, false);
+      const over = zone ? null : dropAt(x, cy, s.destinations, false);
       const cancelling = zone === 'cancel';
-      if (over !== s.over || cancelling !== !!s.cancelling) set({ ...s, over, cancelling });
+      const casting = zone === 'cast';
+      if (over !== s.over || cancelling !== !!s.cancelling || casting !== !!s.casting) set({ ...s, over, cancelling, casting });
       return;
     }
     const over = dropAt(x, cy, s.destinations) ?? (cy !== y ? dropAt(x, y, s.destinations) : null);
@@ -279,7 +285,8 @@ export function DragProvider({ children }: { children: ReactNode }) {
       document.body.classList.remove('is-dragging');
       // Already ended (released twice, or released then cancelled)
       if (!s || s.dropped || s.returning) return;
-      if (drop && s.over) {
+      const target = s.over ?? (s.casting ? 'spell' : null);
+      if (drop && target) {
         const k = m.current;
         k.tx = k.x;
         k.ty = k.y;
@@ -288,7 +295,7 @@ export function DragProvider({ children }: { children: ReactNode }) {
         set(dropped);
         // The ghost stays where it was dropped until the new view moves the card; meanwhile
         // another drag may have begun, which this must leave alone
-        void play(s.cardId, s.over).finally(() => {
+        void play(s.cardId, target).finally(() => {
           if (dragRef.current !== dropped) return;
           cancelAnimationFrame(m.current.frame);
           set(null);
@@ -324,7 +331,7 @@ export function DragProvider({ children }: { children: ReactNode }) {
           </div>,
           document.body,
         )}
-      {drag && touchSpell(drag) && !drag.dropped && !drag.returning && <SpellZones cast={drag.over === 'spell'} cancel={!!drag.cancelling} />}
+      {drag && touchSpell(drag) && !drag.dropped && !drag.returning && <SpellZones cast={!!drag.casting} cancel={!!drag.cancelling} />}
     </DragCtx.Provider>
   );
 }
