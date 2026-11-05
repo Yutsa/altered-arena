@@ -30,7 +30,8 @@ impl Agent for Counted {
             let card = |id: &Value| view["cards"].as_array().and_then(|cs| cs.iter().find(|c| c["id"] == *id)).cloned().unwrap_or(Value::Null);
             let c = card(&a["cardId"]);
             let haven = a["type"] == "tap" && c["ref"] == HAVEN;
-            let reserve_char = a["type"] == "play" && c["zone"] == "reserve" && a["cardId"].as_i64().and_then(|id| obs.card_prop(id, "type")) == Some(json!("character"));
+            let reserve_char =
+                a["type"] == "play" && c["zone"] == "reserve" && a["cardId"].as_i64().and_then(|id| obs.card_prop(id, "type")) == Some(json!("character"));
             let haven_ready = d["tap"].as_array().into_iter().flatten().any(|id| card(id)["ref"] == HAVEN);
             if reserve_char && !self.pending && haven_ready {
                 self.counts[2].fetch_add(1, Ordering::SeqCst);
@@ -65,7 +66,8 @@ fn run() {
         8,
         |&seed| {
             let pair = [decks[&player.deck].clone(), decks[&a[2]].clone()];
-            let me = Counted { agent: Box::new(Imitator::new(&player.label, &shared, Some(&player), params(&player.deck))), pending: false, counts: counts.clone() };
+            let me =
+                Counted { agent: Box::new(Imitator::new(&player.label, &shared, Some(&player), params(&player.deck))), pending: false, counts: counts.clone() };
             let mut agents: [Box<dyn Agent>; 2] = [Box::new(me), Box::new(Ai::new(&a[2], params(&a[2]).unwrap_or_default()))];
             if let Some(e) = play_game(&pair, &mut agents, seed).error {
                 eprintln!("seed {}: {}", seed, e);

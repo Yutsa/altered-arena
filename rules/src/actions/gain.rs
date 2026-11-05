@@ -213,7 +213,10 @@ pub fn gain(g: &mut Game, ctx: Ctx, player: Option<PId>, c: CardId, resource: &V
     if php::isset(&dynamic_replace, &php::key_of(&resource)) {
         let old = resource.clone();
         resource = php::get(&dynamic_replace, &php::key_of(&old)).clone();
-        g.notify("mediumMessage", json!({"log": "${old_resource} is replaced by ${resource} (${card_name}'s effect)", "resource": resource, "old_resource": old, "cardId": c}));
+        g.notify(
+            "mediumMessage",
+            json!({"log": "${old_resource} is replaced by ${resource} (${card_name}'s effect)", "resource": resource, "old_resource": old, "cardId": c}),
+        );
         php::set(&mut args, "type", resource.clone());
     }
     php::set(&mut args, "type", resource.clone());
@@ -349,7 +352,9 @@ impl ActionClass for Gain {
         } else if mine {
             Ok(json!({"log": "Gain ${resources_desc}  (up to ${upTo})", "args": {"resources_desc": desc, "upTo": up_to}}))
         } else {
-            Ok(json!({"log": "Let ${player_name} gain ${resources_desc} (up to ${upTo})", "args": {"player_name": player::get_name(g, p)?, "resources_desc": desc, "upTo": up_to}}))
+            Ok(
+                json!({"log": "Let ${player_name} gain ${resources_desc} (up to ${upTo})", "args": {"player_name": player::get_name(g, p)?, "resources_desc": desc, "upTo": up_to}}),
+            )
         }
     }
 
@@ -364,10 +369,18 @@ impl ActionClass for Gain {
             return Ok(true);
         }
         let event = action::get_event_recursive(g, ctx)?;
-        if !event.is_null() && php::isset(&event, "action") && php::loose_eq(php::get(&event, "action"), &json!("Discard")) && php::loose_eq(php::get(&event, "sourceLocation"), &json!("discard")) {
+        if !event.is_null()
+            && php::isset(&event, "action")
+            && php::loose_eq(php::get(&event, "action"), &json!("Discard"))
+            && php::loose_eq(php::get(&event, "sourceLocation"), &json!("discard"))
+        {
             return Ok(false);
         }
-        if !event.is_null() && php::isset(&event, "action") && php::loose_eq(php::get(&event, "action"), &json!("ChooseAssignment")) && php::loose_eq(php::get(&event, "sourceLocation"), &json!("reserve")) {
+        if !event.is_null()
+            && php::isset(&event, "action")
+            && php::loose_eq(php::get(&event, "action"), &json!("ChooseAssignment"))
+            && php::loose_eq(php::get(&event, "sourceLocation"), &json!("reserve"))
+        {
             let sid = action::get_source_id(g, ctx)?;
             let c = cards::get(g, &sid)?;
             if php::in_array(&json!(c), php::coalesce(php::get(&event, "reserveToListen"), &php::arr())) && card::location(g, c)? != "reserve" {
@@ -433,13 +446,25 @@ impl ActionClass for Gain {
                 g.notify("gainCounter", json!({"cardId": c, "value": counter, "increase": 1}));
                 let cp = player_req(card::get_player(g, c)?, "getId")?;
                 let tok = card::is_token(g, c)?;
-                action::check_after_listeners(self, g, ctx, cp, &json!({"specialEffect": "gainCounter", "augment": true, "cardId": c, "token": tok}), true, Some("SpecialEffect"))?;
+                action::check_after_listeners(
+                    self,
+                    g,
+                    ctx,
+                    cp,
+                    &json!({"specialEffect": "gainCounter", "augment": true, "cardId": c, "token": tok}),
+                    true,
+                    Some("SpecialEffect"),
+                )?;
                 action::resolve_action(self, g, ctx, php::arr(), Value::Null)?;
                 return Ok(None);
             }
         }
 
-        if php::loose_eq(&resource, &json!("boost")) && in_game.contains(&card::location(g, c)?.as_str()) && card::has_counters(g, c)? && players::has_block_gain_new_counters(g)? {
+        if php::loose_eq(&resource, &json!("boost"))
+            && in_game.contains(&card::location(g, c)?.as_str())
+            && card::has_counters(g, c)?
+            && players::has_block_gain_new_counters(g)?
+        {
             g.notify("mediumMessage", json!({"log": "No new boost can be added to cards"}));
             action::resolve_action(self, g, ctx, php::arr(), Value::Null)?;
             return Ok(None);

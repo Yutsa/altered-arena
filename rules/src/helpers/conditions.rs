@@ -300,11 +300,55 @@ const TYPES: &[&str] = &["hero", "character", "token", "permanent", "spell"];
 
 /// constants.inc.php:346 SUBTYPES
 const SUBTYPES: &[&str] = &[
-    "divinity", "adventurer", "pilot", "engineer", "robot", "elemental", "disruption", "titan", "cat", "trainer",
-    "blade master", "support", "squirrel", "demon", "artist", "citizen", "druid", "plant", "spirit", "soldier",
-    "bureaucrat", "mage", "noble", "song", "leviathan", "dragon", "deity", "messenger", "conjuration", "companion",
-    "boon", "fairy", "apprentice", "maneuver", "scholar", "animal", "landmark", "illusion", "ore", "scientist", "gear",
-    "expedition", "construction", "sap", "merchant", "rogue", "feat", "corruption", "feat",
+    "divinity",
+    "adventurer",
+    "pilot",
+    "engineer",
+    "robot",
+    "elemental",
+    "disruption",
+    "titan",
+    "cat",
+    "trainer",
+    "blade master",
+    "support",
+    "squirrel",
+    "demon",
+    "artist",
+    "citizen",
+    "druid",
+    "plant",
+    "spirit",
+    "soldier",
+    "bureaucrat",
+    "mage",
+    "noble",
+    "song",
+    "leviathan",
+    "dragon",
+    "deity",
+    "messenger",
+    "conjuration",
+    "companion",
+    "boon",
+    "fairy",
+    "apprentice",
+    "maneuver",
+    "scholar",
+    "animal",
+    "landmark",
+    "illusion",
+    "ore",
+    "scientist",
+    "gear",
+    "expedition",
+    "construction",
+    "sap",
+    "merchant",
+    "rogue",
+    "feat",
+    "corruption",
+    "feat",
 ];
 
 fn storms() -> Value {
@@ -565,7 +609,8 @@ pub fn is_source_or_augment(_g: &mut Game, card: Option<CardId>, event: &Value, 
     if php::loose_eq(&json!(c), php::coalesce(ev(event, "sourceId"), &json!(-1))) {
         return b(true);
     }
-    b(php::loose_eq(php::coalesce(ev(event, "augment"), &json!(false)), &json!(true)) && php::loose_eq(php::coalesce(ev(event, "cardId"), &json!(-1)), &json!(c)))
+    b(php::loose_eq(php::coalesce(ev(event, "augment"), &json!(false)), &json!(true))
+        && php::loose_eq(php::coalesce(ev(event, "cardId"), &json!(-1)), &json!(c)))
 }
 
 /// `isFacingSource($card, $event)`
@@ -1810,7 +1855,10 @@ fn no_subtype_no_permanent(g: &mut Game, card: Option<CardId>, subtype: &str) ->
         if x == c {
             continue;
         }
-        if php::loose_eq(&type_of(g, x)?, &json!("permanent")) || php::in_array(&json!(subtype), &card::get_subtypes(g, x)?) || php::in_array(&json!("permanent"), &card::get_additional_type(g, x)?) {
+        if php::loose_eq(&type_of(g, x)?, &json!("permanent"))
+            || php::in_array(&json!(subtype), &card::get_subtypes(g, x)?)
+            || php::in_array(&json!("permanent"), &card::get_additional_type(g, x)?)
+        {
             n += 1;
         }
     }
@@ -3271,9 +3319,7 @@ pub fn is_played_in_opponent_expedition(g: &mut Game, card: Option<CardId>, even
     let played = cards::get(g, ev(event, "cardId"))?;
     let c = card_req(card)?;
     let to = ev(event, "to");
-    let placed = php::loose_eq(php::coalesce(to, &json!("")), &locv(g, c)?)
-        || (gigantic(g, played)? && is_storm(to))
-        || (gigantic(g, c)? && is_storm(to));
+    let placed = php::loose_eq(php::coalesce(to, &json!("")), &locv(g, c)?) || (gigantic(g, played)? && is_storm(to)) || (gigantic(g, c)? && is_storm(to));
     b(placed && php::loose_ne(&pidv(g, played)?, &pidv(g, c)?))
 }
 

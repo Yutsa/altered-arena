@@ -95,7 +95,9 @@ fn pick(d: &Value, rng: &mut Lcg) -> Value {
         "player" if !arr("players").is_empty() => json!({"type": "player", "player": arr("players")[0]}),
         "number" => json!({"type": "number", "value": arr("values").last().cloned().unwrap_or(json!(0))}),
         "location" if !arr("locations").is_empty() => json!({"type": "location", "key": arr("locations")[0]["key"]}),
-        "exchange" if !arr("hand").is_empty() && !arr("reserve").is_empty() => json!({"type": "exchange", "hand": arr("hand")[0], "reserve": arr("reserve")[0]}),
+        "exchange" if !arr("hand").is_empty() && !arr("reserve").is_empty() => {
+            json!({"type": "exchange", "hand": arr("hand")[0], "reserve": arr("reserve")[0]})
+        }
         "cleanup" => {
             let r = d["reserve"]["cardIds"].as_array().cloned().unwrap_or_default();
             let l = d["landmarks"]["cardIds"].as_array().cloned().unwrap_or_default();
@@ -113,7 +115,12 @@ fn pick(d: &Value, rng: &mut Lcg) -> Value {
 fn main() {
     let games: usize = std::env::args().nth(1).and_then(|a| a.parse().ok()).unwrap_or(100);
     let answers: usize = std::env::args().nth(2).and_then(|a| a.parse().ok()).unwrap_or(40);
-    std::thread::Builder::new().stack_size(std::env::var("STACK_KB").ok().and_then(|s| s.parse::<usize>().ok()).unwrap_or(256 << 10) << 10).spawn(move || run(games, answers)).unwrap().join().unwrap();
+    std::thread::Builder::new()
+        .stack_size(std::env::var("STACK_KB").ok().and_then(|s| s.parse::<usize>().ok()).unwrap_or(256 << 10) << 10)
+        .spawn(move || run(games, answers))
+        .unwrap()
+        .join()
+        .unwrap();
 }
 
 fn run(games: usize, answers: usize) {

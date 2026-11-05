@@ -25,7 +25,8 @@ pub fn create(r: &BgaReplay) -> Result<Game, PhpError> {
 pub fn create_with(table: i64, decks: &[Value], dice: &[i64], storm: &BTreeMap<i64, (i64, bool)>, hook: ShuffleHook) -> Result<Game, PhpError> {
     // A dice list makes the game run in the 'prod' environment, as on BGA
     let dice = if dice.is_empty() { vec![1] } else { dice.to_vec() };
-    let players: Vec<NewPlayer> = ["A", "B"].iter().map(|n| NewPlayer { name: n.to_string(), bot: false, deck: None, api_deck: None, reunion_deck: None }).collect();
+    let players: Vec<NewPlayer> =
+        ["A", "B"].iter().map(|n| NewPlayer { name: n.to_string(), bot: false, deck: None, api_deck: None, reunion_deck: None }).collect();
     let mut g = arena::create_game(table, &players, &dice)?;
     g.shuffle_hook = hook;
     for (pid, deck) in PLAYER_IDS.iter().zip(decks) {

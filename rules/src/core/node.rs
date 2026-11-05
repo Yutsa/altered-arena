@@ -171,10 +171,7 @@ pub fn replace(g: &mut Game, id: NodeId, new: NodeId) -> R<NodeId> {
         return Err(PhpError::new("Trying to replace the root"));
     }
     let parent = g.tree.nodes[id].parent;
-    let n = std::mem::replace(
-        &mut g.tree.nodes[new],
-        Node { infos: Map::new(), childs: vec![], parent: None, kind: NodeKind::Leaf },
-    );
+    let n = std::mem::replace(&mut g.tree.nodes[new], Node { infos: Map::new(), childs: vec![], parent: None, kind: NodeKind::Leaf });
     for c in &n.childs {
         g.tree.nodes[*c].parent = Some(id);
     }
@@ -937,10 +934,8 @@ pub fn get_choices(g: &mut Game, id: NodeId, player: Option<PId>, display_all: b
     if php::truthy(&info(g, id, "noIndependent")) {
         return Ok(choices);
     }
-    let independent: Vec<&Value> = php::vals(&choices)
-        .into_iter()
-        .filter(|c| php::truthy(php::get(c, "independentAction")) && !php::truthy(php::get(c, "optionalAction")))
-        .collect();
+    let independent: Vec<&Value> =
+        php::vals(&choices).into_iter().filter(|c| php::truthy(php::get(c, "independentAction")) && !php::truthy(php::get(c, "optionalAction"))).collect();
     if let Some(choice) = independent.first() {
         let mut out = php::arr();
         php::set(&mut out, &php::key_of(php::get(choice, "id")), (*choice).clone());
@@ -1019,11 +1014,7 @@ fn compute_choices(g: &mut Game, id: NodeId, player: Option<PId>, display_all: b
 
     let add_pass = php::count(&choices) == 0 || (has_one_action && (is_optional(g, id, player)? || all_optional)) || engine_choices(g)? > 20;
     if add_pass && (php::count(&choices) != 1 || php::truthy(php::get(&choice, "optionalAction")) || php::truthy(php::get(&choice, "automaticAction"))) {
-        php::set(
-            &mut choices,
-            &PASS.to_string(),
-            json!({"id": PASS, "description": "Pass", "irreversibleAction": false, "optionalAction": false, "args": []}),
-        );
+        php::set(&mut choices, &PASS.to_string(), json!({"id": PASS, "description": "Pass", "irreversibleAction": false, "optionalAction": false, "args": []}));
     }
     Ok(choices)
 }

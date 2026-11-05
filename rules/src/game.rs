@@ -510,9 +510,7 @@ impl Game {
         if self.cards.contains_key(&id) {
             return Ok(self.cards.get_mut(&id).unwrap());
         }
-        self.deleted_cards
-            .get_mut(&id)
-            .ok_or_else(|| PhpError::new(format!("Error: call to a member function on null (card {})", id)))
+        self.deleted_cards.get_mut(&id).ok_or_else(|| PhpError::new(format!("Error: call to a member function on null (card {})", id)))
     }
 
     pub fn meeple(&self, id: i64) -> R<&Meeple> {
@@ -526,9 +524,7 @@ impl Game {
         if self.meeples.contains_key(&id) {
             return Ok(self.meeples.get_mut(&id).unwrap());
         }
-        self.deleted_meeples
-            .get_mut(&id)
-            .ok_or_else(|| PhpError::new(format!("Error: call to a member function on null (meeple {})", id)))
+        self.deleted_meeples.get_mut(&id).ok_or_else(|| PhpError::new(format!("Error: call to a member function on null (meeple {})", id)))
     }
 
     pub fn player(&self, id: PId) -> R<&PlayerRow> {

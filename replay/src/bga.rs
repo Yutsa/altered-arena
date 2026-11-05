@@ -9,15 +9,8 @@ use std::collections::BTreeMap;
 /// Notifications that depend on the BGA plumbing, not on the game: gameStateChange (states are
 /// kept apart), newUndoableStep (removed from the log once a turn is confirmed), and what the
 /// framework sends (simpleNode, simpleNote: player colours, wakeupPlayers, timers)
-pub const IGNORED: &[&str] = &[
-    "gameStateChange",
-    "gameStateMultipleActiveUpdate",
-    "updateReflexionTime",
-    "newUndoableStep",
-    "simpleNode",
-    "simpleNote",
-    "wakeupPlayers",
-];
+pub const IGNORED: &[&str] =
+    &["gameStateChange", "gameStateMultipleActiveUpdate", "updateReflexionTime", "newUndoableStep", "simpleNode", "simpleNote", "wakeupPlayers"];
 
 #[derive(Clone, Debug)]
 pub struct Notif {

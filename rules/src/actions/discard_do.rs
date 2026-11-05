@@ -82,7 +82,8 @@ fn get_targetable_cards(a: &DiscardDo, g: &mut Game, ctx: Ctx, player: Option<PI
         for c in cards::get_many(g, &arg_cards, true)? {
             let loc_ok = in_arr(&json!(card::location(g, c)?), &target_location)?;
             let keep = loc_ok
-                && (in_arr(&card::get(g, c, "type")?, &target_type)? || php::count_strict(&php::array_intersect(&target_type, &card::get_additional_type(g, c)?))? > 0);
+                && (in_arr(&card::get(g, c, "type")?, &target_type)?
+                    || php::count_strict(&php::array_intersect(&target_type, &card::get_additional_type(g, c)?))? > 0);
             if keep {
                 out.push(c);
             }
@@ -157,7 +158,8 @@ pub(crate) fn check_selection(card_ids: &Value, args: &Value) -> R<()> {
     if php::gt(&count, n) {
         return Err(PhpError::new("You selected too many cards. Should not happen"));
     }
-    if !php::truthy(php::get(args, "upTo")) && ((php::ge(&available, n) && php::lt(&count, n)) || (php::lt(&available, n) && php::loose_ne(&count, &available))) {
+    if !php::truthy(php::get(args, "upTo")) && ((php::ge(&available, n) && php::lt(&count, n)) || (php::lt(&available, n) && php::loose_ne(&count, &available)))
+    {
         return Err(PhpError::new("You havent selected enough cards. Should not happen"));
     }
     Ok(())

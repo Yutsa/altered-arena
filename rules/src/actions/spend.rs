@@ -128,7 +128,10 @@ fn act_spend(a: &Spend, g: &mut Game, ctx: Ctx, n: &Value) -> R<()> {
             Source::Card(s) => json!(s),
             _ => Value::Null,
         };
-        g.notify("useCounter", json!({"player_id": p, "consume": amount, "cardId": c, "value": left, "decrease": amount, "totalMana": total, "mana": mana, "source": src}));
+        g.notify(
+            "useCounter",
+            json!({"player_id": p, "consume": amount, "cardId": c, "value": left, "decrease": amount, "totalMana": total, "mana": mana, "source": src}),
+        );
     }
 
     let effect = get_arg(a, g, ctx, "effect")?;

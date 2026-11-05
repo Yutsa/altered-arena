@@ -36,7 +36,10 @@ fn play_out(g: &mut Game) -> usize {
 
 fn main() {
     let n: i64 = std::env::args().nth(1).and_then(|s| s.parse().ok()).unwrap_or(20);
-    let players = [NewPlayer { name: "A".into(), bot: false, deck: Some("ax_1_sierra".into()), api_deck: None, reunion_deck: None }, NewPlayer { name: "B".into(), bot: true, deck: None, api_deck: None, reunion_deck: None }];
+    let players = [
+        NewPlayer { name: "A".into(), bot: false, deck: Some("ax_1_sierra".into()), api_deck: None, reunion_deck: None },
+        NewPlayer { name: "B".into(), bot: true, deck: None, api_deck: None, reunion_deck: None },
+    ];
     let (mut game_s, mut decisions, mut clone_s, mut clones, mut playout_s, mut playouts, mut bytes) = (0.0, 0, 0.0, 0, 0.0, 0, 0);
     for seed in 1..=n {
         // Game::create would run two bots to the end: player 2001 is human at creation, then a bot
@@ -71,7 +74,13 @@ fn main() {
             }
         }
     }
-    println!("games: {} ({} decisions each), {:.1} ms per game, {:.2} ms per decision", n, decisions / n as usize, game_s * 1e3 / n as f64, game_s * 1e3 / decisions as f64);
+    println!(
+        "games: {} ({} decisions each), {:.1} ms per game, {:.2} ms per decision",
+        n,
+        decisions / n as usize,
+        game_s * 1e3 / n as f64,
+        game_s * 1e3 / decisions as f64
+    );
     println!("mid-game state: {} KB serialised, copy {:.1} µs", bytes / 1024 / n as usize, clone_s * 1e6 / clones as f64);
     println!("playout from decision 60: {:.1} ms", playout_s * 1e3 / playouts as f64);
 }

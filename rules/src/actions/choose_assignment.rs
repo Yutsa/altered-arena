@@ -4,13 +4,16 @@
 //! `playCard` is also called by PlayCard::actPlayCard with the PlayCard node as ctx.
 
 use crate::core::engine;
+use crate::core::globals;
 use crate::core::node::{self, NodeKind, PASS};
 use crate::framework::ST_CHOOSE_ASSIGNMENT;
 use crate::game::{CardId, Game, PId};
-use crate::core::globals;
 use crate::helpers::{ft, utils};
 use crate::managers::{cards, meeples, players};
-use crate::models::action::{check_after_listeners, check_immediate_listeners, get_arg, get_ctx_args, insert_as_child, param_req, push_after_finishing_childs, push_parallel_child, resolve_action, update_after_finishing_childs, ActionClass, Ctx};
+use crate::models::action::{
+    check_after_listeners, check_immediate_listeners, get_arg, get_ctx_args, insert_as_child, param_req, push_after_finishing_childs, push_parallel_child,
+    resolve_action, update_after_finishing_childs, ActionClass, Ctx,
+};
 use crate::models::{card, player};
 use crate::php;
 use crate::{PhpError, R};
@@ -394,7 +397,17 @@ fn insert_cost_reduction(g: &mut Game, ctx: Ctx, flow: Value) -> R<()> {
     resolve_action(&ChooseAssignment, g, ctx, json!(["CostReduction"]), json!(false))
 }
 
-fn effect_event(g: &mut Game, card_id: &Value, ty: &Value, at: &Value, from: &str, to: &str, played_free: &Value, put_and_not_played: &Value, steal: &Value) -> R<Value> {
+fn effect_event(
+    g: &mut Game,
+    card_id: &Value,
+    ty: &Value,
+    at: &Value,
+    from: &str,
+    to: &str,
+    played_free: &Value,
+    put_and_not_played: &Value,
+    steal: &Value,
+) -> R<Value> {
     Ok(json!({
         "playCard": true,
         "cardId": card_id,
@@ -752,11 +765,8 @@ pub fn play_card(
     // This global is declared as 'obj', so games started before it existed default to [],
     // which must not be interpreted as "the next character is asleep".
     let asleep_data = globals::get(g, "nextCharacterAsleep")?;
-    let asleep_value = if php::is_arr(&asleep_data) {
-        php::truthy(php::coalesce(php::get(&asleep_data, "value"), &json!(false)))
-    } else {
-        php::truthy(&asleep_data)
-    };
+    let asleep_value =
+        if php::is_arr(&asleep_data) { php::truthy(php::coalesce(php::get(&asleep_data, "value"), &json!(false))) } else { php::truthy(&asleep_data) };
     if asleep_value && type_in(&card::get(g, c, "type")?, &["character", "token"]) {
         let gain_node = ft::gain(json!(c), "asleep", json!(1), json!(99));
         if php::is_arr(&asleep_data) && php::truthy(php::coalesce(php::get(&asleep_data, "optional"), &json!(false))) {
@@ -798,11 +808,7 @@ pub fn play_card(
         }
 
         // insert effect flow
-        let effect = if get_arg(a, g, ctx, "limited")? == json!(true) {
-            card::get(g, c, "effectPlayedLimited")?
-        } else {
-            card::get(g, c, "effectPlayed")?
-        };
+        let effect = if get_arg(a, g, ctx, "limited")? == json!(true) { card::get(g, c, "effectPlayedLimited")? } else { card::get(g, c, "effectPlayed")? };
         if !php::empty(&effect) {
             // Ticket 210043: multi-{J} effects arrive as a Parallel of siblings, pushed one by one
             push_card_effect(&mut effects, effect);
@@ -994,7 +1000,18 @@ pub fn play_card(
 
 /// The event of checkAfterListeners in playCard
 #[allow(clippy::too_many_arguments)]
-fn after_event(g: &mut Game, c: CardId, card_id: &Value, from: &str, really_played: &Value, p: PId, to: &str, played_free: &Value, put_and_not_played: &Value, steal: &Value) -> R<Value> {
+fn after_event(
+    g: &mut Game,
+    c: CardId,
+    card_id: &Value,
+    from: &str,
+    really_played: &Value,
+    p: PId,
+    to: &str,
+    played_free: &Value,
+    put_and_not_played: &Value,
+    steal: &Value,
+) -> R<Value> {
     let ty = card::get(g, c, "type")?;
     let at = card::get(g, c, "additionalType")?;
     let gig = card::is_gigantic(g, c, false)?;
@@ -1058,7 +1075,8 @@ fn process_additional_effects(g: &mut Game, c: CardId, p: PId, loc: &str, from_l
         }
         let effect_type = php::strval(php::get(&add_effect, "effect"));
         let limit = limit_of(&add_effect);
-        let signature = format!("{}|{}|{}|{}", effect_type, php::strval(php::get(&add_effect, "type")), php::strval(php::get(&add_effect, "from")), php::strval(&limit));
+        let signature =
+            format!("{}|{}|{}|{}", effect_type, php::strval(php::get(&add_effect, "type")), php::strval(php::get(&add_effect, "from")), php::strval(&limit));
 
         // If this is a limit=1 effect but an INFTY effect exists for the same group, skip it
         let group_sig = format!("{}|{}|{}", effect_type, php::strval(php::get(&add_effect, "type")), php::strval(php::get(&add_effect, "from")));

@@ -67,7 +67,12 @@ pub fn from_bga_tables(tables: &Value, dice: &[i64]) -> R<Game> {
     g.players.sort_keys();
     for r in rows(tables, "user_preferences") {
         let v = php::get(r, "pref_value");
-        g.prefs.push(PrefRow { id: i(r, "id"), player_id: i(r, "player_id"), pref_id: i(r, "pref_id"), value: if v.is_null() { None } else { Some(php::strval(v)) } });
+        g.prefs.push(PrefRow {
+            id: i(r, "id"),
+            player_id: i(r, "player_id"),
+            pref_id: i(r, "pref_id"),
+            value: if v.is_null() { None } else { Some(php::strval(v)) },
+        });
     }
 
     // AUTO_INCREMENT of cards / meeples (else the next id after the highest one)
@@ -132,7 +137,8 @@ pub fn to_bga_tables(g: &Game) -> Value {
             })
         })
         .collect();
-    let prefs: Vec<Value> = g.prefs.iter().map(|p| json!({"id": s(&p.id), "player_id": s(&p.player_id), "pref_id": s(&p.pref_id), "pref_value": p.value})).collect();
+    let prefs: Vec<Value> =
+        g.prefs.iter().map(|p| json!({"id": s(&p.id), "player_id": s(&p.player_id), "pref_id": s(&p.pref_id), "pref_value": p.value})).collect();
     let fw: Vec<Value> = g.fw.iter().map(|(k, v)| json!({"global_id": s(k), "global_value": s(v)})).collect();
     json!({
         "cards": cards,
@@ -171,18 +177,31 @@ pub fn diff_tables(a: &Value, b: &Value) -> Vec<String> {
             out.push(format!("{}: {} rows vs {}", t, ra.len(), rb.len()));
         }
         for (x, y) in ra.iter().zip(rb.iter()) {
-            let keys: Vec<String> = php::keys_str(x).into_iter().chain(php::keys_str(y)).filter(|k| !["player_row", "player_avatar", "player_canal"].contains(&k.as_str())).collect();
+            let keys: Vec<String> = php::keys_str(x)
+                .into_iter()
+                .chain(php::keys_str(y))
+                .filter(|k| !["player_row", "player_avatar", "player_canal"].contains(&k.as_str()))
+                .collect();
             for k in keys {
                 let j = k == "properties";
                 let (va, vb) = (canon(php::get(x, &k), j), canon(php::get(y, &k), j));
                 if va != vb {
-                    out.push(format!("{} row {}: {} = {} vs {}", t, php::strval(&canon(&php::vals(x).first().cloned().cloned().unwrap_or(Value::Null), false)), k, va, vb));
+                    out.push(format!(
+                        "{} row {}: {} = {} vs {}",
+                        t,
+                        php::strval(&canon(&php::vals(x).first().cloned().cloned().unwrap_or(Value::Null), false)),
+                        k,
+                        va,
+                        vb
+                    ));
                     break;
                 }
             }
         }
     }
-    let globals = |v: &Value| -> Vec<(String, Value)> { php::vals(php::get(v, "global_variables")).into_iter().map(|r| (php::strval(php::get(r, "name")), canon(php::get(r, "value"), true))).collect() };
+    let globals = |v: &Value| -> Vec<(String, Value)> {
+        php::vals(php::get(v, "global_variables")).into_iter().map(|r| (php::strval(php::get(r, "name")), canon(php::get(r, "value"), true))).collect()
+    };
     let (ga, gb) = (globals(a), globals(b));
     for (k, v) in &ga {
         match gb.iter().find(|(n, _)| n == k) {

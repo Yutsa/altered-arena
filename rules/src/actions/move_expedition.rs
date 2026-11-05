@@ -6,7 +6,9 @@ use crate::framework::*;
 use crate::game::{Game, PId};
 use crate::helpers::ft;
 use crate::managers::{cards, players};
-use crate::models::action::{check_after_listeners, get_arg, get_event, get_event_recursive, get_source, insert_as_child, param_req, resolve_action, ActionClass, Ctx};
+use crate::models::action::{
+    check_after_listeners, get_arg, get_event, get_event_recursive, get_source, insert_as_child, param_req, resolve_action, ActionClass, Ctx,
+};
 use crate::models::{card, player};
 use crate::php;
 use crate::{PhpError, R};

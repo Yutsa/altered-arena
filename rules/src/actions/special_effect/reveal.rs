@@ -124,7 +124,9 @@ fn keep_artist_song(g: &mut Game, drawn: CardId) -> R<bool> {
 
 // PHP: Actions/SpecialEffect.php:1351
 fn keep_robot_permanent(g: &mut Game, drawn: CardId) -> R<bool> {
-    Ok(has_subtype(g, drawn, "robot")? || php::loose_eq(&card::get(g, drawn, "type")?, &json!("permanent")) || php::in_array(&json!("permanent"), &card::get_additional_type(g, drawn)?))
+    Ok(has_subtype(g, drawn, "robot")?
+        || php::loose_eq(&card::get(g, drawn, "type")?, &json!("permanent"))
+        || php::in_array(&json!("permanent"), &card::get_additional_type(g, drawn)?))
 }
 
 /// `boostedRevealBaseStat` / `boostedRevealArtistSong` / `boostedRevealRobotPermanent`: if
@@ -322,7 +324,10 @@ fn phoibos(g: &mut Game, s: &mut Se, unique: bool) -> R<Out> {
         card::set_location(g, r, "limbo")?;
         g.notify("revealHand", json!({"cardId": r, "sourceId": c}));
         let play = ft::xor(vec![
-            ft::seq(vec![gain(json!(r), "fleeting", json!(1)), ft::action("PlayCard", json!({"cardId": r, "free": true, "stealOwnership": true}), json!({"sourceId": c}))]),
+            ft::seq(vec![
+                gain(json!(r), "fleeting", json!(1)),
+                ft::action("PlayCard", json!({"cardId": r, "free": true, "stealOwnership": true}), json!({"sourceId": c})),
+            ]),
             ft::action("Discard", json!({"cardId": r}), php::arr()),
         ]);
         if unique || php::truthy(&conditions::is_in_contact(g, Some(c), &json!([]), &[])?) {

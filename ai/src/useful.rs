@@ -109,7 +109,10 @@ fn useful(obs: &Observation, d: &Value, base: &Game, before: &Snapshot, a: &Valu
 fn does_something(g: &Game, me: PId, card: i64, before: &Snapshot, depth: usize, budget: &mut usize) -> bool {
     let state = framework::state(g).map(|s| s.name).unwrap_or("");
     let waiting = g.waiting_for();
-    let done = g.is_over() || depth >= DEPTH || matches!(state, "chooseAssignment" | "confirmTurn" | "confirmPartialTurn") || waiting.first().map(|p| *p as PId) != Some(me);
+    let done = g.is_over()
+        || depth >= DEPTH
+        || matches!(state, "chooseAssignment" | "confirmTurn" | "confirmPartialTurn")
+        || waiting.first().map(|p| *p as PId) != Some(me);
     if done {
         // Waiting for the opponent elsewhere than at their turn: the play asked them something
         if !g.is_over() && depth < DEPTH && waiting.first().is_some_and(|p| *p as PId != me) && state != "chooseAssignment" {

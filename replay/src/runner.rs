@@ -91,7 +91,18 @@ struct State {
 }
 
 pub fn run(r: &BgaReplay) -> Outcome {
-    let mut out = Outcome { table: r.table, steps: vec![], requests: 0, replayed: 0, divergence: None, closest: 0, backtracks: 0, game_over: false, game: None, prefs0: vec![] };
+    let mut out = Outcome {
+        table: r.table,
+        steps: vec![],
+        requests: 0,
+        replayed: 0,
+        divergence: None,
+        closest: 0,
+        backtracks: 0,
+        game_over: false,
+        game: None,
+        prefs0: vec![],
+    };
     let g = match setup::create(r) {
         Ok(g) => g,
         Err(e) => {
@@ -116,7 +127,11 @@ pub fn run(r: &BgaReplay) -> Outcome {
         // explore.php writes 0 for the preferences the runner cannot infer
         setup::set_pref(&mut st.g, pid as i64, OPTION_CONFIRM, 0);
         setup::set_pref(&mut st.g, pid as i64, OPTION_CONFIRM_UNDOABLE, 0);
-        out.prefs0.extend([(pid as i64, OPTION_PLAYER_UNDO, ctx.undo_default[&(pid as i64)]), (pid as i64, OPTION_CONFIRM, 0), (pid as i64, OPTION_CONFIRM_UNDOABLE, 0)]);
+        out.prefs0.extend([
+            (pid as i64, OPTION_PLAYER_UNDO, ctx.undo_default[&(pid as i64)]),
+            (pid as i64, OPTION_CONFIRM, 0),
+            (pid as i64, OPTION_CONFIRM_UNDOABLE, 0),
+        ]);
     }
     // Exact answers only (with backtracking) first; the closest answers only if that fails
     let first = replay_from(&ctx, st.clone());
@@ -125,7 +140,11 @@ pub fn run(r: &BgaReplay) -> Outcome {
     } else {
         ctx.near = true;
         let second = replay_from(&ctx, st);
-        if second.divergence.is_none() || second.replayed > first.replayed { second } else { first }
+        if second.divergence.is_none() || second.replayed > first.replayed {
+            second
+        } else {
+            first
+        }
     };
     out.steps = res.steps;
     out.replayed = res.replayed;
@@ -199,7 +218,14 @@ fn replay_from(ctx: &Ctx, mut st: State) -> Run {
                 }
             }
             if std::env::var("DEBUG_BT").is_ok() {
-                eprintln!("backtrack from {} to move {} ({} alternatives, at {}): {:?}", ctx.moves[failed].id, ctx.moves[f.i].id, f.alts.len(), f.k, f.alts.iter().map(|a| a.1.iter().map(|s| s.answer.to_string()).collect::<Vec<_>>()).collect::<Vec<_>>());
+                eprintln!(
+                    "backtrack from {} to move {} ({} alternatives, at {}): {:?}",
+                    ctx.moves[failed].id,
+                    ctx.moves[f.i].id,
+                    f.alts.len(),
+                    f.k,
+                    f.alts.iter().map(|a| a.1.iter().map(|s| s.answer.to_string()).collect::<Vec<_>>()).collect::<Vec<_>>()
+                );
             }
             if f.k + 1 < f.alts.len() {
                 f.k += 1;
@@ -503,7 +529,8 @@ fn deck_lists(ctx: &Ctx, g: &Game, m: &Move) -> Vec<(i64, Vec<Vec<i64>>)> {
         }
         // A card shown on several channels counts in the first one only
         let mut seen = HashSet::new();
-        let lists: Vec<Vec<i64>> = lists.into_values().map(|l| l.into_iter().filter(|id| seen.insert(*id)).collect::<Vec<_>>()).filter(|l| !l.is_empty()).collect();
+        let lists: Vec<Vec<i64>> =
+            lists.into_values().map(|l| l.into_iter().filter(|id| seen.insert(*id)).collect::<Vec<_>>()).filter(|l| !l.is_empty()).collect();
         out.push((pid as i64, lists));
     }
     out
@@ -646,15 +673,27 @@ fn explain(ctx: &Ctx, st: &State, i: usize) -> String {
         let res = play(&mut next.g, *pid, a);
         if std::env::var("CANDS").is_ok() {
             if let Ok(ns) = &res {
-                eprintln!("CAND {} {} -> {:?}", pid, a, ns.iter().map(|n| format!("{} {}", n["name"].as_str().unwrap_or(""), &n["args"].to_string()[..n["args"].to_string().len().min(120)])).collect::<Vec<_>>());
+                eprintln!(
+                    "CAND {} {} -> {:?}",
+                    pid,
+                    a,
+                    ns.iter()
+                        .map(|n| format!("{} {}", n["name"].as_str().unwrap_or(""), &n["args"].to_string()[..n["args"].to_string().len().min(120)]))
+                        .collect::<Vec<_>>()
+                );
             }
-            if let Some(d) = base.g.decision(*pid) { eprintln!("DECISION {}", &d.to_string()[..d.to_string().len().min(800)]); }
+            if let Some(d) = base.g.decision(*pid) {
+                eprintln!("DECISION {}", &d.to_string()[..d.to_string().len().min(800)]);
+            }
         }
         let (score, why) = match res {
             Err(e) => (0, format!("refused: {}", e)),
             Ok(notifs) => {
                 let after = sig::positions(&next.g);
-                (sig::score(m, &after, &notifs) + 1, sig::diff(&next.g, m, &before, &after, &notifs).unwrap_or_else(|| "matches, but the next requests do not replay".into()))
+                (
+                    sig::score(m, &after, &notifs) + 1,
+                    sig::diff(&next.g, m, &before, &after, &notifs).unwrap_or_else(|| "matches, but the next requests do not replay".into()),
+                )
             }
         };
         if best.as_ref().is_none_or(|b| score > b.0) {
@@ -676,10 +715,17 @@ fn explain(ctx: &Ctx, st: &State, i: usize) -> String {
                     let os = base.g.oracle_state();
                     let mut zones: BTreeMap<String, Vec<(i64, i64)>> = BTreeMap::new();
                     for c in os["cards"].as_array().into_iter().flatten() {
-                        zones.entry(format!("{}:{}", c["owner"], c["zone"].as_str().unwrap_or(""))).or_default().push((c["order"].as_i64().unwrap_or(0), c["id"].as_i64().unwrap_or(0)));
+                        zones
+                            .entry(format!("{}:{}", c["owner"], c["zone"].as_str().unwrap_or("")))
+                            .or_default()
+                            .push((c["order"].as_i64().unwrap_or(0), c["id"].as_i64().unwrap_or(0)));
                     }
                     for (k, v) in zones.iter_mut() {
-                        if k.ends_with(":deck") { v.sort(); } else { v.sort_by_key(|x| x.1); }
+                        if k.ends_with(":deck") {
+                            v.sort();
+                        } else {
+                            v.sort_by_key(|x| x.1);
+                        }
                     }
                     for (k, want) in node["state"]["zones"].as_object().into_iter().flatten() {
                         let got: Vec<i64> = zones.get(k).map(|v| v.iter().map(|x| x.1).collect()).unwrap_or_default();
@@ -696,7 +742,12 @@ fn explain(ctx: &Ctx, st: &State, i: usize) -> String {
                         Err(e) => format!("; golden {} {}: refused: {}", pid, next["answer"], e),
                         Ok(notifs) => {
                             let after = sig::positions(&next_g.g);
-                            format!("; golden {} {}: {}", pid, next["answer"], sig::diff(&next_g.g, m, &before, &after, &notifs).unwrap_or_else(|| "matches".into()))
+                            format!(
+                                "; golden {} {}: {}",
+                                pid,
+                                next["answer"],
+                                sig::diff(&next_g.g, m, &before, &after, &notifs).unwrap_or_else(|| "matches".into())
+                            )
                         }
                     };
                     break;

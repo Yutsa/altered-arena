@@ -105,11 +105,8 @@ impl Imitator {
         let mut first_pick = None;
         for (i, m) in self.members.iter_mut().enumerate() {
             let mut rng = ChaCha8Rng::seed_from_u64(base ^ m.seed);
-            let pick = if self.share_search && i > 0 {
-                first_pick.clone()
-            } else {
-                m.search.as_mut().map(|ai| features::search_pick(ai, obs, d, cands, &mut rng))
-            };
+            let pick =
+                if self.share_search && i > 0 { first_pick.clone() } else { m.search.as_mut().map(|ai| features::search_pick(ai, obs, d, cands, &mut rng)) };
             if i == 0 {
                 first_pick = pick.clone();
             }

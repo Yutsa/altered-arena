@@ -96,17 +96,27 @@ pub fn drop_premature_removals(obs: &Observation, d: &Value, cands: Vec<Value>) 
         if now <= 0.0 {
             continue;
         }
-        let nexts = futures.entry(card).or_insert_with(|| {
-            (0..COPIES).map(|k| next_turn(&obs.determinize(&mut ChaCha8Rng::seed_from_u64(seed ^ (k + 1))), me, card)).collect()
-        });
+        let nexts = futures
+            .entry(card)
+            .or_insert_with(|| (0..COPIES).map(|k| next_turn(&obs.determinize(&mut ChaCha8Rng::seed_from_u64(seed ^ (k + 1))), me, card)).collect());
         let later: f64 = nexts.iter().map(|g| g.as_ref().map(|g| best_play_hit(g, me, card)).unwrap_or(0.0)).sum::<f64>() / COPIES as f64;
         if trace {
             for g in nexts.iter() {
                 match g {
                     None => eprintln!("  next turn: none (card lost or game over)"),
                     Some(g) => {
-                        let opp: Vec<String> = g.cards.iter().filter(|(_, c)| c.pid != me && c.pid > 0 && c.location == "reserve").map(|(id, _)| format!("{} {:.1}", crate::positions::card_name(g, &Value::from(*id)), card_value(g, *id))).collect();
-                        eprintln!("  next turn: card at {}, best hit {:.2}, opponent Reserve: {}", g.cards[&card].location, best_play_hit(g, me, card), opp.join(", "));
+                        let opp: Vec<String> = g
+                            .cards
+                            .iter()
+                            .filter(|(_, c)| c.pid != me && c.pid > 0 && c.location == "reserve")
+                            .map(|(id, _)| format!("{} {:.1}", crate::positions::card_name(g, &Value::from(*id)), card_value(g, *id)))
+                            .collect();
+                        eprintln!(
+                            "  next turn: card at {}, best hit {:.2}, opponent Reserve: {}",
+                            g.cards[&card].location,
+                            best_play_hit(g, me, card),
+                            opp.join(", ")
+                        );
                     }
                 }
             }
@@ -117,7 +127,13 @@ pub fn drop_premature_removals(obs: &Observation, d: &Value, cands: Vec<Value>) 
         if later >= RATIO * now + MARGIN {
             held.push(card);
             if trace {
-                eprintln!("HELD {} day {}: now {:.2} later {:.2}", crate::positions::card_name(&base, &a["cardId"]), globals::get_int(&mut base.clone(), "day").unwrap_or(0), now, later);
+                eprintln!(
+                    "HELD {} day {}: now {:.2} later {:.2}",
+                    crate::positions::card_name(&base, &a["cardId"]),
+                    globals::get_int(&mut base.clone(), "day").unwrap_or(0),
+                    now,
+                    later
+                );
             }
         }
     }
@@ -170,7 +186,11 @@ fn opponent_cards(g: &Game, me: PId) -> HashMap<i64, String> {
 fn best_hit(g: &Game, me: PId, before: &HashMap<i64, String>, depth: usize, budget: &mut usize) -> f64 {
     let state = altered_rules::framework::state(g).map(|s| s.name).unwrap_or("");
     let waiting = g.waiting_for();
-    if g.is_over() || depth >= DEPTH || matches!(state, "chooseAssignment" | "confirmTurn" | "confirmPartialTurn") || waiting.first().map(|p| *p as PId) != Some(me) {
+    if g.is_over()
+        || depth >= DEPTH
+        || matches!(state, "chooseAssignment" | "confirmTurn" | "confirmPartialTurn")
+        || waiting.first().map(|p| *p as PId) != Some(me)
+    {
         // The opponent's cards sent to the discard pile (a lasting loss)
         return before
             .iter()
@@ -212,7 +232,16 @@ fn next_turn(g: &Game, me: PId, card: i64) -> Option<Game> {
             // strong card away); the fast policy otherwise
             if let Ok(Some(d)) = g.try_decision(p as u32) {
                 if d["kind"] == "cleanup" {
-                    let value = |a: &Value| -> f64 { a["reserve"].as_array().into_iter().flatten().chain(a["landmarks"].as_array().into_iter().flatten()).filter_map(|id| id.as_i64()).map(|id| card_value(&g, id)).sum() };
+                    let value = |a: &Value| -> f64 {
+                        a["reserve"]
+                            .as_array()
+                            .into_iter()
+                            .flatten()
+                            .chain(a["landmarks"].as_array().into_iter().flatten())
+                            .filter_map(|id| id.as_i64())
+                            .map(|id| card_value(&g, id))
+                            .sum()
+                    };
                     let mut cands: Vec<(f64, Value)> = legal::candidates(&d).into_iter().map(|a| (value(&a), a)).collect();
                     // A cleanup answer lists the cards discarded: the least valuable ones
                     cands.sort_by(|x, y| x.0.partial_cmp(&y.0).unwrap_or(std::cmp::Ordering::Equal));

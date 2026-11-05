@@ -9,7 +9,8 @@ fn run() {
     let a: Vec<String> = std::env::args().collect();
     let decks: serde_json::Value = serde_json::from_str(&std::fs::read_to_string("server/goldens/tournament_decks.json").unwrap()).unwrap();
     let pair = [decks[&a[1]].clone(), decks[&a[2]].clone()];
-    let params = |d: &str| std::fs::read_to_string(format!("ai/params/{}.json", d)).ok().map(|s| serde_json::from_str::<Params>(&s).unwrap()).unwrap_or_default();
+    let params =
+        |d: &str| std::fs::read_to_string(format!("ai/params/{}.json", d)).ok().map(|s| serde_json::from_str::<Params>(&s).unwrap()).unwrap_or_default();
     let mut agents: [Box<dyn Agent>; 2] = [Box::new(Ai::new("a", params(&a[1]))), Box::new(Ai::new("b", params(&a[2])))];
     let r = play_game(&pair, &mut agents, a[3].parse().unwrap());
     eprintln!("{:?}", r);

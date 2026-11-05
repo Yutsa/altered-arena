@@ -384,7 +384,13 @@ impl Ai {
     fn choose_mana(&mut self, obs: &Observation, d: &Value) -> Value {
         let view = obs.view();
         let me = obs.me;
-        let mana = view["players"].as_array().into_iter().flatten().find(|p| p["id"].as_i64() == Some(me)).map(|p| p["manaTotal"].as_f64().unwrap_or(0.0)).unwrap_or(0.0);
+        let mana = view["players"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .find(|p| p["id"].as_i64() == Some(me))
+            .map(|p| p["manaTotal"].as_f64().unwrap_or(0.0))
+            .unwrap_or(0.0);
         let ids: Vec<Value> = d["cardIds"].as_array().cloned().unwrap_or_default();
         let k = (d["max"].as_u64().unwrap_or(1) as usize).min(ids.len());
         if d["canPass"] == true && (mana >= self.params.mana_target || k == 0) {

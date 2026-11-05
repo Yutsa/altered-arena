@@ -9,7 +9,9 @@ use crate::framework::ST_TARGET;
 use crate::game::{CardId, Game, PId};
 use crate::helpers::{collection, conditions, utils};
 use crate::managers::{cards, players};
-use crate::models::action::{get_arg, get_ctx_arg, get_source, get_source_id, param_req, push_parallel_child, resolve_action, update_card_id, ActionClass, Ctx};
+use crate::models::action::{
+    get_arg, get_ctx_arg, get_source, get_source_id, param_req, push_parallel_child, resolve_action, update_card_id, ActionClass, Ctx,
+};
 use crate::models::{card, player};
 use crate::php;
 use crate::{PhpError, R};
@@ -277,8 +279,11 @@ fn compute_targetable_cards(a: &Target, g: &mut Game, ctx: Ctx, player: Option<P
     let mut cs = vec![];
     if !php::empty(&arg_cards) {
         for c in cards::get_many(g, &arg_cards, true)? {
-            let loc_ok = in_arr(&json!(card::location(g, c)?), &target_location)? || (php::in_array(&target_location, &json!(STORMS)) && php::truthy(&card::is_gigantic(g, c, false)?));
-            if loc_ok && (in_arr(&card::get(g, c, "type")?, &target_type)? || php::count(&php::array_intersect(&target_type, &card::get_additional_type(g, c)?)) > 0) {
+            let loc_ok = in_arr(&json!(card::location(g, c)?), &target_location)?
+                || (php::in_array(&target_location, &json!(STORMS)) && php::truthy(&card::is_gigantic(g, c, false)?));
+            if loc_ok
+                && (in_arr(&card::get(g, c, "type")?, &target_type)? || php::count(&php::array_intersect(&target_type, &card::get_additional_type(g, c)?)) > 0)
+            {
                 cs.push(c);
             }
         }
@@ -325,29 +330,36 @@ fn compute_targetable_cards(a: &Target, g: &mut Game, ctx: Ctx, player: Option<P
     let allow_self_as_second_boost_swap = can_target_source_as_boost_swap_pair(a, g, ctx, &source_id, &previous_target_id)?;
     let mut out = vec![];
     for c in cs {
-        if target_filter(a, g, ctx, c, pid, &FilterArgs {
-            exclude_self: php::truthy(&exclude_self),
-            exclude_previous_target: php::truthy(&exclude_previous_target),
-            previous_target_id: &previous_target_id,
-            source_id: &source_id,
-            allow_self_as_second_boost_swap,
-            max_hand_cost: &max_hand_cost,
-            sub_type: &sub_type,
-            not_sub_types: &not_sub_types,
-            check_tough,
-            filtered_biomes: &filtered_biomes,
-            excluded_biomes: &excluded_biomes,
-            is_tapped,
-            is_not_tapped,
-            max_statistic: &max_statistic,
-            augment_only,
-            ascended_only: php::truthy(&ascended_only),
-            mono_biome,
-            max_base_cost: &max_base_cost,
-            min_base_cost: &min_base_cost,
-            compare_filter: &compare_filter,
-            no_boost_if_boosted,
-        })? {
+        if target_filter(
+            a,
+            g,
+            ctx,
+            c,
+            pid,
+            &FilterArgs {
+                exclude_self: php::truthy(&exclude_self),
+                exclude_previous_target: php::truthy(&exclude_previous_target),
+                previous_target_id: &previous_target_id,
+                source_id: &source_id,
+                allow_self_as_second_boost_swap,
+                max_hand_cost: &max_hand_cost,
+                sub_type: &sub_type,
+                not_sub_types: &not_sub_types,
+                check_tough,
+                filtered_biomes: &filtered_biomes,
+                excluded_biomes: &excluded_biomes,
+                is_tapped,
+                is_not_tapped,
+                max_statistic: &max_statistic,
+                augment_only,
+                ascended_only: php::truthy(&ascended_only),
+                mono_biome,
+                max_base_cost: &max_base_cost,
+                min_base_cost: &min_base_cost,
+                compare_filter: &compare_filter,
+                no_boost_if_boosted,
+            },
+        )? {
             out.push(c);
         }
     }
@@ -406,7 +418,11 @@ fn target_filter(a: &Target, g: &mut Game, ctx: Ctx, c: CardId, pid: PId, f: &Fi
     {
         return Ok(false);
     }
-    if !f.excluded_biomes.is_null() && in_storms && !in_arr(&locv, php::coalesce(php::get(f.excluded_biomes, &cpid), &php::arr()))? && php::truthy(&card::is_gigantic(g, c, false)?) {
+    if !f.excluded_biomes.is_null()
+        && in_storms
+        && !in_arr(&locv, php::coalesce(php::get(f.excluded_biomes, &cpid), &php::arr()))?
+        && php::truthy(&card::is_gigantic(g, c, false)?)
+    {
         return Ok(false);
     }
     if f.is_tapped && !card::is_tapped(g, c)? {
@@ -486,7 +502,8 @@ fn target_filter(a: &Target, g: &mut Game, ctx: Ctx, c: CardId, pid: PId, f: &Fi
         && php::le(&get_arg(a, g, ctx, "minReserveCost")?, &reserve_cost)
         && php::le(&reserve_cost, &get_arg(a, g, ctx, "maxReserveCost")?)
         && ((fleeting && php::le(&reserve_cost, f.max_base_cost)) || (!card::has_token(g, c, "fleeting")? && php::le(&hand_cost, f.max_base_cost)))
-        && ((card::has_token(g, c, "fleeting")? && php::ge(&reserve_cost, f.min_base_cost)) || (!card::has_token(g, c, "fleeting")? && php::ge(&hand_cost, f.min_base_cost)));
+        && ((card::has_token(g, c, "fleeting")? && php::ge(&reserve_cost, f.min_base_cost))
+            || (!card::has_token(g, c, "fleeting")? && php::ge(&hand_cost, f.min_base_cost)));
 
     if php::loose_eq(&statuses, &json!("disabled")) || php::loose_eq(&card::get(g, c, "type")?, &json!("permanent")) {
         Ok(cost_check)
@@ -613,7 +630,9 @@ fn act_target(a: &Target, g: &mut Game, ctx: Ctx, card_ids: &Value) -> R<Value> 
                     nd = utils::update_tree(&nd, &json!(["discardedSource"]), &json!([discard_source]), &["targetLocation"]);
                     // if the discarded card is the source, need to update the location
                     let uid = card::get(g, c, "uid")?;
-                    if php::loose_eq(&json!(c), &sid) && php::in_list(&uid, &["ALT_CORE_B_OR_06_U_3184", "ALT_COREKS_B_AX_07_U_5235", "ALT_CORE_B_OR_06_U_3184", "ALT_COREKS_B_OR_17_U_1949"]) {
+                    if php::loose_eq(&json!(c), &sid)
+                        && php::in_list(&uid, &["ALT_CORE_B_OR_06_U_3184", "ALT_COREKS_B_AX_07_U_5235", "ALT_CORE_B_OR_06_U_3184", "ALT_COREKS_B_OR_17_U_1949"])
+                    {
                         nd = utils::update_tree(&nd, &json!(["initialSource"]), &json!([discard_source]), &["targetLocation"]);
                     }
                 }
@@ -623,7 +642,9 @@ fn act_target(a: &Target, g: &mut Game, ctx: Ctx, card_ids: &Value) -> R<Value> 
             let owner = player_req(card::get_player(g, c)?, "hasIncreaseBiomesHighest")?;
             let cloc = card::location(g, c)?;
             let mut gigantic_increase = false;
-            if crate::models::player::has_increase_biomes_highest(g, owner, &cloc)? || (php::truthy(&card::is_gigantic(g, c, false)?) && crate::models::player::has_increase_biomes_highest(g, owner, opposite(&cloc))?) {
+            if crate::models::player::has_increase_biomes_highest(g, owner, &cloc)?
+                || (php::truthy(&card::is_gigantic(g, c, false)?) && crate::models::player::has_increase_biomes_highest(g, owner, opposite(&cloc))?)
+            {
                 gigantic_increase = true;
             }
             let mut increase_biome = gigantic_increase || increase_other;

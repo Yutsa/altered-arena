@@ -135,7 +135,11 @@ fn invoke_ordis_recruit_bureaucrat(g: &mut Game, s: &mut Se) -> R<Out> {
     if n != 0 {
         let mut nodes = vec![];
         for _ in 0..n {
-            nodes.push(ft::action("InvokeToken", json!({"pId": "source", "tokenType": "OD_Common_OrdisRecruit", "targetLocation": ["source"]}), json!({"sourceId": c})));
+            nodes.push(ft::action(
+                "InvokeToken",
+                json!({"pId": "source", "tokenType": "OD_Common_OrdisRecruit", "targetLocation": ["source"]}),
+                json!({"sourceId": c}),
+            ));
         }
         s.insert_seq(g, nodes)?;
     }
@@ -394,7 +398,10 @@ fn remove_all_boosts(g: &mut Game) -> R<usize> {
     let reserve = cards::get_reserve_cards(g, &Value::Null, &ct)?;
     let mut deleted = 0;
     for l in crate::helpers::collection::merge(&played, &reserve) {
-        let ids: Vec<i64> = meeples::get_in_location(g, &format!("card-{}", l), None)?.into_iter().filter(|m| php::loose_eq(&json!(g.meeples[m].kind), &json!("boost"))).collect();
+        let ids: Vec<i64> = meeples::get_in_location(g, &format!("card-{}", l), None)?
+            .into_iter()
+            .filter(|m| php::loose_eq(&json!(g.meeples[m].kind), &json!("boost")))
+            .collect();
         if !ids.is_empty() {
             meeples::delete(g, &json!(ids))?;
             deleted += ids.len();
@@ -489,11 +496,13 @@ fn boost_and_remove_from_expedition(g: &mut Game, s: &mut Se) -> R<Out> {
     let p = player_of(g, c)?;
     let mut exp_cards = vec![];
     for x in player::get_played_cards(g, p, &Value::Null)? {
-        let keep = type_in(g, x, &["token", "character"])? && {
-            let cl = card::location(g, c)?;
-            let xl = card::location(g, x)?;
-            cl == xl || (gigantic(g, c)? && STORMS.contains(&xl.as_str()))
-        } && c != x;
+        let keep = type_in(g, x, &["token", "character"])?
+            && {
+                let cl = card::location(g, c)?;
+                let xl = card::location(g, x)?;
+                cl == xl || (gigantic(g, c)? && STORMS.contains(&xl.as_str()))
+            }
+            && c != x;
         if keep {
             exp_cards.push(x);
         }
@@ -519,7 +528,11 @@ fn invoke_x_recruit_reserve(g: &mut Game, s: &mut Se) -> R<Out> {
         let target_pid = s.ctx_arg(g, "player");
         s.insert(
             g,
-            &ft::action("InvokeToken", json!({"pId": target_pid, "tokenType": "OD_Common_OrdisRecruit", "n": n, "targetLocation": [expedition]}), json!({"sourceId": c})),
+            &ft::action(
+                "InvokeToken",
+                json!({"pId": target_pid, "tokenType": "OD_Common_OrdisRecruit", "n": n, "targetLocation": [expedition]}),
+                json!({"sourceId": c}),
+            ),
         )?;
     }
     Ok(Out::Break)
@@ -593,7 +606,8 @@ fn do_each_card_in_discard_pile_source_name(g: &mut Game, s: &mut Se) -> R<Out> 
 // PHP: Actions/SpecialEffect.php:1761
 fn hunger(g: &mut Game, s: &mut Se) -> R<Out> {
     let all = cards::get_all(g);
-    let to_discard: Vec<CardId> = all.into_iter().filter(|c| ["stormRight", "stormLeft", "landmark", "reserve"].contains(&g.cards[c].location.as_str())).collect();
+    let to_discard: Vec<CardId> =
+        all.into_iter().filter(|c| ["stormRight", "stormLeft", "landmark", "reserve"].contains(&g.cards[c].location.as_str())).collect();
     let mut floral: HashSet<(&str, PId, String)> = HashSet::new();
     let mut nodes = vec![];
     for t in players::get_all(g) {
@@ -761,7 +775,10 @@ fn defect(g: &mut Game, s: &mut Se) -> R<Out> {
     if !php::isset(&extra, "pId") {
         php::set(&mut extra, "pId", json!(card::pid(g, d)?));
     }
-    if php::isset(&s.args, "moveToMe") && php::loose_eq(php::get(&s.args, "moveToMe"), &json!(true)) && !php::in_array(&json!("landmark"), &card::get_subtypes(g, d)?) {
+    if php::isset(&s.args, "moveToMe")
+        && php::loose_eq(php::get(&s.args, "moveToMe"), &json!(true))
+        && !php::in_array(&json!("landmark"), &card::get_subtypes(g, d)?)
+    {
         let c = s.card()?;
         let loc = card::location(g, c)?;
         card::set_location(g, d, &loc)?;
@@ -814,7 +831,14 @@ fn copy_gift(g: &mut Game, s: &mut Se) -> R<Out> {
     if php::loose_eq(&a, &json!("InvokeToken")) {
         let c = s.card()?;
         let tl = if php::loose_eq(php::get(&event, "to"), &json!("landmark")) { json!(["landmark"]) } else { json!(STORMS) };
-        s.insert(g, &ft::action("InvokeToken", json!({"pId": "source", "tokenType": php::get(&event, "invoked"), "targetLocation": tl, "targetPlayer": "me"}), json!({"sourceId": c})))?;
+        s.insert(
+            g,
+            &ft::action(
+                "InvokeToken",
+                json!({"pId": "source", "tokenType": php::get(&event, "invoked"), "targetLocation": tl, "targetPlayer": "me"}),
+                json!({"sourceId": c}),
+            ),
+        )?;
     } else if php::loose_eq(&a, &json!("Draw")) {
         let c = s.card()?;
         s.insert(g, &ft::action("Draw", json!({"n": 1, "players": "me"}), json!({"sourceId": c})))?;
@@ -893,7 +917,11 @@ fn invoke_recruit_on_ascended_expeditions(g: &mut Game, s: &mut Se) -> R<Out> {
         let p = player_of(g, c)?;
         if player::is_ascended(g, p, storm)? {
             let pid = card::pid(g, c)?;
-            nodes.push(ft::action("InvokeToken", json!({"pId": pid, "tokenType": "OD_Common_OrdisRecruit", "targetLocation": [storm]}), json!({"sourceId": c})));
+            nodes.push(ft::action(
+                "InvokeToken",
+                json!({"pId": pid, "tokenType": "OD_Common_OrdisRecruit", "targetLocation": [storm]}),
+                json!({"sourceId": c}),
+            ));
         }
     }
     if !nodes.is_empty() {

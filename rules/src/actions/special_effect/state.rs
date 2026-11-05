@@ -123,7 +123,8 @@ fn cost_reduction(g: &mut Game, s: &mut Se) -> R<Out> {
     let r = add(php::coalesce(php::get(&bucket, "reduction"), &json!(0)), php::get(&args, "reduction"));
     php::set(php::get_mut(php::get_mut(&mut reduction, &pk), &tk), "reduction", r);
     let bucket = php::get(php::get(&reduction, &pk), &tk).clone();
-    let perm = php::truthy(php::coalesce(php::get(&bucket, "permanent"), &json!(false))) || php::truthy(php::coalesce(php::get(&args, "permanent"), &json!(false)));
+    let perm =
+        php::truthy(php::coalesce(php::get(&bucket, "permanent"), &json!(false))) || php::truthy(php::coalesce(php::get(&args, "permanent"), &json!(false)));
     php::set(php::get_mut(php::get_mut(&mut reduction, &pk), &tk), "permanent", json!(perm));
     if php::isset(&args, "minimum") {
         php::set(php::get_mut(php::get_mut(&mut reduction, &pk), &tk), "minimum", php::get(&args, "minimum").clone());

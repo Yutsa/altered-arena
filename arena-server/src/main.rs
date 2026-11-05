@@ -22,12 +22,12 @@ mod replays;
 mod reunion;
 mod rooms;
 
+use altered_ai::play::{Agent, Observation, SimpleBot};
 use axum::extract::{Path, Query, State};
 use axum::http::{header, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
 use axum::{Json, Router};
-use altered_ai::play::{Agent, Observation, SimpleBot};
 use engines::{EnginePool, NewSeat, ServerGame};
 use rand_chacha::rand_core::SeedableRng;
 use rand_chacha::ChaCha8Rng;
@@ -144,7 +144,8 @@ async fn main() {
     let protocol_dir = env("PROTOCOL_DIR", "protocol/data");
     let data_dir = std::path::PathBuf::from(env("DATA_DIR", "data"));
     let _ = std::fs::create_dir_all(data_dir.join("games"));
-    let threads: usize = env("ENGINE_THREADS", "0").parse().ok().filter(|n| *n > 0).unwrap_or_else(|| std::thread::available_parallelism().map(|n| n.get()).unwrap_or(4));
+    let threads: usize =
+        env("ENGINE_THREADS", "0").parse().ok().filter(|n| *n > 0).unwrap_or_else(|| std::thread::available_parallelism().map(|n| n.get()).unwrap_or(4));
     let stack_mb: usize = env("ENGINE_STACK_MB", "256").parse().unwrap_or(256);
 
     let state = Arc::new(AppState {
@@ -204,11 +205,7 @@ async fn main() {
     // Debugging only: full hidden state
     let app = if std::env::var("ARENA_DEBUG").is_ok() {
         println!("Debug routes enabled (ARENA_DEBUG)");
-        app.merge(
-            Router::new()
-                .route("/api/debug/games/{id}/state", get(debug_state))
-                .with_state(state.clone()),
-        )
+        app.merge(Router::new().route("/api/debug/games/{id}/state", get(debug_state)).with_state(state.clone()))
     } else {
         app
     };
@@ -289,7 +286,12 @@ async fn list_ais(State(s): State<Shared>) -> Response {
 /// Runs `op` on the game, on an engine thread (large stack), holding the game's lock. With
 /// `backup`, a panic of the `rules` engine leaves the game as it was before the call (views don't
 /// need it: the engine builds them on a copy of the game).
-async fn with_game<T: Send + 'static>(s: &Shared, e: &Arc<GameEntry>, backup: bool, op: impl FnOnce(&mut ServerGame) -> T + Send + 'static) -> Result<T, String> {
+async fn with_game<T: Send + 'static>(
+    s: &Shared,
+    e: &Arc<GameEntry>,
+    backup: bool,
+    op: impl FnOnce(&mut ServerGame) -> T + Send + 'static,
+) -> Result<T, String> {
     let mut guard = e.game.clone().lock_owned().await;
     s.pool
         .run(move || {
@@ -300,7 +302,11 @@ async fn with_game<T: Send + 'static>(s: &Shared, e: &Arc<GameEntry>, backup: bo
                     if let Some(b) = backup {
                         *guard = b;
                     }
-                    Err(p.downcast_ref::<String>().cloned().or_else(|| p.downcast_ref::<&str>().map(|s| s.to_string())).unwrap_or_else(|| "engine panic".into()))
+                    Err(p
+                        .downcast_ref::<String>()
+                        .cloned()
+                        .or_else(|| p.downcast_ref::<&str>().map(|s| s.to_string()))
+                        .unwrap_or_else(|| "engine panic".into()))
                 }
             }
         })
@@ -438,9 +444,8 @@ struct ViewQuery {
 
 /// Seat of the requester: the token decides (a wrong player/token pair is refused)
 fn seat_of(g: &ServerGame, q: &ViewQuery, headers: &axum::http::HeaderMap) -> Result<Option<usize>, Response> {
-    let token = q.token.clone().or_else(|| {
-        headers.get(header::AUTHORIZATION).and_then(|h| h.to_str().ok()).and_then(|h| h.strip_prefix("Bearer ")).map(String::from)
-    });
+    let token =
+        q.token.clone().or_else(|| headers.get(header::AUTHORIZATION).and_then(|h| h.to_str().ok()).and_then(|h| h.strip_prefix("Bearer ")).map(String::from));
     let Some(token) = token.filter(|t| !t.is_empty()) else { return Ok(None) };
     let seats = g.seats();
     match seats.iter().position(|p| !p.3.is_empty() && p.3 == token) {

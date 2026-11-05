@@ -196,7 +196,8 @@ fn check_api_deck(data: &Value, r: &mut Report) {
             if diffs.is_empty() {
                 r.passed += 1;
             } else {
-                r.first_failure = Some(format!("created tables differ (php vs rust):\n    {}", diffs.iter().take(10).cloned().collect::<Vec<_>>().join("\n    ")));
+                r.first_failure =
+                    Some(format!("created tables differ (php vs rust):\n    {}", diffs.iter().take(10).cloned().collect::<Vec<_>>().join("\n    ")));
             }
         }
         (Ok(_), Some(e)) => r.first_failure = Some(format!("php refused the deck ({}), rust created the game", e)),
@@ -352,7 +353,10 @@ fn main() {
                         if diffs.is_empty() {
                             check_node(&g, &data["tree"], "", &mut r);
                         } else {
-                            r.first_failure = Some(format!("created tables differ (php vs rust):\n    {}", diffs.iter().take(10).cloned().collect::<Vec<_>>().join("\n    ")));
+                            r.first_failure = Some(format!(
+                                "created tables differ (php vs rust):\n    {}",
+                                diffs.iter().take(10).cloned().collect::<Vec<_>>().join("\n    ")
+                            ));
                         }
                     }
                     Err(e) => r.first_failure = Some(format!("cannot create: {}", e)),
@@ -363,9 +367,8 @@ fn main() {
                 Ok(mut g) => {
                     // Replays: the deck shuffles BGA made, in order
                     if let Some(orders) = data["injectShuffles"].as_array() {
-                        g.shuffle_hook = ShuffleHook::Injected(
-                            orders.iter().map(|o| o.as_array().into_iter().flatten().filter_map(Value::as_i64).collect()).collect(),
-                        );
+                        g.shuffle_hook =
+                            ShuffleHook::Injected(orders.iter().map(|o| o.as_array().into_iter().flatten().filter_map(Value::as_i64).collect()).collect());
                     }
                     check_node(&g, &data["tree"], "", &mut r)
                 }
@@ -388,12 +391,5 @@ fn main() {
     for (name, r) in failures.iter().take(if verbose { usize::MAX } else { 20 }) {
         println!("FAIL {}: {}", name, r.first_failure.as_deref().unwrap_or(""));
     }
-    println!(
-        "\n{}/{} files pass, {}/{} nodes checked pass ({:.1}s)",
-        ok_files,
-        results.len(),
-        passed,
-        nodes,
-        t.elapsed().as_secs_f64()
-    );
+    println!("\n{}/{} files pass, {}/{} nodes checked pass ({:.1}s)", ok_files, results.len(), passed, nodes, t.elapsed().as_secs_f64());
 }

@@ -133,10 +133,7 @@ fn exchange_reserve_and_hand() {
 fn discard_do_then_draw_n() {
     let Some(mut g) = tiktok() else { return };
     let hand = count(&g, "hand");
-    run(
-        &mut g,
-        json!({"action": "DiscardDo", "pId": 2001, "args": {"effect": {"action": "Draw", "args": {"players": "me"}}}}),
-    );
+    run(&mut g, json!({"action": "DiscardDo", "pId": 2001, "args": {"effect": {"action": "Draw", "args": {"players": "me"}}}}));
     let d = g.decision(2001).expect("decision");
     assert_eq!(d["kind"], json!("select"), "{}", d);
     assert_eq!(d["cardIds"], json!([2418, 2419]));

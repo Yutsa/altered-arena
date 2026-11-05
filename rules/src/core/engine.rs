@@ -132,7 +132,11 @@ pub fn proceed(g: &mut Game, confirmed_partial: bool, is_undo: bool) -> R<()> {
 
     // Partial confirmation before handing the flow to another player
     let undo = globals::is(g, "undo")?;
-    if undo && (php::loose_eq(&pref(g, player, 152)?, &json!(1)) || php::loose_eq(&pref(g, player, 104)?, &json!(2))) && php::loose_ne(&pid, &Value::Null) && php::loose_ne(&old_pid, &pid) {
+    if undo
+        && (php::loose_eq(&pref(g, player, 152)?, &json!(1)) || php::loose_eq(&pref(g, player, 104)?, &json!(2)))
+        && php::loose_ne(&pid, &Value::Null)
+        && php::loose_ne(&old_pid, &pid)
+    {
         let pp = node::player_of(g, &pid);
         if !node::is_independent(g, nd, pp)? && globals::get_int(g, "engineChoices")? != 0 && !confirmed_partial {
             framework::jump(g, ST_CONFIRM_PARTIAL_TURN)?;

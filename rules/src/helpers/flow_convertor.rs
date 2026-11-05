@@ -303,7 +303,9 @@ pub fn construct_effect(trinity: &Value, properties: &mut Value) -> R<()> {
         }
     }
 
-    if (!php::isset(&calculated, "noTrigger") || php::strict_eq(php::get(&calculated, "noTrigger"), &json!(false))) && php::isset(&calculated, "outputAttributes") {
+    if (!php::isset(&calculated, "noTrigger") || php::strict_eq(php::get(&calculated, "noTrigger"), &json!(false)))
+        && php::isset(&calculated, "outputAttributes")
+    {
         *properties = merge(&[properties, php::get(&calculated, "outputAttributes")])?;
     }
 
@@ -328,11 +330,7 @@ pub fn construct_effect(trinity: &Value, properties: &mut Value) -> R<()> {
         key = "effectPassive".into();
         node = php::arr();
         php::set(&mut node, "Discard", json!({"conditions": ["isDiscarded::discard"], "output": gain_me_boost(json!(1))}));
-        php::set(
-            &mut node,
-            "ChooseAssignment",
-            json!({"conditions": ["isAfternoon", "isFromReserve", "isSupportEffect"], "output": gain_me_boost(json!(1))}),
-        );
+        php::set(&mut node, "ChooseAssignment", json!({"conditions": ["isAfternoon", "isFromReserve", "isSupportEffect"], "output": gain_me_boost(json!(1))}));
     } else if is(trigger, 797) && php::isset(&node, "ChooseAssignment") && !php::isset(&node, "Discard") {
         let c = php::get(&node, "ChooseAssignment").clone();
         php::set(&mut node, "Discard", c);
@@ -395,11 +393,7 @@ pub fn construct_effect(trinity: &Value, properties: &mut Value) -> R<()> {
                 json!({}),
             ),
         )?;
-        set_in(
-            properties,
-            "effectPassive",
-            json!({"LeaveExpedition": {"output": ft::action("SpecialEffect", json!({"effect": "resetCard"}), json!({}))}}),
-        )?;
+        set_in(properties, "effectPassive", json!({"LeaveExpedition": {"output": ft::action("SpecialEffect", json!({"effect": "resetCard"}), json!({}))}}))?;
         set_in(properties, "seasoned", json!(true))?;
     } else if is(output, 646) {
         let slot = if is(trigger, 22) {
@@ -414,11 +408,7 @@ pub fn construct_effect(trinity: &Value, properties: &mut Value) -> R<()> {
         if let Some(slot) = slot {
             let asleep = ft::gain(json!("EFFECT"), "asleep", json!(1), json!(99));
             set_in(properties, slot, ft::action("Target", json!({"upTo": true, "effect": asleep}), json!({})))?;
-            set_in(
-                php::get_mut(properties, "effectPassive"),
-                "Gain",
-                json!({"conditions": ["isSource", "isFacingSource"], "output": ft::sabotage()}),
-            )?;
+            set_in(php::get_mut(properties, "effectPassive"), "Gain", json!({"conditions": ["isSource", "isFacingSource"], "output": ft::sabotage()}))?;
         }
     } else if is(output, 114) && is(condition, 357) {
         set_in(properties, "costReductionIfEmpty", json!(2))?;

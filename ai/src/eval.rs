@@ -119,7 +119,9 @@ pub fn evaluate(view: &Value, w: &Weights) -> f64 {
     }
 
     // Resources
-    let count = |owner: i64, zone: &str| view["cards"].as_array().map(|c| c.iter().filter(|c| c["owner"].as_i64() == Some(owner) && c["zone"] == zone).count()).unwrap_or(0) as f64;
+    let count = |owner: i64, zone: &str| {
+        view["cards"].as_array().map(|c| c.iter().filter(|c| c["owner"].as_i64() == Some(owner) && c["zone"] == zone).count()).unwrap_or(0) as f64
+    };
     let opp = theirs["id"].as_i64().unwrap_or(0);
     v += w.hand * (i(&mine["handCount"]) - i(&theirs["handCount"]));
     v += w.reserve * (count(me, "reserve") - count(opp, "reserve"));

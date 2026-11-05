@@ -29,10 +29,7 @@ fn base_cost(g: &mut Game, id: i64) -> i64 {
 }
 
 fn count(g: &Game, pid: i64, location: &str, name: Option<&str>) -> usize {
-    g.cards
-        .values()
-        .filter(|c| c.pid == pid && c.location == location && name.is_none_or(|n| c.props.get("name").and_then(Value::as_str) == Some(n)))
-        .count()
+    g.cards.values().filter(|c| c.pid == pid && c.location == location && name.is_none_or(|n| c.props.get("name").and_then(Value::as_str) == Some(n))).count()
 }
 
 /// Plays the card; the next decision must be the choice of the target among cards of both cost
@@ -46,7 +43,12 @@ fn play_then_targets(class: &str, threshold: i64) -> Option<(Game, Vec<i64>)> {
     assert_eq!(d["kind"], "select", "{}: the target is asked first, not a choice ({})", class, d);
     let targets: Vec<i64> = d["cardIds"].as_array().unwrap().iter().filter_map(Value::as_i64).collect();
     let costs: Vec<i64> = targets.iter().map(|t| base_cost(&mut g, *t)).collect();
-    assert!(costs.iter().any(|c| *c < threshold) && costs.iter().any(|c| *c >= threshold), "{}: targets of both cost ranges in one choice ({:?})", class, costs);
+    assert!(
+        costs.iter().any(|c| *c < threshold) && costs.iter().any(|c| *c >= threshold),
+        "{}: targets of both cost ranges in one choice ({:?})",
+        class,
+        costs
+    );
     Some((g, targets))
 }
 

@@ -14,17 +14,22 @@ use serde_json::{json, Value};
 /// `initCustomTurnOrder($key, $order, $callback, $endCallback, $loop, $autoNext, $args)`
 // PHP: altered.game.php:154
 #[allow(clippy::too_many_arguments)]
-pub fn init_custom_turn_order(g: &mut Game, key: &str, order: Option<Vec<PId>>, callback: Value, end_callback: Value, looping: bool, auto_next: bool, args: Value) -> R<()> {
+pub fn init_custom_turn_order(
+    g: &mut Game,
+    key: &str,
+    order: Option<Vec<PId>>,
+    callback: Value,
+    end_callback: Value,
+    looping: bool,
+    auto_next: bool,
+    args: Value,
+) -> R<()> {
     let mut orders = globals::get(g, "customTurnOrders")?;
     let order = match order {
         Some(o) => o,
         None => players::get_turn_order(g, None)?,
     };
-    php::set(
-        &mut orders,
-        key,
-        json!({"order": order, "index": -1, "callback": callback, "args": args, "endCallback": end_callback, "loop": looping}),
-    );
+    php::set(&mut orders, key, json!({"order": order, "index": -1, "callback": callback, "args": args, "endCallback": end_callback, "loop": looping}));
     globals::set(g, "customTurnOrders", orders)?;
     if auto_next {
         next_player_custom_order(g, key)?;
@@ -94,10 +99,35 @@ pub fn jump_to_or_call(g: &mut Game, mixed: &Value, args: &Value) -> R<()> {
 
 /// Game methods callable by name (state actions and turn order callbacks), lowercase
 const METHODS: &[&str] = &[
-    "stgamesetup", "stgameend", "stdecksetup", "stfirstday", "stnewday", "stnewdayinit", "stcheckmorning", "initnewday", "stnewdaydraw",
-    "stafternewday", "stbeforeassignment", "stassignment", "stprebeforedusk", "stbeforedusk", "stdusk", "stadvancedusk", "stafterdusk",
-    "stbeforenight", "stnightcleanup", "stafternightcleanup", "stprenight", "stnight", "stendofnight", "statomicaction", "stresolvestack",
-    "stresolvechoice", "stconfirmturn", "stpreendofgame", "genericplayerchecklisteners",
+    "stgamesetup",
+    "stgameend",
+    "stdecksetup",
+    "stfirstday",
+    "stnewday",
+    "stnewdayinit",
+    "stcheckmorning",
+    "initnewday",
+    "stnewdaydraw",
+    "stafternewday",
+    "stbeforeassignment",
+    "stassignment",
+    "stprebeforedusk",
+    "stbeforedusk",
+    "stdusk",
+    "stadvancedusk",
+    "stafterdusk",
+    "stbeforenight",
+    "stnightcleanup",
+    "stafternightcleanup",
+    "stprenight",
+    "stnight",
+    "stendofnight",
+    "statomicaction",
+    "stresolvestack",
+    "stresolvechoice",
+    "stconfirmturn",
+    "stpreendofgame",
+    "genericplayerchecklisteners",
 ];
 
 pub fn method_exists(name: &str) -> bool {

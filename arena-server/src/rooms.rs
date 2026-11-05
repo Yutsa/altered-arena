@@ -66,12 +66,8 @@ fn view(id: &str, r: &Room, seat: usize) -> Value {
         (None, Some(rid)) if mine.reunion_deck.is_some() => json!({"reunionDeck": rid}),
         _ => Value::Null,
     };
-    let seats: Vec<Value> = r
-        .seats
-        .iter()
-        .zip(PLAYERS)
-        .map(|(s, pid)| json!({"id": pid, "name": s.name, "joined": s.joined, "ready": s.ready, "hasDeck": s.has_deck()}))
-        .collect();
+    let seats: Vec<Value> =
+        r.seats.iter().zip(PLAYERS).map(|(s, pid)| json!({"id": pid, "name": s.name, "joined": s.joined, "ready": s.ready, "hasDeck": s.has_deck()})).collect();
     let mut v = json!({"roomId": id, "seq": r.seq, "you": PLAYERS[seat], "started": r.started, "seats": seats, "deck": deck});
     if let Some(e) = &r.error {
         v["error"] = json!(e);
@@ -81,7 +77,8 @@ fn view(id: &str, r: &Room, seat: usize) -> Value {
 
 /// The seat of the requester's token (required)
 fn seat_of(r: &Room, q: &RoomQuery, headers: &HeaderMap) -> Result<usize, Response> {
-    let token = q.token.clone().or_else(|| headers.get(header::AUTHORIZATION).and_then(|h| h.to_str().ok()).and_then(|h| h.strip_prefix("Bearer ")).map(String::from));
+    let token =
+        q.token.clone().or_else(|| headers.get(header::AUTHORIZATION).and_then(|h| h.to_str().ok()).and_then(|h| h.strip_prefix("Bearer ")).map(String::from));
     let Some(token) = token.filter(|t| !t.is_empty()) else { return Err(error(StatusCode::UNAUTHORIZED, "A player token is required", false)) };
     match r.seats.iter().position(|s| s.token == token) {
         Some(seat) if q.player.map(|p| PLAYERS[seat] == p).unwrap_or(true) => Ok(seat),
@@ -204,7 +201,13 @@ pub struct SeatUpdate {
 
 /// POST /api/v1/rooms/{id}/seat: the player's name, deck (a new deck: no longer ready) and readiness.
 /// When both players are ready, the game starts.
-pub async fn update_seat(State(s): State<Shared>, Path(id): Path<String>, Query(q): Query<RoomQuery>, headers: HeaderMap, Json(req): Json<SeatUpdate>) -> Response {
+pub async fn update_seat(
+    State(s): State<Shared>,
+    Path(id): Path<String>,
+    Query(q): Query<RoomQuery>,
+    headers: HeaderMap,
+    Json(req): Json<SeatUpdate>,
+) -> Response {
     // Check the seat before reading a deck from decks-api
     {
         let rooms = s.rooms.lock().await;

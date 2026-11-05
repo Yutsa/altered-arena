@@ -10,9 +10,9 @@
 //! first it leads to the same game once the same recorded answers are used.
 
 use crate::features::{self, Config, Feats};
+use altered_ai::legal;
 use altered_ai::play::{self, Agent, Observation};
 use altered_ai::search::{self, Ai, Params};
-use altered_ai::legal;
 use altered_replay::native::{self, NativeReplay, NativeStep};
 use altered_rules::Game;
 use rand::SeedableRng;
@@ -147,7 +147,10 @@ impl Trace {
         let now = y.try_decision(r.p).ok().flatten()?;
         let mut a = r.a.clone();
         if let Some(l) = choice_label(&self.decs[i], &r.a) {
-            if let Some(c) = now["choices"].as_array().and_then(|cs| cs.iter().find(|c| choice_label(&now, &json!({"type": "choice", "id": c["id"]})).as_deref() == Some(l.as_str()))) {
+            if let Some(c) = now["choices"]
+                .as_array()
+                .and_then(|cs| cs.iter().find(|c| choice_label(&now, &json!({"type": "choice", "id": c["id"]})).as_deref() == Some(l.as_str())))
+            {
                 a = json!({"type": "choice", "id": c["id"]});
             }
         }
@@ -191,7 +194,9 @@ impl Trace {
                 let mut next = None;
                 'pass: for same_prompt in [true, false] {
                     for i in (k..end).filter(|i| !used[i - k]) {
-                        if same_prompt && x.clone().try_decision(self.n.steps[i].p).ok().flatten().map(|d| d["prompt"].clone()) != Some(self.decs[i]["prompt"].clone()) {
+                        if same_prompt
+                            && x.clone().try_decision(self.n.steps[i].p).ok().flatten().map(|d| d["prompt"].clone()) != Some(self.decs[i]["prompt"].clone())
+                        {
                             continue;
                         }
                         if let Some(y) = self.feed(&x, i) {
@@ -318,7 +323,8 @@ pub fn decisions(path: &str, tables: &Tables, cfg: &Config, interner: &Mutex<Int
             continue;
         }
         let cands = legal::candidates(d);
-        let undone = n.steps.get(k + 1).is_some_and(|r| r.p == s.p && r.a["type"] == "act" && r.a["action"].as_str().is_some_and(|a| a.starts_with("actCancel")));
+        let undone =
+            n.steps.get(k + 1).is_some_and(|r| r.p == s.p && r.a["type"] == "act" && r.a["action"].as_str().is_some_and(|a| a.starts_with("actCancel")));
         if undone {
             skipped.cancelled += 1;
         } else if cands.len() < 2 {

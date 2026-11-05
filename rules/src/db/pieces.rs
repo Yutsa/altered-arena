@@ -43,8 +43,8 @@ pub trait Pieces {
 /// `checkLocation($location, $like)`
 // PHP: Helpers/CachedPieces.php:113
 pub fn check_location(location: &str, like: bool) -> R<()> {
-    let ok = !location.is_empty()
-        && location.chars().enumerate().all(|(i, c)| c.is_ascii_alphanumeric() || c == '-' || (like && c == '%') || (i > 0 && c == '_'));
+    let ok =
+        !location.is_empty() && location.chars().enumerate().all(|(i, c)| c.is_ascii_alphanumeric() || c == '-' || (like && c == '%') || (i > 0 && c == '_'));
     if !ok {
         return Err(PhpError::new(format!("Class Pieces: location must be alphanum and underscore non empty string '{}'", location)));
     }
@@ -68,10 +68,7 @@ pub fn get_in_location<T: Pieces>(g: &Game, location: &str, state: Option<i64>) 
         Some(ids) => ids,
         None => T::all_ids(g).into_iter().filter(|id| location_matches(T::location_ref(g, *id), location)).collect(),
     };
-    Ok(ids
-        .into_iter()
-        .filter(|id| state.is_none_or(|s| php::loose_eq(&T::state_value(g, *id), &Value::from(s))))
-        .collect())
+    Ok(ids.into_iter().filter(|id| state.is_none_or(|s| php::loose_eq(&T::state_value(g, *id), &Value::from(s)))).collect())
 }
 
 /// `getInLocation` for several locations (`where('location', [...])` = in_array)
@@ -187,7 +184,15 @@ pub fn move_all_in_location<T: Pieces>(g: &mut Game, from: &str, to: &str, from_
 
 /// `pickForLocation($nbr, $from, $to, $state, $deckReform)`
 // PHP: Helpers/CachedPieces.php:367
-pub fn pick_for_location<T: Pieces>(g: &mut Game, nbr: usize, from: &str, to: &str, state: i64, deck_reform: bool, reshuffle_listener: &dyn Fn(&mut Game, &str) -> R<()>) -> R<Vec<i64>> {
+pub fn pick_for_location<T: Pieces>(
+    g: &mut Game,
+    nbr: usize,
+    from: &str,
+    to: &str,
+    state: i64,
+    deck_reform: bool,
+    reshuffle_listener: &dyn Fn(&mut Game, &str) -> R<()>,
+) -> R<Vec<i64>> {
     check_location(from, false)?;
     check_location(to, false)?;
     let ids = get_top_of::<T>(g, from, nbr)?;

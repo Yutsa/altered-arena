@@ -92,7 +92,11 @@ fn arena_game(game: &str) -> Result<(String, Record, Vec<Value>), String> {
 }
 
 fn seat_label(seats: &[Value], pid: u32) -> String {
-    seats.iter().find(|s| s["id"] == json!(pid)).map(|s| format!("{} ({})", s["name"].as_str().unwrap_or(""), s["ai"].as_str().unwrap_or(if s["bot"] == true { "bot" } else { "human" }))).unwrap_or_default()
+    seats
+        .iter()
+        .find(|s| s["id"] == json!(pid))
+        .map(|s| format!("{} ({})", s["name"].as_str().unwrap_or(""), s["ai"].as_str().unwrap_or(if s["bot"] == true { "bot" } else { "human" })))
+        .unwrap_or_default()
 }
 
 fn list(a: &[String]) -> Result<(), String> {
@@ -106,7 +110,15 @@ fn list(a: &[String]) -> Result<(), String> {
             if all || d["kind"] == "turn" {
                 let decks = [Value::Null, Value::Null];
                 let nothing = altered_ai::useful::is_useless_play(&Observation::new(&g, pid as i64, &decks), &d, body);
-                println!("#{:<4} {} — {} — {}: {}{}", k, seat_label(&seats, pid), positions::header(&g, pid), d["kind"].as_str().unwrap_or("?"), positions::describe(&g, body), if nothing { "  ← does nothing" } else { "" });
+                println!(
+                    "#{:<4} {} — {} — {}: {}{}",
+                    k,
+                    seat_label(&seats, pid),
+                    positions::header(&g, pid),
+                    d["kind"].as_str().unwrap_or("?"),
+                    positions::describe(&g, body),
+                    if nothing { "  ← does nothing" } else { "" }
+                );
             }
         }
         record::apply(&mut g, e).map_err(|err| format!("event {}: {}", k, err))?;
@@ -125,7 +137,10 @@ fn add(a: &[String]) -> Result<(), String> {
     let e = record.events.get(k).ok_or(format!("the game has {} events", record.events.len()))?;
     let pid = e.player().ok_or(format!("event {} is not a player's answer", k))?;
     let g = record.replay(k)?;
-    let expect = Expect { avoid: flags(a, "--avoid").iter().map(|s| Pattern::parse(s)).collect(), prefer: flags(a, "--prefer").iter().map(|s| Pattern::parse(s)).collect() };
+    let expect = Expect {
+        avoid: flags(a, "--avoid").iter().map(|s| Pattern::parse(s)).collect(),
+        prefer: flags(a, "--prefer").iter().map(|s| Pattern::parse(s)).collect(),
+    };
     if expect.avoid.is_empty() && expect.prefer.is_empty() {
         return Err("give at least one --avoid or --prefer".into());
     }
@@ -155,7 +170,11 @@ fn add(a: &[String]) -> Result<(), String> {
 }
 
 fn position_path(name: &str) -> String {
-    if name.ends_with(".json") { name.to_string() } else { format!("{}/{}.json", DIR, name) }
+    if name.ends_with(".json") {
+        name.to_string()
+    } else {
+        format!("{}/{}.json", DIR, name)
+    }
 }
 
 fn show(a: &[String]) -> Result<(), String> {
@@ -183,7 +202,12 @@ fn run_tests(a: &[String]) -> Result<(), String> {
     if a.iter().any(|x| x == "--off") {
         altered_ai::useful::DISABLED.store(true, std::sync::atomic::Ordering::Relaxed);
     }
-    let mut files: Vec<String> = std::fs::read_dir(DIR).map_err(|e| format!("{}: {}", DIR, e))?.flatten().map(|f| f.path().to_string_lossy().to_string()).filter(|p| p.ends_with(".json")).collect();
+    let mut files: Vec<String> = std::fs::read_dir(DIR)
+        .map_err(|e| format!("{}: {}", DIR, e))?
+        .flatten()
+        .map(|f| f.path().to_string_lossy().to_string())
+        .filter(|p| p.ends_with(".json"))
+        .collect();
     files.sort();
     let (mut passed, mut total) = (0, 0);
     println!("| Position | AI | Passed | Answers |");

@@ -1,10 +1,10 @@
 //! Core/Globals.php: typed game variables stored as JSON in `global_variables`
 
 use crate::game::Game;
+use crate::game::GlobalSlot;
 use crate::php;
 use crate::{PhpError, R};
 use serde_json::{json, Value};
-use crate::game::GlobalSlot;
 use std::sync::Arc;
 
 /// Core/Globals.php:13-98 `$variables`
@@ -104,7 +104,6 @@ pub fn default_of(t: &str) -> Value {
         _ => json!([]),
     }
 }
-
 
 /// `Globals::fetch()` (Core/Globals.php:110-126): every row read back from its JSON.
 /// The round trip is idempotent: values read back since their last change (bits of

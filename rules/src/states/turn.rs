@@ -228,7 +228,8 @@ pub fn st_advance_dusk(g: &mut Game) -> R<()> {
         }
         players::biomes_modifier(g, &mut valid_biomes, p, "", true, false)?;
         for biome in php::keys_str(&valid_biomes) {
-            let value = php::intval(php::get(php::get(&expeditions, "stormLeft"), &biome)) + php::intval(php::get(php::get(&expeditions, "stormRight"), &biome));
+            let value =
+                php::intval(php::get(php::get(&expeditions, "stormLeft"), &biome)) + php::intval(php::get(php::get(&expeditions, "stormRight"), &biome));
             let w = php::get_mut(&mut winners, &biome);
             let cur = php::intval(php::get(w, "value"));
             if cur < value {

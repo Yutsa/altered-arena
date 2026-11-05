@@ -123,7 +123,13 @@ pub fn create(g: &mut Game, items: &Value) -> R<Vec<i64>> {
             g.next_meeple_id += 1;
             g.meeples.insert(
                 id,
-                Meeple { id, location: location.clone(), state: state.to_string(), kind: php::strval(php::get(info, "type")), pid: php::strval(php::get(info, "player_id")) },
+                Meeple {
+                    id,
+                    location: location.clone(),
+                    state: state.to_string(),
+                    kind: php::strval(php::get(info, "type")),
+                    pid: php::strval(php::get(info, "player_id")),
+                },
             );
             ids.push(id);
         }
@@ -159,7 +165,8 @@ pub fn setup_player(g: &mut Game, pid: PId) -> R<Vec<i64>> {
 pub fn create_hero_markers(g: &mut Game) -> R<Vec<i64>> {
     let mut to_create = vec![];
     for pid in crate::managers::players::get_all(g) {
-        let hero = crate::models::player::get_hero(g, pid)?.ok_or_else(|| crate::PhpError::new("Error: Call to a member function isCreateMarkers() on null"))?;
+        let hero =
+            crate::models::player::get_hero(g, pid)?.ok_or_else(|| crate::PhpError::new("Error: Call to a member function isCreateMarkers() on null"))?;
         if crate::models::card::is(g, hero, "createMarkers")? {
             for t in ["ocean", "forest", "mountain"] {
                 to_create.push(json!({"type": t, "location": format!("card-{}", hero), "player_id": pid}));
