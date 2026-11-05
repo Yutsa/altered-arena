@@ -8,6 +8,7 @@ import { DragProvider } from '../game/drag';
 import { Arena } from '../arena/Arena';
 import { ShownTargets } from '../arena/Cast';
 import { useCastStage } from '../game/useCastStage';
+import { useDuskStage } from '../game/useDuskStage';
 import { Inspector } from '../components/Inspector';
 import { forgetGame, isSoloGame, rememberGame, tokenOf } from './storage';
 
@@ -29,7 +30,8 @@ export function GameScreen({
   const game = useGame(gameId, player, token);
   // The opponents' spells are shown beside the mat, then their targets, before their result
   const stage = useCastStage(game.view, player);
-  const view = stage.view;
+  // The end of the day in steps: Dusk, the hero expeditions, the companion ones, the Night
+  const view = useDuskStage(stage.view);
   const refs = useMemo(() => (view ? view.cards.map((c) => c.ref).filter((r): r is string => !!r) : []), [view]);
 
   useEffect(() => {
