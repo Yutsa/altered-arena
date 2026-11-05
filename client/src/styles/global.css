@@ -179,6 +179,8 @@ input, select { font: inherit; }
   0%, 100% { box-shadow: 0 0 0 2px var(--accent), 0 0 8px var(--accent); }
   50% { box-shadow: 0 0 0 3px var(--accent), 0 0 20px var(--accent); }
 }
+/* A pulse that only changes opacity (run by the compositor): see Pulses in arena.css */
+@keyframes pulse-fade { 0%, 100% { opacity: 0; } 50% { opacity: 1; } }
 @keyframes spin { to { transform: rotate(360deg); } }
 @keyframes blink { 50% { opacity: 0.35; } }
 @media (prefers-reduced-motion: reduce) {

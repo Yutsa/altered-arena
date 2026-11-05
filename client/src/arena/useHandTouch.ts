@@ -83,6 +83,7 @@ export function useHandTouch(handRef: RefObject<HTMLDivElement | null>) {
     for (const slot of handRef.current?.querySelectorAll<HTMLElement>('.ah-slot[data-hand-card]') ?? []) {
       const r = slot.getBoundingClientRect();
       slot.dataset.cx = String(r.left + r.width / 2);
+      slot.dataset.top = String(r.top);
     }
     const card = Number(el.dataset.handCard);
     const release = holdTouch();

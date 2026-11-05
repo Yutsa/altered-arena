@@ -1,5 +1,5 @@
 import { useLayoutEffect, useRef } from 'react';
-import { useGameCtx } from '../game/GameContext';
+import { useGame, useGameCtx } from '../game/GameContext';
 import { playCost } from '../game/decisions';
 
 const ICONS = {
@@ -31,10 +31,14 @@ export function CardActions() {
   const id = decision?.kind === 'turn' ? ui.selected : null;
   const ref = useRef<HTMLDivElement>(null);
 
-  // Follows the card: it lifts, the hand fans out again, the window is resized
+  // Follows the card while it moves (it lifts, the hand fans out again: transitions under 0.3 s),
+  // then stops: no measuring on every frame while the menu is open. Again on a new view and on a
+  // resize.
+  const seq = useGame((s) => s.view.seq);
   useLayoutEffect(() => {
     if (id === null) return;
     let raf = 0;
+    let until = 0;
     const follow = () => {
       const el = document.querySelector<HTMLElement>(`.arena [data-card-id="${id}"]`);
       const box = ref.current;
@@ -46,11 +50,20 @@ export function CardActions() {
           box.style.visibility = '';
         } else box.style.visibility = 'hidden';
       }
-      raf = requestAnimationFrame(follow);
+      if (performance.now() < until) raf = requestAnimationFrame(follow);
     };
-    follow();
-    return () => cancelAnimationFrame(raf);
-  }, [id]);
+    const start = () => {
+      cancelAnimationFrame(raf);
+      until = performance.now() + 400;
+      follow();
+    };
+    start();
+    window.addEventListener('resize', start);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener('resize', start);
+    };
+  }, [id, seq]);
 
   if (id === null || decision?.kind !== 'turn') return null;
   const a = aff.get(id);

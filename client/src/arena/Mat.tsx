@@ -360,7 +360,8 @@ function Marker({ player, side, mine, other }: { player: PlayerView; side: Side;
   const dx = (other ? (side === 'hero' ? 0.22 : -0.22) : 0) + shared + (marked ? MARKED_SHIFT : 0);
   // As on BGA: an arrow on the side it would move to, at Dusk as things stand
   const moving = forecast(view, player, side).advances && view.phase !== 'night' && view.phase !== 'setup';
-  const style: CSSProperties = { left: `${((regionCenter(exp.position) + dx) / TRACK_UNITS) * 100}%` };
+  // Where it is on the track (a fraction of its width): a translate, which the compositor animates
+  const style: CSSProperties = { '--at': (regionCenter(exp.position) + dx) / TRACK_UNITS };
   return (
     <button
       type="button"
@@ -386,7 +387,7 @@ function Ghost({ player, side, mine }: { player: PlayerView; side: Side; mine: b
   return (
     <span
       className={`ghost-marker ${mine ? 'mine' : 'theirs'}`}
-      style={{ left: `${((regionCenter(next) + dx) / TRACK_UNITS) * 100}%` }}
+      style={{ '--at': (regionCenter(next) + dx) / TRACK_UNITS }}
     />
   );
 }

@@ -1,5 +1,4 @@
 import { memo } from 'react';
-import { motion } from 'motion/react';
 import { useAff, useCard, useGame, useGameCtx } from '../game/GameContext';
 import { useCardPointer } from '../game/useCardPointer';
 import { useDragState } from '../game/drag';
@@ -7,9 +6,11 @@ import { hasActions } from '../game/decisions';
 import { Card, CardBack, type CardSize } from './Card';
 import './BoardCard.css';
 
-export const cardTransition = { type: 'spring', stiffness: 420, damping: 36, mass: 0.9 } as const;
-
-/** A card of the game: animated between zones (shared layoutId), interactive. */
+/**
+ * A card of my hand, interactive. Its moves are CSS (the fan slides on the compositor) and the
+ * flights of the arena (Web Animations): no JavaScript animation runs on the main thread, and no
+ * layout is measured when it renders (a layout animation library measured every card).
+ */
 export const BoardCard = memo(function BoardCard({
   id,
   size,
@@ -47,12 +48,7 @@ export const BoardCard = memo(function BoardCard({
     className ?? '',
   ].join(' ');
   return (
-    <motion.div
-      layoutId={`card-${id}`}
-      layout
-      transition={cardTransition}
-      initial={{ opacity: 0, scale: 0.85 }}
-      animate={{ opacity: 1, scale: 1 }}
+    <div
       className={cls}
       data-card-id={id}
       style={{ touchAction: draggable || touchElsewhere ? 'none' : undefined }}
@@ -68,6 +64,6 @@ export const BoardCard = memo(function BoardCard({
           {a.tap && <span>T</span>}
         </span>
       )}
-    </motion.div>
+    </div>
   );
 });

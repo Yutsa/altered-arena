@@ -214,30 +214,25 @@ function fanLayout(n: number) {
 }
 
 /**
- * The card under the finger in my hand, shown large above it (touch screens have no hover). It
- * follows its card in the fan, kept inside the window.
+ * The card under the finger in my hand, shown large above it (touch screens have no hover), kept
+ * inside the window. Placed once per card, from the card's place at rest (measured when the finger
+ * came down, useHandTouch): nothing is measured while the finger slides.
  */
 function HandPeek({ id }: { id: number }) {
   const { def } = useGameCtx('def');
   const card = useCard(id);
   const ref = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
-    let raf = 0;
-    const follow = () => {
-      const box = ref.current;
-      const el = document.querySelector<HTMLElement>(`.arena-hand .ah-slot[data-hand-card="${id}"]`);
-      if (box && el) {
-        const r = el.getBoundingClientRect();
-        const w = box.offsetWidth;
-        const x = Math.max(8 + w / 2, Math.min(window.innerWidth - 8 - w / 2, r.left + r.width / 2));
-        box.style.left = `${x}px`;
-        box.style.bottom = `${Math.max(8, window.innerHeight - r.top + 6)}px`;
-        box.style.visibility = '';
-      }
-      raf = requestAnimationFrame(follow);
-    };
-    follow();
-    return () => cancelAnimationFrame(raf);
+    const box = ref.current;
+    const slot = document.querySelector<HTMLElement>(`.arena-hand .ah-slot[data-hand-card="${id}"]`);
+    if (!box || !slot) return;
+    const r = slot.dataset.cx && slot.dataset.top ? null : slot.getBoundingClientRect();
+    const cx = r ? r.left + r.width / 2 : Number(slot.dataset.cx);
+    const top = r ? r.top : Number(slot.dataset.top);
+    const w = box.offsetWidth;
+    box.style.left = `${Math.max(8 + w / 2, Math.min(window.innerWidth - 8 - w / 2, cx))}px`;
+    box.style.bottom = `${Math.max(8, window.innerHeight - top + 6)}px`;
+    box.style.visibility = '';
   }, [id]);
   const d = def(card);
   if (!d) return null;

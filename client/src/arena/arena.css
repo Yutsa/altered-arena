@@ -32,6 +32,10 @@
   position: absolute;
   inset: 0;
   transform-origin: 50% 100%;
+  /* Clipped to its box (which already reaches past every edge of the screen): the mat rows are much
+     wider, and unclipped Chrome split the tilted mat into dozens of overlapping layers, about three
+     times the pixels to composite on every frame */
+  overflow: clip;
 }
 .arena-flights {
   position: fixed;
@@ -452,12 +456,13 @@
 .mc-support.f-NE { background: #5b5b66; --fc: #5b5b66; }
 .mc-support .glyph-white { color: var(--fc); }
 .mc-support:disabled { cursor: default; }
-.mc-support.usable { cursor: pointer; border-color: #fff; animation: arena-support 1.2s ease-in-out infinite; }
+.mc-support.usable { cursor: pointer; border-color: #fff; }
+.mc-support.usable::after { box-shadow: 0 0 0 3px #fff, 0 0 16px 5px #fff; }
 .mc-support.usable:hover { transform: scale(1.18); }
 .mc.is-exhausted .mc-support { filter: grayscale(0.8); }
 .mc.is-exhausted { rotate: 90deg; scale: calc(362 / 505); filter: brightness(0.8); }
 .mc.is-playable { box-shadow: 0 0 0 3px #69db7c, 0 0 16px #69db7c; }
-.mc.is-selectable { border-color: var(--cyan); box-shadow: 0 0 0 3px rgb(127 227 255 / 0.7), 0 0 22px 6px rgb(80 200 255 / 0.5); animation: arena-target 1.2s ease-in-out infinite; }
+.mc.is-selectable { border-color: var(--cyan); box-shadow: 0 0 0 3px rgb(127 227 255 / 0.6), 0 0 14px 4px rgb(80 200 255 / 0.4); }
 .mc.is-picked { border-color: var(--cyan); transform: translateY(-6%) scale(1.06); box-shadow: 0 0 0 5px var(--cyan), 0 0 36px 12px rgb(80 200 255 / 0.85); animation: none; }
 .mc.is-source { box-shadow: 0 0 0 3px #ffd166, 0 0 22px #ffd166; }
 .mc.is-selected { box-shadow: 0 0 0 4px #fff, 0 0 24px #69db7c; }
@@ -494,9 +499,10 @@
   border-radius: 12px;
   background: rgb(127 227 255 / 0.12);
   z-index: 6;
-  animation: arena-target 1.2s ease-in-out infinite;
+  box-shadow: 0 0 0 3px rgb(127 227 255 / 0.6), 0 0 14px 4px rgb(80 200 255 / 0.4);
 }
-.pick-overlay.picked { background: rgb(127 227 255 / 0.32); animation: none; box-shadow: 0 0 24px var(--cyan); }
+.pick-overlay.picked { background: rgb(127 227 255 / 0.32); box-shadow: 0 0 24px var(--cyan); }
+.pick-overlay.picked::after { content: none; }
 
 /* Drop zones on the mat */
 .arena .drop-zone.drop-valid { outline: 3px dashed var(--cyan); outline-offset: -3px; background: rgb(127 227 255 / 0.12); border: none; }
@@ -508,8 +514,9 @@
 .track {
   position: relative;
   border-radius: 12px;
-  outline: 5px solid var(--cream);
-  box-shadow: 0 6px 16px rgb(20 10 40 / 0.5);
+  /* The cream frame is a shadow, not an outline: with an outline Chrome repainted the whole track on
+     every frame of the animations inside it (the arrows of the tokens) */
+  box-shadow: 0 0 0 5px var(--cream), 0 6px 16px rgb(20 10 40 / 0.5);
 }
 .track-drop { position: absolute; inset: 0; border-radius: 10px; overflow: hidden; }
 .storm-tile {
@@ -551,24 +558,28 @@
 .hero-markers { position: absolute; right: calc(var(--marker-size) * -0.42); top: 6%; display: flex; flex-direction: column; gap: calc(var(--marker-size) * 0.1); z-index: 5; }
 .hero-marker { --tot-icon: calc(var(--marker-size) * 0.72); width: var(--tot-icon); height: var(--tot-icon); padding: 0; border: none; background: none; border-radius: 50%; }
 .hero-marker:disabled { cursor: default; }
-.hero-marker.usable { cursor: grab; animation: arena-marker 1.2s ease-in-out infinite; }
+.hero-marker.usable { cursor: grab; position: relative; }
+.hero-marker.usable::after { box-shadow: 0 0 0 4px rgb(255 227 0 / 0.7), 0 0 14px rgb(255 227 0 / 0.6); }
 .hero-marker.out { opacity: 0.25; animation: none; }
 .hero-marker.held { animation: none; translate: 0 -12%; box-shadow: 0 0 0 3px #ffe300, 0 0 16px #ffe300; }
-@keyframes arena-marker { 50% { box-shadow: 0 0 0 4px rgb(255 227 0 / 0.7), 0 0 14px rgb(255 227 0 / 0.6); } }
 .marker-ghost { --tot-icon: var(--ghost-size); position: fixed; z-index: 300; translate: -50% -50%; scale: 1.15; pointer-events: none; filter: drop-shadow(0 12px 12px rgb(0 0 0 / 0.5)); }
 .marker-ghost.over { scale: 1; }
 body:has(.marker-ghost) { cursor: grabbing; }
 /* Both players' tokens on one line, above the biomes; side by side when they share a region */
-.track-lane { position: absolute; inset: 0; pointer-events: none; }
+.track-lane { position: absolute; inset: 0; pointer-events: none; container-type: size; }
+/* Placed by a translate along the track (--at: a fraction of its width, 100cqw), not by left: when a
+   token moves the compositor slides it, the track is not laid out and repainted on every frame */
 .marker,
 .ghost-marker {
   position: absolute;
+  left: 0;
   top: 40%;
   width: var(--marker-size);
   height: var(--marker-size);
-  translate: -50% -50%;
+  translate: calc(var(--at, 0) * 100cqw - 50%) -50%;
   border-radius: 50%;
-  transition: left 0.45s cubic-bezier(0.3, 0.9, 0.3, 1);
+  transition: translate 0.45s cubic-bezier(0.3, 0.9, 0.3, 1);
+  will-change: translate;
 }
 .marker {
   padding: 0;
@@ -589,21 +600,25 @@ body:has(.marker-ghost) { cursor: grabbing; }
   filter: drop-shadow(0 0 2px #000) drop-shadow(0 0 3px rgb(0 0 0 / 0.7));
   pointer-events: none;
   animation: marker-arrow 1.4s ease-in-out infinite;
+  /* Its own layer: inside the tilted mat the animation was not promoted, and repainted the track on
+     every frame */
+  will-change: transform;
 }
 .marker-arrow::before { content: ''; position: absolute; inset: 0; background: #fff; clip-path: polygon(0 0, 100% 50%, 0 100%); }
-.marker-arrow.hero { left: calc(100% + 3px); --nudge: 3px; }
-.marker-arrow.companion { right: calc(100% + 3px); --nudge: -3px; }
+.marker-arrow.hero { left: calc(100% + 3px); }
+.marker-arrow.companion { right: calc(100% + 3px); animation-name: marker-arrow-back; }
 .marker-arrow.companion::before { scale: -1 1; }
-@keyframes marker-arrow {
-  50% { transform: translateX(var(--nudge)); }
-}
+/* Fixed values, one animation per side: a keyframe reading a CSS variable is not run by the
+   compositor, and repainted the track on every frame */
+@keyframes marker-arrow { 50% { transform: translateX(3px); } }
+@keyframes marker-arrow-back { 50% { transform: translateX(-3px); } }
 @media (prefers-reduced-motion: reduce) { .marker-arrow { animation: none; } }
 .marker.mine { box-shadow: 0 0 0 3px var(--me), 0 4px 8px rgb(0 0 0 / 0.6); }
 .marker.theirs { box-shadow: 0 0 0 3px var(--opp), 0 4px 8px rgb(0 0 0 / 0.6); }
 .marker:disabled { cursor: default; }
 .marker.blocked img { filter: grayscale(0.8); }
 .marker.ascended { box-shadow: 0 0 0 3px #e9fbff, 0 0 16px 5px rgb(150 230 255 / 0.85); }
-.marker.selectable { box-shadow: 0 0 0 3px var(--cyan), 0 0 18px var(--cyan); animation: arena-target 1.2s infinite; }
+.marker.selectable { box-shadow: 0 0 0 3px rgb(127 227 255 / 0.6), 0 0 14px 4px rgb(80 200 255 / 0.4); }
 .marker.picked { box-shadow: 0 0 0 5px #fff, 0 0 22px var(--cyan); }
 .ghost-marker { border: 3px dashed #fff; background: rgb(255 255 255 / 0.2); }
 .ghost-marker.theirs { border-color: #ffd0c4; }
@@ -651,7 +666,10 @@ body:has(.marker-ghost) { cursor: grabbing; }
 .track-btn:not(:disabled):hover { filter: brightness(1.15); }
 .track-btn:not(:disabled):active { transform: scale(0.95); }
 .track-btn:disabled { filter: grayscale(0.5) brightness(0.8); cursor: default; }
-.track-btn.hot { animation: arena-hot 1.4s ease-in-out infinite; }
+.track-btn { position: relative; }
+.track-btn.hot { box-shadow: 0 0 0 4px rgb(20 16 50 / 0.55), 0 0 20px rgb(88 166 255 / 0.5); }
+.track-btn.hot::after,
+.pc-switch.attn::after { box-shadow: 0 0 40px rgb(255 217 138 / 0.9); --pulse-s: 1.4s; }
 .track-btn.idle { background: radial-gradient(ellipse at 40% 35%, #4a4f74 0%, #22253f 70%); box-shadow: 0 0 0 4px rgb(20 16 50 / 0.55); flex-direction: row; gap: 0.6em; }
 .tb-label { font: 700 calc(var(--marker-size) * 0.42) / 1 var(--font-title); text-transform: uppercase; letter-spacing: 0.03em; text-align: center; }
 .tb-small { font: 600 calc(var(--marker-size) * 0.22) / 1 var(--font-text); letter-spacing: 0.08em; text-transform: uppercase; color: #9ff0cf; }
@@ -716,7 +734,8 @@ body:has(.marker-ghost) { cursor: grabbing; }
 }
 .pc-switch:hover { filter: brightness(1.15); }
 .pc-switch:active { transform: scale(0.95); }
-.pc-switch.attn { animation: arena-hot 1.4s ease-in-out infinite; }
+.pc-switch { position: relative; }
+.pc-switch.attn { box-shadow: 0 0 0 4px rgb(20 16 50 / 0.55), 0 0 20px rgb(88 166 255 / 0.5); }
 /* Mana gauges on the mat (BGA), beside the totals of each player's expeditions */
 .totals-cell { display: flex; align-items: center; justify-content: center; gap: calc(var(--mana-w) * 0.22); }
 .mana-bar {
@@ -881,7 +900,8 @@ body:has(.marker-ghost) { cursor: grabbing; }
 .arena-plane::after {
   content: '';
   position: absolute;
-  inset: -4px -120px;
+  /* The plane is clipped to its box: a glow wider than it would only be a larger layer */
+  inset: 0;
   border-radius: 28px;
   pointer-events: none;
   opacity: 0;
@@ -889,6 +909,8 @@ body:has(.marker-ghost) { cursor: grabbing; }
   background: radial-gradient(ellipse at 50% 50%, rgb(190 140 255 / 0.22), transparent 70%);
   transition: opacity 0.18s;
   z-index: 30;
+  /* Always there, on its own layer, invisible (a layer at opacity 0 costs nothing to composite):
+     created when a spell is dragged, the table's layers were rebuilt in the middle of the drag */
   will-change: opacity;
 }
 body.drag-spell .arena-plane::after { opacity: 0.35; }
@@ -951,9 +973,11 @@ body.drag-spell .arena .track-drop .drop-label { display: none; }
 .cast-card {
   border-radius: 12px;
   box-shadow: 0 0 0 3px #c58bff, 0 0 34px rgb(190 130 255 / 0.85), 0 18px 30px rgb(0 0 0 / 0.55);
-  animation: arena-cast-glow 1.6s ease-in-out infinite;
+  position: relative;
   cursor: zoom-in;
 }
+.cast-card::after { box-shadow: 0 0 0 3px #ffd27a, 0 0 46px rgb(255 200 120 / 0.8); --pulse-s: 1.6s; }
+.cast-focus.is-effect .cast-card::after { content: none; }
 /* The source of an effect (a copy: the card stays on the mat) glows gold rather than violet */
 .cast-focus.is-effect .cast-card { box-shadow: 0 0 0 3px #ffd27a, 0 0 34px rgb(255 200 120 / 0.75), 0 18px 30px rgb(0 0 0 / 0.55); animation: none; }
 .cast-focus.is-effect .cast-who { color: #ffe2a8; }
@@ -969,7 +993,6 @@ body.drag-spell .arena .track-drop .drop-label { display: none; }
 .cast-name { color: #fff; font-weight: 700; }
 .layout-phone .cast-name { display: none; }
 @keyframes arena-cast-in { from { opacity: 0; scale: 0.8; } }
-@keyframes arena-cast-glow { 50% { box-shadow: 0 0 0 3px #ffd27a, 0 0 46px rgb(255 200 120 / 0.8), 0 18px 30px rgb(0 0 0 / 0.55); } }
 
 /* Arrows from the card being cast to its targets */
 .target-arrows {
@@ -991,9 +1014,20 @@ body.drag-spell .arena .track-drop .drop-label { display: none; }
   animation: arena-arrow-flow 0.5s linear infinite;
 }
 .ta-head { fill: #ffd27a; stroke: rgb(60 30 90 / 0.8); stroke-width: 1.5px; stroke-linejoin: round; filter: drop-shadow(0 0 6px rgb(255 200 120 / 0.9)); }
-.ta-ring { stroke: #ffd27a; stroke-width: 3px; animation: arena-arrow-ring 1s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+.ta-over { will-change: transform; }
+.ta-ring {
+  position: fixed;
+  z-index: 110;
+  width: 36px;
+  height: 36px;
+  margin: -18px 0 0 -18px;
+  border: 3px solid #ffd27a;
+  border-radius: 50%;
+  pointer-events: none;
+  animation: arena-arrow-ring 1s ease-in-out infinite;
+}
 .target-arrows .preview { opacity: 0.6; }
-.target-arrows .preview .ta-line { stroke-width: calc(4px * var(--stage-scale)); stroke-dasharray: calc(5px * var(--stage-scale)) calc(9px * var(--stage-scale)); }
+.target-arrows .preview.ta-line { stroke-width: calc(4px * var(--stage-scale)); stroke-dasharray: calc(5px * var(--stage-scale)) calc(9px * var(--stage-scale)); }
 @keyframes arena-arrow-flow { to { stroke-dashoffset: calc(-25px * var(--stage-scale)); } }
 @keyframes arena-arrow-ring { 50% { scale: 1.35; opacity: 0.4; } }
 
@@ -1008,21 +1042,39 @@ body.drag-spell .arena .track-drop .drop-label { display: none; }
 }
 .ah-slot {
   position: absolute;
-  left: var(--x);
+  left: 0;
   bottom: calc(var(--card-hand-w) * -0.62);
-  translate: -50% 0;
+  /* Its place in the fan and its lowering are in translate, not left/bottom: when the fan opens or
+     closes, the compositor slides the cards, nothing is laid out again on every frame */
+  translate: calc(var(--x) - 50%) var(--lower, 0px);
   transform: translateY(var(--dy)) rotate(var(--rot));
   transform-origin: 50% 150%;
-  transition: transform 0.16s ease-out, bottom 0.16s ease-out, left 0.16s ease-out;
+  transition: transform 0.16s ease-out, translate 0.16s ease-out;
 }
 @media (hover: hover) {
   .ah-slot:hover { transform: translateY(calc(var(--card-hand-w) * -0.62)) scale(1.12) rotate(0deg); z-index: 50 !important; }
 }
 .ah-slot.lifted { transform: translateY(calc(var(--card-hand-w) * -0.5)) rotate(0deg); z-index: 40 !important; }
 /* Touch: the card under the finger rises (the large version is drawn above it: .hand-peek) */
-.ah-slot { touch-action: none; -webkit-touch-callout: none; }
+.ah-slot {
+  touch-action: none;
+  -webkit-touch-callout: none;
+  /* Each card of the hand keeps its own layer: when the fan moves, nothing else is repainted */
+  will-change: transform;
+}
 .ah-slot.focus { transform: translateY(calc(var(--card-hand-w) * -0.32)) rotate(0deg); z-index: 45 !important; transition-duration: 0.08s; }
-.ah-slot.focus .card { box-shadow: 0 0 0 2px #ffd27a, 0 0 18px rgb(255 210 122 / 0.7); }
+/* The card under the finger: a gold glow drawn once, shown by its opacity (no repaint per card) */
+.ah-slot .card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  box-shadow: 0 0 0 2px #ffd27a, 0 0 18px rgb(255 210 122 / 0.7);
+  opacity: 0;
+  transition: opacity 0.08s;
+}
+.ah-slot.focus .card::before { opacity: 1; }
 .arena-hand.touching { z-index: 17; }
 .layout-phone .ah-slot { bottom: calc(var(--card-hand-w) * -0.7); }
 
@@ -1111,17 +1163,8 @@ body.drag-spell .arena .track-drop .drop-label { display: none; }
 
 @keyframes arena-num { from { transform: scale(1.5); color: #ffd98a; } }
 @keyframes arena-pop { from { transform: scale(0.6); opacity: 0; } }
-@keyframes arena-support { 50% { box-shadow: 0 0 0 3px #fff, 0 0 16px 5px #fff; } }
 @keyframes arena-land { 50% { transform: scale(1.08); } }
 @keyframes arena-reveal { from { transform: rotateY(90deg); filter: brightness(2); } }
-@keyframes arena-target {
-  0%, 100% { box-shadow: 0 0 0 3px rgb(127 227 255 / 0.6), 0 0 14px 4px rgb(80 200 255 / 0.4); }
-  50% { box-shadow: 0 0 0 3px rgb(127 227 255 / 0.9), 0 0 26px 8px rgb(80 200 255 / 0.7); }
-}
-@keyframes arena-hot {
-  0%, 100% { box-shadow: 0 0 0 4px rgb(20 16 50 / 0.55), 0 0 20px rgb(88 166 255 / 0.5); }
-  50% { box-shadow: 0 0 0 4px rgb(20 16 50 / 0.55), 0 0 40px rgb(255 217 138 / 0.9); }
-}
 @keyframes arena-fx-up { 30% { box-shadow: 0 0 0 4px #7dff8c, 0 0 30px #7dff8c; } }
 @keyframes arena-fx-down { 30% { box-shadow: 0 0 0 4px #ff6b6b, 0 0 30px #ff6b6b; } }
 @keyframes arena-rise {
@@ -1401,16 +1444,17 @@ body.drag-spell .arena .track-drop .drop-label { display: none; }
 @keyframes eq-badge-in { from { scale: 0.4; opacity: 0; } to { scale: 1; opacity: 1; } }
 
 /* The card of the effect pointed at in the queue: lifted, gold frame, a pulse */
-.mc.is-trigger-focus { z-index: 30; translate: 0 -6%; scale: 1.07; border-color: #ffd27a; animation: trigger-pulse 1.3s ease-out infinite; }
-.board-card.is-trigger-focus .card { animation: trigger-pulse 1.3s ease-out infinite; }
-@keyframes trigger-pulse {
-  0% { box-shadow: 0 0 0 3px #ffd27a, 0 0 0 3px rgb(255 210 122 / 0.9), 0 0 22px rgb(255 210 122 / 0.6), 0 14px 28px rgb(0 0 0 / 0.55); }
-  100% { box-shadow: 0 0 0 3px #ffd27a, 0 0 0 20px rgb(255 210 122 / 0), 0 0 22px rgb(255 210 122 / 0.6), 0 14px 28px rgb(0 0 0 / 0.55); }
-}
+.mc.is-trigger-focus { z-index: 30; translate: 0 -6%; scale: 1.07; border-color: #ffd27a; }
+.mc.is-trigger-focus,
+.board-card.is-trigger-focus .card { box-shadow: 0 0 0 3px #ffd27a, 0 0 22px rgb(255 210 122 / 0.6), 0 14px 28px rgb(0 0 0 / 0.55); }
+/* A ring leaving the card: scaled out and faded (it was a growing shadow, repainted every frame) */
+.mc.is-trigger-focus::after,
+.board-card.is-trigger-focus .card::after { box-shadow: 0 0 0 3px rgb(255 210 122 / 0.9); --pulse: pulse-ring; --pulse-s: 1.3s; --pulse-ease: ease-out; }
+@keyframes pulse-ring { from { transform: scale(1); opacity: 1; } to { transform: scale(1.16); opacity: 0; } }
 
 /* Effects to resolve: the hand is not playable, lowered to its top edge until pointed at */
 .arena-hand.inactive .ah-slot { filter: brightness(0.8); }
-.arena-hand.retracted .ah-slot { bottom: calc(var(--card-hand-w) * -1.15); }
+.arena-hand.retracted .ah-slot { --lower: calc(var(--card-hand-w) * 0.53); }
 /* Retracted under the effects queue: no card comes up under the pointer (the queue's minimize
    button brings the hand up) */
 .arena-hand.retracted .ah-slot { pointer-events: none; }
@@ -1469,3 +1513,30 @@ body.drag-spell .arena .track-drop .drop-label { display: none; }
   .drag-ghost.cast { filter: none; }
   .drag-ghost.cast::before { content: none; }
 }
+
+/*
+ * Pulses: the glow is drawn once, at its brightest, on a pseudo-element over the element's own
+ * (dimmer) glow, and only the pseudo-element's opacity changes. The compositor runs it, at the
+ * screen's rate, without repainting: animated box-shadows were repainted on every frame, inside
+ * the tilted mat (targets) or over it (the card being cast), and made targeting stutter.
+ */
+.mc-support.usable::after,
+.mc.is-selectable::after,
+.pick-overlay::after,
+.hero-marker.usable::after,
+.marker.selectable::after,
+.track-btn.hot::after,
+.pc-switch.attn::after,
+.cast-card::after,
+.mc.is-trigger-focus::after,
+.board-card.is-trigger-focus .card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  animation: var(--pulse, pulse-fade) var(--pulse-s, 1.2s) var(--pulse-ease, ease-in-out) infinite;
+}
+.mc.is-selectable::after,
+.pick-overlay::after,
+.marker.selectable::after { box-shadow: 0 0 0 3px rgb(127 227 255 / 0.9), 0 0 26px 8px rgb(80 200 255 / 0.7); }

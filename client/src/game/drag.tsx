@@ -170,6 +170,8 @@ export function DragProvider({ children }: { children: ReactNode }) {
   const source = useRef<HTMLElement | null>(null);
   const m = useRef<Motion>({ x: 0, y: 0, tx: 0, ty: 0, ry: 0, rx: 0, rz: 0, scale: 1, frame: 0 });
   const unlisten = useRef<(() => void) | null>(null);
+  /** The pointer position not yet hit tested (move -> next frame) */
+  const aim = useRef<{ x: number; y: number } | null>(null);
   /** Touch drags: how far above the finger the ghost's centre is (px) */
   const lift = useRef(0);
 
@@ -181,6 +183,7 @@ export function DragProvider({ children }: { children: ReactNode }) {
 
   // One frame of the ghost: it eases towards its target, and leans with its speed
   const step = useCallback(() => {
+    hitTestRef.current();
     const s = dragRef.current;
     const g = ghostRef.current;
     const k = m.current;
@@ -278,9 +281,20 @@ export function DragProvider({ children }: { children: ReactNode }) {
     const s = dragRef.current;
     if (!s || s.dropped || s.returning) return;
     // A touch drag aims with the card, drawn above the finger
-    const cy = y - lift.current;
     m.current.tx = x;
-    m.current.ty = cy;
+    m.current.ty = y - lift.current;
+    // What is under it is found in the next frame, once (a touch screen sends several moves per frame)
+    aim.current = { x, y };
+  }, []);
+
+  /** The drop zone under the last pointer position, if it moved since the last frame */
+  const hitTest = () => {
+    const p = aim.current;
+    aim.current = null;
+    const s = dragRef.current;
+    if (!p || !s || s.dropped || s.returning) return;
+    const { x, y } = p;
+    const cy = y - lift.current;
     if (touchSpell(s)) {
       // The Cast and Cancel zones are large: the card or the finger may be on them
       const zone = spellZoneAt(x, cy) ?? spellZoneAt(x, y);
@@ -292,10 +306,14 @@ export function DragProvider({ children }: { children: ReactNode }) {
     }
     const over = dropAt(x, cy, s.destinations) ?? (cy !== y ? dropAt(x, y, s.destinations) : null);
     if (over !== s.over) set({ ...s, over });
-  }, []);
+  };
+  const hitTestRef = useRef(hitTest);
+  hitTestRef.current = hitTest;
 
   const end = useCallback(
     (drop: boolean) => {
+      // Released before the next frame: what is under the pointer now decides
+      hitTestRef.current();
       const s = dragRef.current;
       unlisten.current?.();
       document.body.classList.remove('is-dragging');

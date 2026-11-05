@@ -130,10 +130,16 @@ export function TargetArrows() {
       return;
     }
     let hover: { card?: number; exp?: string } | null = null;
+    // The pointer is only noted when it moves; what it points at is found once per frame (a touch
+    // screen sends several moves per frame)
+    let pointer: { x: number; y: number } | null = null;
     const onMove = (e: PointerEvent) => {
+      pointer = { x: e.clientX, y: e.clientY };
+    };
+    const pointed = (x: number, y: number) => {
       hover = null;
       const { decision: d } = state.current;
-      for (const el of document.elementsFromPoint(e.clientX, e.clientY)) {
+      for (const el of document.elementsFromPoint(x, y)) {
         const h = el as HTMLElement;
         if (d?.kind === 'select' && h.dataset.cardId && d.cardIds.includes(Number(h.dataset.cardId)) && !h.classList.contains('cast-card')) {
           hover = { card: Number(h.dataset.cardId) };
@@ -150,6 +156,10 @@ export function TargetArrows() {
     let frame = 0;
     const tick = () => {
       frame = requestAnimationFrame(tick);
+      if (pointer) {
+        pointed(pointer.x, pointer.y);
+        pointer = null;
+      }
       const { decision: d, ui: u, shown: s } = state.current;
       const from = document.querySelector<HTMLElement>('.cast-card')?.getBoundingClientRect();
       if (!from) return;
@@ -183,16 +193,32 @@ export function TargetArrows() {
   }, [active]);
 
   if (!active || arrows.length === 0) return null;
+  // Layers: the blurred glow, still (painted once per change of the arrows); the dashes that flow
+  // along the arrows, on a layer of their own so that their animation never repaints the blur or
+  // the heads' shadows; the heads, still. The ring around a picked target only scales and fades
+  // (compositor).
   return (
-    <svg className="target-arrows" aria-hidden="true">
-      {arrows.map((a) => (
-        <g key={a.key} className={a.picked ? 'picked' : 'preview'}>
-          <path className="ta-glow" d={a.d} />
-          <path className="ta-line" d={a.d} />
-          <polygon className="ta-head" points={a.head} />
-          {a.picked && <circle className="ta-ring" cx={a.x} cy={a.y} r={18} />}
-        </g>
-      ))}
-    </svg>
+    <>
+      <svg className="target-arrows ta-under" aria-hidden="true">
+        {arrows.map((a) => (
+          <path key={a.key} className={`ta-glow ${a.picked ? 'picked' : 'preview'}`} d={a.d} />
+        ))}
+      </svg>
+      <svg className="target-arrows ta-over" aria-hidden="true">
+        {arrows.map((a) => (
+          <path key={a.key} className={`ta-line ${a.picked ? 'picked' : 'preview'}`} d={a.d} />
+        ))}
+      </svg>
+      <svg className="target-arrows" aria-hidden="true">
+        {arrows.map((a) => (
+          <polygon key={a.key} className={`ta-head ${a.picked ? 'picked' : 'preview'}`} points={a.head} />
+        ))}
+      </svg>
+      {arrows
+        .filter((a) => a.picked)
+        .map((a) => (
+          <span key={a.key} className="ta-ring" style={{ left: a.x, top: a.y }} />
+        ))}
+    </>
   );
 }
