@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.4.0](https://github.com/Yutsa/altered-arena/compare/v0.3.0...v0.4.0) (2026-11-05)
+
+
+### Features
+
+* **client:** biome totals as a post at each end of the track ([#9](https://github.com/Yutsa/altered-arena/issues/9)) ([f9f0325](https://github.com/Yutsa/altered-arena/commit/f9f03252e093523bea3d11dc4dab6fc400b78a9b))
+* **client:** main button under the track, larger Reserve and Landmarks ([#12](https://github.com/Yutsa/altered-arena/issues/12)) ([f404064](https://github.com/Yutsa/altered-arena/commit/f404064a8ca7f43552ac8dd8846515148ed67440))
+
+
+### Bug Fixes
+
+* **client:** clicking a card in the target zone plays the selected card there ([#13](https://github.com/Yutsa/altered-arena/issues/13)) ([8541553](https://github.com/Yutsa/altered-arena/commit/854155321274e0eed7cecca73ff5672990e648c3))
+* **server:** show the hero of every deck AI ([#11](https://github.com/Yutsa/altered-arena/issues/11)) ([2b397dc](https://github.com/Yutsa/altered-arena/commit/2b397dc6ef1738a0e2efc3f1e454c90da06c328f))
+
 ## [0.3.0](https://github.com/Yutsa/altered-arena/compare/v0.2.0...v0.3.0) (2026-11-05)
 
 
