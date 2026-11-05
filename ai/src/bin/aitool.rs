@@ -11,11 +11,11 @@
 //! Decks: server/goldens/tournament_decks.json (deck id -> API deck content).
 
 use altered_ai::play::{self, Agent, GameResult, Observation, RandomAgent, SimpleBot};
+use altered_ai::search::{Ai, Params};
+use altered_ai::stats::wilson;
 use altered_ai::{legal, replays, search};
 use rand::SeedableRng;
 use serde_json::json;
-use altered_ai::search::{Ai, Params};
-use altered_ai::stats::wilson;
 use serde_json::Value;
 
 const DECKS: &str = "server/goldens/tournament_decks.json";
@@ -107,7 +107,7 @@ fn pass(n: u64, agent_name: &str, games: u64, threads: usize, params_dir: &str, 
             }
             write_line(serde_json::json!({"i": i, "p": p, "swap": swap, "r": r}));
             let k = done.fetch_add(1, std::sync::atomic::Ordering::SeqCst) + 1;
-            if k % 500 == 0 {
+            if k.is_multiple_of(500) {
                 eprintln!("{} / {} games, {:.0}s", k, jobs.len(), t.elapsed().as_secs_f64());
             }
             (p, swap, r)
@@ -130,7 +130,8 @@ fn pass(n: u64, agent_name: &str, games: u64, threads: usize, params_dir: &str, 
     }
     let file = format!("{}/passes/PASS_{}.json", PRIVATE, n);
     std::fs::create_dir_all(format!("{}/passes", PRIVATE)).unwrap();
-    let doc = serde_json::json!({"pass": n, "agent": agent_name, "games": games, "threads": threads, "wallSeconds": t.elapsed().as_secs_f64(), "pairings": out});
+    let doc =
+        serde_json::json!({"pass": n, "agent": agent_name, "games": games, "threads": threads, "wallSeconds": t.elapsed().as_secs_f64(), "pairings": out});
     std::fs::write(&file, serde_json::to_string_pretty(&doc).unwrap()).unwrap();
     let _ = std::fs::remove_file(&journal_path);
     let errors = results.iter().filter(|(_, _, r)| r.error.is_some()).count();
@@ -156,7 +157,8 @@ fn class_of(g: &altered_rules::Game, id: &Value) -> String {
 fn agree(n: u64, agent_name: &str, params_dir: &str, decks: &Value, threads: usize) {
     let dir = "server/goldens/tournament_replays";
     let seats: Value = serde_json::from_str(&std::fs::read_to_string(format!("{}/table_seats.json", PRIVATE)).expect("table_seats")).unwrap();
-    let mut files: Vec<String> = std::fs::read_dir(dir).expect(dir).flatten().map(|f| f.path().to_string_lossy().to_string()).filter(|f| f.ends_with(".json")).collect();
+    let mut files: Vec<String> =
+        std::fs::read_dir(dir).expect(dir).flatten().map(|f| f.path().to_string_lossy().to_string()).filter(|f| f.ends_with(".json")).collect();
     files.sort();
     let t = std::time::Instant::now();
     let per_file = play::run_parallel(
@@ -238,7 +240,9 @@ fn agree(n: u64, agent_name: &str, params_dir: &str, decks: &Value, threads: usi
         e.1 += 1;
         e.0 += sa as usize;
     }
-    let m = |x: &std::collections::BTreeMap<String, (usize, usize)>| -> Value { Value::Object(x.iter().map(|(k, v)| (k.clone(), json!({"same": v.0, "n": v.1}))).collect()) };
+    let m = |x: &std::collections::BTreeMap<String, (usize, usize)>| -> Value {
+        Value::Object(x.iter().map(|(k, v)| (k.clone(), json!({"same": v.0, "n": v.1}))).collect())
+    };
     let doc = json!({"pass": n, "agent": agent_name, "overall": {"same": overall.0, "n": overall.1}, "simple": {"same": simple.0, "n": simple.1},
         "byKind": m(&by_kind), "simpleByKind": m(&simple_by_kind), "byDeck": m(&by_deck), "errors": errors, "files": files.len()});
     std::fs::create_dir_all(format!("{}/passes", PRIVATE)).unwrap();
@@ -246,7 +250,13 @@ fn agree(n: u64, agent_name: &str, params_dir: &str, decks: &Value, threads: usi
     std::fs::write(format!("{}/decisions.json", PRIVATE), serde_json::to_string(&recs).unwrap()).unwrap();
     println!(
         "agree {}: {} files, {} decisions, AI {:.1} %, simple bot {:.1} %, {} errors, {:.0}s",
-        n, files.len(), overall.1, 100.0 * overall.0 as f64 / overall.1.max(1) as f64, 100.0 * simple.0 as f64 / simple.1.max(1) as f64, errors.len(), t.elapsed().as_secs_f64()
+        n,
+        files.len(),
+        overall.1,
+        100.0 * overall.0 as f64 / overall.1.max(1) as f64,
+        100.0 * simple.0 as f64 / simple.1.max(1) as f64,
+        errors.len(),
+        t.elapsed().as_secs_f64()
     );
 }
 
@@ -318,7 +328,18 @@ fn evolve(round: u64, dir: &str, out: &str, cands: usize, games: u64, sigma: f64
     let ids: Vec<String> = decks.as_object().unwrap().keys().cloned().collect();
     let pairings = load_pairings();
     let opponents = |d: &str| -> Vec<String> {
-        let mut o: Vec<String> = pairings.iter().filter_map(|(a, b)| if a == d { Some(b.clone()) } else if b == d { Some(a.clone()) } else { None }).collect();
+        let mut o: Vec<String> = pairings
+            .iter()
+            .filter_map(|(a, b)| {
+                if a == d {
+                    Some(b.clone())
+                } else if b == d {
+                    Some(a.clone())
+                } else {
+                    None
+                }
+            })
+            .collect();
         let i = ids.iter().position(|x| x == d).unwrap();
         for k in [7, 19] {
             let f = ids[(i + k) % ids.len()].clone();
@@ -477,7 +498,19 @@ fn main() {
             let (lo, hi) = wilson(tot.0, tot.1);
             let ms: u64 = res.iter().map(|(_, r)| r.millis).sum();
             let errs = res.iter().filter(|(_, r)| r.error.is_some()).count();
-            println!("{} vs {}: {:.1} % [{:.1}, {:.1}] of {} games, {} errors, {:.2} s CPU/game, wall {:.0}s\n {}", ag_a, ag_b, 100.0 * tot.0 / tot.1.max(1.0), 100.0 * lo, 100.0 * hi, tot.1, errs, ms as f64 / 1000.0 / res.len() as f64, t.elapsed().as_secs_f64(), line);
+            println!(
+                "{} vs {}: {:.1} % [{:.1}, {:.1}] of {} games, {} errors, {:.2} s CPU/game, wall {:.0}s\n {}",
+                ag_a,
+                ag_b,
+                100.0 * tot.0 / tot.1.max(1.0),
+                100.0 * lo,
+                100.0 * hi,
+                tot.1,
+                errs,
+                ms as f64 / 1000.0 / res.len() as f64,
+                t.elapsed().as_secs_f64(),
+                line
+            );
         }
         Some("ab") => {
             // aitool ab GAMES_PER_PAIRING --params A --params-b B [--pairings K] [--seed S]
@@ -489,7 +522,17 @@ fn main() {
             let t = std::time::Instant::now();
             let (w, d, cpu) = ab(&a, &b, n, k, threads, &decks, seed);
             let (lo, hi) = wilson(w, d);
-            println!("{} vs {}: A wins {:.1} % [{:.1}, {:.1}] of {} games, {:.2} s CPU/game, wall {:.0}s", a, b, 100.0 * w / d.max(1.0), 100.0 * lo, 100.0 * hi, d, cpu, t.elapsed().as_secs_f64());
+            println!(
+                "{} vs {}: A wins {:.1} % [{:.1}, {:.1}] of {} games, {:.2} s CPU/game, wall {:.0}s",
+                a,
+                b,
+                100.0 * w / d.max(1.0),
+                100.0 * lo,
+                100.0 * hi,
+                d,
+                cpu,
+                t.elapsed().as_secs_f64()
+            );
         }
         Some("evolve") => {
             // aitool evolve ROUND --params DIR --out DIR2 [--cands C] [--games G] [--sigma S] [--margin M]

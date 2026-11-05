@@ -14,141 +14,141 @@ use std::sync::Arc;
 
 /// Models/Card.php:42-204 `$propertiesAttributes`
 pub const PROPERTY_TYPES: &[(&str, &str)] = &[
-    ("equinoxId","int"),
-    ("faction","str"),
-    ("name","str"),
-    ("type","str"),
-    ("typeline","str"),
-    ("subtypes","obj"),
-    ("token","bool"),
-    ("uid","str"),
-    ("flavorText","str"),
-    ("effectDesc","str"),
-    ("supportDesc","str"),
-    ("supportIcon","str"),
-    ("artist","str"),
-    ("setIcon","str"),
-    ("serial","str"),
-    ("thumbnail","int"),
-    ("statData","int"),
-    ("extension","str"),
-    ("fullArt","bool"),
-    ("rarity","int"),
-    ("asset","str"),
-    ("mainAsset","str"),
-    ("frame","int"),
-    ("reserveSlots","int"),
-    ("landmarkSlots","int"),
-    ("mountain","int"),
-    ("forest","int"),
-    ("ocean","int"),
-    ("costModifier","obj"),
-    ("costHand","int"),
-    ("costReserve","int"),
-    ("costReductionDiscard","int"),
-    ("dynamicCostReduction","str"),
-    ("effectPlayed","obj"),
-    ("effectHand","obj"),
-    ("effectReserve","obj"),
-    ("effectSupport","obj"),
-    ("effectPassive","obj"),
-    ("effectCompleted","obj"),
-    ("effectTap","obj"),
-    ("effectInfinity","obj"),
-    ("gigantic","bool"),
-    ("dynamicGigantic","str"),
-    ("fleeting","bool"),
-    ("seasoned","bool"),
-    ("minManaOrbs","int"),
-    ("defender","bool"),
-    ("dynamicDefender","str"),
-    ("oppositeDefender","bool"),
-    ("dynamicOppositeDefender","str"),
-    ("eternal","bool"),
-    ("blockingPower","bool"),
-    ("dynamicBlockingPower","str"),
-    ("increaseOpponentCardsCost","int"),
-    ("increaseOpponentCharacterCost","int"),
-    ("increaseOpponentSpellCost","int"),
-    ("increaseOpponentPermanentCost","int"),
-    ("increaseOpponentTokenCost","int"),
-    ("opponentCharactersMinimumCost","int"),
-    ("opponentCardsMinimumCost","int"),
-    ("sacrificeAndNotFleetingGoToReserve","bool"),
-    ("sacrificeAndFleetingDraw","bool"),
-    ("updateExpeditions","obj"),
-    ("blockAutomaticAction","obj"),
-    ("addDice","int"),
-    ("resupply2","bool"),
-    ("leaveExpeditionToMana","bool"),
-    ("leaveExpeditionToManaOrDraw","bool"),
-    ("leaveExpeditionBoostedToMana","bool"),
-    ("tough","int"),
-    ("dynamicTough","str"),
-    ("excludeUniversalTough","bool"),
-    ("excludeSelfTough","bool"),
-    ("dynamicEternal","str"),
-    ("addRoll","int"),
-    ("tapped","bool"),
-    ("extraDatas","obj"),
-    ("playTappedCards","obj"),
-    ("playTappedCharacters","bool"),
-    ("playTappedAllCards","bool"),
-    ("canAlwaysGainFleeting","bool"),
-    ("dynamicGainReplace","obj"),
-    ("defenderIgnoreBehind","bool"),
-    ("ignoreDefender","bool"),
-    ("dynamicIgnoreDefender","str"),
-    ("cooldown","bool"),
-    ("exhaustedReserveSlots","int"),
-    ("costReductionIfEmpty","int"),
-    ("giganticOneCharacter","bool"),
-    ("opponentOceanOnly","bool"),
-    ("opponentMountainOnly","bool"),
-    ("opponentForestOnly","bool"),
-    ("increaseBiomesHighest","bool"),
-    ("advanceTwiceDusk","bool"),
-    ("protectAnchoredInExpedition","bool"),
-    ("protectBoostedInExpedition","bool"),
-    ("increaseReserveCost","int"),
-    ("dynamicIncreaseReserveCost","str"),
-    ("reduceReserveCost","int"),
-    ("dynamicReduceReserveCost","str"),
-    ("dynamicMinimumReserveCost","str"),
-    ("exhaustCharactersMorning","bool"),
-    ("resupplyExhaust","bool"),
-    ("scout","int"),
-    ("dynamicSeasoned","str"),
-    ("expeditionSeasoned","bool"),
-    ("increaseAllOtherCharactersBiomesHighest","bool"),
-    ("ignoreReserveLimit","bool"),
-    ("blockOpponentReserveGain","bool"),
-    ("blockGainNewCounters","bool"),
-    ("allReserveSlots","int"),
-    ("actionInsteadAdvance","str"),
-    ("dynamicReserveSlots","str"),
-    ("reduceCostType","obj"),
-    ("allSpell1Fleeting","bool"),
-    ("costReductionSacrificePermanent","int"),
-    ("revealed","bool"),
-    ("createMarkers","bool"),
-    ("dynamicIncreaseBiomeHighestSelf","str"),
-    ("costReductionLimitation","int"),
-    ("effectPlayedLimited","obj"),
-    ("additionalType","obj"),
-    ("resupplyIfAscended","bool"),
-    ("blockMoveExpedition","bool"),
-    ("reserveAdd","int"),
-    ("expeditionTough","str"),
-    ("playLimitation","str"),
-    ("leaveExpeditionDefect","bool"),
-    ("overrideContact","bool"),
-    ("overrideBehind","bool"),
-    ("defenderIgnoreContact","bool"),
-    ("costReductionTap","int"),
-    ("playCondition","str"),
-    ("cantGainBoost","str"),
-    ("boostIfAscended","bool"),
+    ("equinoxId", "int"),
+    ("faction", "str"),
+    ("name", "str"),
+    ("type", "str"),
+    ("typeline", "str"),
+    ("subtypes", "obj"),
+    ("token", "bool"),
+    ("uid", "str"),
+    ("flavorText", "str"),
+    ("effectDesc", "str"),
+    ("supportDesc", "str"),
+    ("supportIcon", "str"),
+    ("artist", "str"),
+    ("setIcon", "str"),
+    ("serial", "str"),
+    ("thumbnail", "int"),
+    ("statData", "int"),
+    ("extension", "str"),
+    ("fullArt", "bool"),
+    ("rarity", "int"),
+    ("asset", "str"),
+    ("mainAsset", "str"),
+    ("frame", "int"),
+    ("reserveSlots", "int"),
+    ("landmarkSlots", "int"),
+    ("mountain", "int"),
+    ("forest", "int"),
+    ("ocean", "int"),
+    ("costModifier", "obj"),
+    ("costHand", "int"),
+    ("costReserve", "int"),
+    ("costReductionDiscard", "int"),
+    ("dynamicCostReduction", "str"),
+    ("effectPlayed", "obj"),
+    ("effectHand", "obj"),
+    ("effectReserve", "obj"),
+    ("effectSupport", "obj"),
+    ("effectPassive", "obj"),
+    ("effectCompleted", "obj"),
+    ("effectTap", "obj"),
+    ("effectInfinity", "obj"),
+    ("gigantic", "bool"),
+    ("dynamicGigantic", "str"),
+    ("fleeting", "bool"),
+    ("seasoned", "bool"),
+    ("minManaOrbs", "int"),
+    ("defender", "bool"),
+    ("dynamicDefender", "str"),
+    ("oppositeDefender", "bool"),
+    ("dynamicOppositeDefender", "str"),
+    ("eternal", "bool"),
+    ("blockingPower", "bool"),
+    ("dynamicBlockingPower", "str"),
+    ("increaseOpponentCardsCost", "int"),
+    ("increaseOpponentCharacterCost", "int"),
+    ("increaseOpponentSpellCost", "int"),
+    ("increaseOpponentPermanentCost", "int"),
+    ("increaseOpponentTokenCost", "int"),
+    ("opponentCharactersMinimumCost", "int"),
+    ("opponentCardsMinimumCost", "int"),
+    ("sacrificeAndNotFleetingGoToReserve", "bool"),
+    ("sacrificeAndFleetingDraw", "bool"),
+    ("updateExpeditions", "obj"),
+    ("blockAutomaticAction", "obj"),
+    ("addDice", "int"),
+    ("resupply2", "bool"),
+    ("leaveExpeditionToMana", "bool"),
+    ("leaveExpeditionToManaOrDraw", "bool"),
+    ("leaveExpeditionBoostedToMana", "bool"),
+    ("tough", "int"),
+    ("dynamicTough", "str"),
+    ("excludeUniversalTough", "bool"),
+    ("excludeSelfTough", "bool"),
+    ("dynamicEternal", "str"),
+    ("addRoll", "int"),
+    ("tapped", "bool"),
+    ("extraDatas", "obj"),
+    ("playTappedCards", "obj"),
+    ("playTappedCharacters", "bool"),
+    ("playTappedAllCards", "bool"),
+    ("canAlwaysGainFleeting", "bool"),
+    ("dynamicGainReplace", "obj"),
+    ("defenderIgnoreBehind", "bool"),
+    ("ignoreDefender", "bool"),
+    ("dynamicIgnoreDefender", "str"),
+    ("cooldown", "bool"),
+    ("exhaustedReserveSlots", "int"),
+    ("costReductionIfEmpty", "int"),
+    ("giganticOneCharacter", "bool"),
+    ("opponentOceanOnly", "bool"),
+    ("opponentMountainOnly", "bool"),
+    ("opponentForestOnly", "bool"),
+    ("increaseBiomesHighest", "bool"),
+    ("advanceTwiceDusk", "bool"),
+    ("protectAnchoredInExpedition", "bool"),
+    ("protectBoostedInExpedition", "bool"),
+    ("increaseReserveCost", "int"),
+    ("dynamicIncreaseReserveCost", "str"),
+    ("reduceReserveCost", "int"),
+    ("dynamicReduceReserveCost", "str"),
+    ("dynamicMinimumReserveCost", "str"),
+    ("exhaustCharactersMorning", "bool"),
+    ("resupplyExhaust", "bool"),
+    ("scout", "int"),
+    ("dynamicSeasoned", "str"),
+    ("expeditionSeasoned", "bool"),
+    ("increaseAllOtherCharactersBiomesHighest", "bool"),
+    ("ignoreReserveLimit", "bool"),
+    ("blockOpponentReserveGain", "bool"),
+    ("blockGainNewCounters", "bool"),
+    ("allReserveSlots", "int"),
+    ("actionInsteadAdvance", "str"),
+    ("dynamicReserveSlots", "str"),
+    ("reduceCostType", "obj"),
+    ("allSpell1Fleeting", "bool"),
+    ("costReductionSacrificePermanent", "int"),
+    ("revealed", "bool"),
+    ("createMarkers", "bool"),
+    ("dynamicIncreaseBiomeHighestSelf", "str"),
+    ("costReductionLimitation", "int"),
+    ("effectPlayedLimited", "obj"),
+    ("additionalType", "obj"),
+    ("resupplyIfAscended", "bool"),
+    ("blockMoveExpedition", "bool"),
+    ("reserveAdd", "int"),
+    ("expeditionTough", "str"),
+    ("playLimitation", "str"),
+    ("leaveExpeditionDefect", "bool"),
+    ("overrideContact", "bool"),
+    ("overrideBehind", "bool"),
+    ("defenderIgnoreContact", "bool"),
+    ("costReductionTap", "int"),
+    ("playCondition", "str"),
+    ("cantGainBoost", "str"),
+    ("boostIfAscended", "bool"),
 ];
 
 pub fn prop_type(name: &str) -> Option<&'static str> {
@@ -312,7 +312,10 @@ pub fn get_additional_type(g: &mut Game, id: CardId) -> R<Value> {
 // PHP: Models/Card.php:317
 pub fn is_played(g: &Game, id: CardId) -> R<bool> {
     let c = g.card(id)?;
-    Ok(c.location == "stormLeft" || c.location == "stormRight" || c.location == "landmark" || php::loose_eq(c.props.get("type").unwrap_or(&Value::Null), &json!("hero")))
+    Ok(c.location == "stormLeft"
+        || c.location == "stormRight"
+        || c.location == "landmark"
+        || php::loose_eq(c.props.get("type").unwrap_or(&Value::Null), &json!("hero")))
 }
 
 /// `getPlayer()`: the controller (null when no such player)
@@ -349,7 +352,9 @@ pub fn can_be_played(g: &mut Game, id: CardId, player: PId, scout: bool, reserve
     let total_mana = player::get_total_mana(g, player)? as i64;
     if cri > 0 {
         let tc = json!(["token", "character"]);
-        if (player::count_cards_in_location(g, player, "stormLeft", &tc)? == 0 || player::count_cards_in_location(g, player, "stormRight", &tc)? == 0) && !player::has_gigantic(g, player)? {
+        if (player::count_cards_in_location(g, player, "stormLeft", &tc)? == 0 || player::count_cards_in_location(g, player, "stormRight", &tc)? == 0)
+            && !player::has_gigantic(g, player)?
+        {
             cost = sub(&cost, cri);
         }
     }
@@ -394,7 +399,9 @@ pub fn can_be_played(g: &mut Game, id: CardId, player: PId, scout: bool, reserve
         cost = sub(&cost, 2);
     } else if php::loose_eq(&pl, &json!("-2Multi")) {
         let opp = players::get_next_id(g, player)?;
-        if player::count_cards_in_location(g, opp, "stormLeft", &json!("character"))? > 0 || player::count_cards_in_location(g, opp, "stormRight", &json!("character"))? > 0 {
+        if player::count_cards_in_location(g, opp, "stormLeft", &json!("character"))? > 0
+            || player::count_cards_in_location(g, opp, "stormRight", &json!("character"))? > 0
+        {
             cost = sub(&cost, 2);
         }
     }
@@ -462,10 +469,14 @@ pub fn get_playable_location(g: &mut Game, id: CardId, player: PId, forced: &Val
             return Ok(storms_v());
         }
         let mut locations = vec![];
-        if player::count_cards_in_location(g, player, "stormLeft", &tc)? == 0 && ((!forced.is_null() && php::loose_eq(forced, &json!("stormLeft"))) || forced.is_null()) {
+        if player::count_cards_in_location(g, player, "stormLeft", &tc)? == 0
+            && ((!forced.is_null() && php::loose_eq(forced, &json!("stormLeft"))) || forced.is_null())
+        {
             locations.push(json!("stormLeft"));
         }
-        if player::count_cards_in_location(g, player, "stormRight", &tc)? == 0 && ((!forced.is_null() && php::loose_eq(forced, &json!("stormRight"))) || forced.is_null()) {
+        if player::count_cards_in_location(g, player, "stormRight", &tc)? == 0
+            && ((!forced.is_null() && php::loose_eq(forced, &json!("stormRight"))) || forced.is_null())
+        {
             locations.push(json!("stormRight"));
         }
         return Ok(Value::Array(locations));
@@ -556,10 +567,14 @@ pub fn get_scoutable_locations(g: &mut Game, id: CardId, player: PId, forced: &V
         }
         let tc = json!(["token", "character"]);
         let mut locations = vec![];
-        if player::count_cards_in_location(g, player, "stormLeft", &tc)? == 0 && ((!forced.is_null() && php::loose_eq(forced, &json!("stormLeft"))) || forced.is_null()) {
+        if player::count_cards_in_location(g, player, "stormLeft", &tc)? == 0
+            && ((!forced.is_null() && php::loose_eq(forced, &json!("stormLeft"))) || forced.is_null())
+        {
             locations.push(json!("stormLeft_scout"));
         }
-        if player::count_cards_in_location(g, player, "stormRight", &tc)? == 0 && ((!forced.is_null() && php::loose_eq(forced, &json!("stormRight"))) || forced.is_null()) {
+        if player::count_cards_in_location(g, player, "stormRight", &tc)? == 0
+            && ((!forced.is_null() && php::loose_eq(forced, &json!("stormRight"))) || forced.is_null())
+        {
             locations.push(json!("stormRight_scout"));
         }
         return Ok(Value::Array(locations));
@@ -997,7 +1012,9 @@ pub fn get_cost(g: &mut Game, id: CardId, scout: bool, reserve_flip_cost: bool, 
             let cr = get_int(g, id, "costReserve")?;
             if reserve_flip_cost {
                 let ch = get_int(g, id, "costHand")?;
-                return Ok(json!(minimum.max(cr - type_reduction - dynamic + increase - reduce).min(minimum.max(ch - type_reduction - dynamic + increase - reduce))));
+                return Ok(json!(minimum
+                    .max(cr - type_reduction - dynamic + increase - reduce)
+                    .min(minimum.max(ch - type_reduction - dynamic + increase - reduce))));
             }
             Ok(json!(minimum.max(cr - type_reduction - dynamic + increase - reduce)))
         }
@@ -1040,7 +1057,8 @@ pub fn has_biomes_equal_to_highest_self(g: &mut Game, id: CardId) -> R<bool> {
     if php::count(&list) == 0 {
         return Ok(false);
     }
-    let printed = g.card(id)?.props.contains_key("dynamicIncreaseBiomeHighestSelf") && !g.card(id)?.props.get("dynamicIncreaseBiomeHighestSelf").is_some_and(Value::is_null);
+    let printed = g.card(id)?.props.contains_key("dynamicIncreaseBiomeHighestSelf")
+        && !g.card(id)?.props.get("dynamicIncreaseBiomeHighestSelf").is_some_and(Value::is_null);
     if printed && !STORMS.contains(&location(g, id)?.as_str()) {
         return Ok(false);
     }
@@ -1180,7 +1198,8 @@ pub fn get_tough(g: &mut Game, id: CardId) -> R<i64> {
         tough += universal;
         // Rider's Mask
         let other = if loc == "stormLeft" { "stormRight" } else { "stormLeft" };
-        if (player::has_expedition_tough_boosted(g, p, Some(&loc))? || (php::truthy(&is_gigantic(g, id, false)?) && player::has_expedition_tough_boosted(g, p, Some(other))?))
+        if (player::has_expedition_tough_boosted(g, p, Some(&loc))?
+            || (php::truthy(&is_gigantic(g, id, false)?) && player::has_expedition_tough_boosted(g, p, Some(other))?))
             && has_token(g, id, "boost")?
         {
             tough += 1;

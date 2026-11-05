@@ -42,5 +42,5 @@ pub fn play(g: &mut Game, pid: u32, a: &Value) -> Result<Vec<Value>, PhpError> {
     }
     res
 }
-pub mod runner;
 pub mod native;
+pub mod runner;

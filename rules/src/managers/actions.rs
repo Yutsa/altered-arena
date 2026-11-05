@@ -15,10 +15,45 @@ use serde_json::{json, Value};
 
 /// `Actions::$classes` (Managers/Actions.php:15)
 pub const CLASSES: &[&str] = &[
-    "ChooseAssignment", "Discard", "NightCleanup", "Gain", "Target", "Loose", "SpellCleanup", "InvokeToken", "ActivateCard", "Draw",
-    "SpecialEffect", "CheckCondition", "AfterYou", "RollDie", "Resupply", "MoveExpedition", "UseCounter", "ActivateEffect", "Tap", "PlayCard",
-    "MoveCard", "Pay", "DrawMana", "BlockExpedition", "TargetPlayer", "DiscardDo", "TargetExpedition", "Exhaust", "Ready", "Exchange",
-    "Spend", "BoostExchange", "EndAfternoon", "MarkRegion", "MoveRegionMarker", "InteruptReveal", "Shuffle", "DiscardFromDeck", "CompleteFeat",
+    "ChooseAssignment",
+    "Discard",
+    "NightCleanup",
+    "Gain",
+    "Target",
+    "Loose",
+    "SpellCleanup",
+    "InvokeToken",
+    "ActivateCard",
+    "Draw",
+    "SpecialEffect",
+    "CheckCondition",
+    "AfterYou",
+    "RollDie",
+    "Resupply",
+    "MoveExpedition",
+    "UseCounter",
+    "ActivateEffect",
+    "Tap",
+    "PlayCard",
+    "MoveCard",
+    "Pay",
+    "DrawMana",
+    "BlockExpedition",
+    "TargetPlayer",
+    "DiscardDo",
+    "TargetExpedition",
+    "Exhaust",
+    "Ready",
+    "Exchange",
+    "Spend",
+    "BoostExchange",
+    "EndAfternoon",
+    "MarkRegion",
+    "MoveRegionMarker",
+    "InteruptReveal",
+    "Shuffle",
+    "DiscardFromDeck",
+    "CompleteFeat",
 ];
 
 /// `Actions::get($actionId)`: the action class (`in_array` is loose, so the name must match)
@@ -26,12 +61,7 @@ pub const CLASSES: &[&str] = &[
 pub fn get(action_id: &Value) -> R<&'static dyn ActionClass> {
     let name = match action_id {
         Value::String(s) if CLASSES.contains(&s.as_str()) => s.as_str(),
-        _ => {
-            return Err(PhpError::new(format!(
-                "Trying to get an atomic action not defined in Actions.php : {}",
-                php::strval(action_id)
-            )))
-        }
+        _ => return Err(PhpError::new(format!("Trying to get an atomic action not defined in Actions.php : {}", php::strval(action_id)))),
     };
     get_by_name(name)
 }

@@ -2,9 +2,10 @@
 //! the Rust translation: at every node, the player waited for, the decision asked and the state must
 //! be the same; then every recorded answer is applied to a copy of the game.
 //!
-//!   cargo run --release -p goldens -- [DIR] [--only SUBSTRING] [-v] [--create]
+//!   cargo run --release -p goldens -- [DIR] [--only SUBSTRING] [--shard I/N] [-v] [--create]
 //!
 //! DIR defaults to server/goldens. Prints the first difference of each failing file and a summary.
+//! --shard I/N: only the files I, I+N, I+2N... of the sorted list (I from 1), for parallel CI jobs.
 //! --create: whole games start from a game created by the translation (Game::create with the
 //! recorded game id, decks and dice), whose tables must be those PHP dumped after V1::createGame.
 
@@ -196,7 +197,8 @@ fn check_api_deck(data: &Value, r: &mut Report) {
             if diffs.is_empty() {
                 r.passed += 1;
             } else {
-                r.first_failure = Some(format!("created tables differ (php vs rust):\n    {}", diffs.iter().take(10).cloned().collect::<Vec<_>>().join("\n    ")));
+                r.first_failure =
+                    Some(format!("created tables differ (php vs rust):\n    {}", diffs.iter().take(10).cloned().collect::<Vec<_>>().join("\n    ")));
             }
         }
         (Ok(_), Some(e)) => r.first_failure = Some(format!("php refused the deck ({}), rust created the game", e)),
@@ -289,7 +291,20 @@ fn main() {
     // Whole games start from a game created by the translation instead of PHP's tables
     let create = args.iter().any(|a| a == "--create");
     let only = args.iter().position(|a| a == "--only").and_then(|i| args.get(i + 1)).cloned();
-    let dir = args.iter().find(|a| !a.starts_with('-') && Some(*a) != only.as_ref()).cloned().unwrap_or_else(|| "server/goldens".into());
+    let shard = args.iter().position(|a| a == "--shard").and_then(|i| args.get(i + 1)).cloned();
+    let (shard_i, shard_n) = match &shard {
+        Some(s) => {
+            let (i, n) = s.split_once('/').and_then(|(i, n)| Some((i.parse::<usize>().ok()?, n.parse::<usize>().ok()?))).expect("--shard I/N");
+            assert!(i >= 1 && i <= n, "--shard I/N: 1 <= I <= N");
+            (i - 1, n)
+        }
+        None => (0, 1),
+    };
+    let dir = args
+        .iter()
+        .find(|a| !a.starts_with('-') && Some(*a) != only.as_ref() && Some(*a) != shard.as_ref())
+        .cloned()
+        .unwrap_or_else(|| "server/goldens".into());
     let mut files: Vec<PathBuf> = vec![];
     for board in std::fs::read_dir(&dir).expect("golden directory").flatten() {
         for f in std::fs::read_dir(board.path()).into_iter().flatten().flatten() {
@@ -300,6 +315,7 @@ fn main() {
         }
     }
     files.sort();
+    let files: Vec<PathBuf> = files.into_iter().enumerate().filter(|(k, _)| k % shard_n == shard_i).map(|(_, p)| p).collect();
     let t = std::time::Instant::now();
     let results: Vec<(String, Report)> = files
         .par_iter()
@@ -352,7 +368,10 @@ fn main() {
                         if diffs.is_empty() {
                             check_node(&g, &data["tree"], "", &mut r);
                         } else {
-                            r.first_failure = Some(format!("created tables differ (php vs rust):\n    {}", diffs.iter().take(10).cloned().collect::<Vec<_>>().join("\n    ")));
+                            r.first_failure = Some(format!(
+                                "created tables differ (php vs rust):\n    {}",
+                                diffs.iter().take(10).cloned().collect::<Vec<_>>().join("\n    ")
+                            ));
                         }
                     }
                     Err(e) => r.first_failure = Some(format!("cannot create: {}", e)),
@@ -363,9 +382,8 @@ fn main() {
                 Ok(mut g) => {
                     // Replays: the deck shuffles BGA made, in order
                     if let Some(orders) = data["injectShuffles"].as_array() {
-                        g.shuffle_hook = ShuffleHook::Injected(
-                            orders.iter().map(|o| o.as_array().into_iter().flatten().filter_map(Value::as_i64).collect()).collect(),
-                        );
+                        g.shuffle_hook =
+                            ShuffleHook::Injected(orders.iter().map(|o| o.as_array().into_iter().flatten().filter_map(Value::as_i64).collect()).collect());
                     }
                     check_node(&g, &data["tree"], "", &mut r)
                 }
@@ -385,15 +403,46 @@ fn main() {
             failures.push(res);
         }
     }
-    for (name, r) in failures.iter().take(if verbose { usize::MAX } else { 20 }) {
+    let known = known_failures();
+    let (expected, unexpected): (Vec<&(String, Report)>, Vec<_>) = failures.into_iter().partition(|res| known.contains_key(&res.0));
+    for (name, r) in unexpected.iter().take(if verbose { usize::MAX } else { 20 }) {
         println!("FAIL {}: {}", name, r.first_failure.as_deref().unwrap_or(""));
     }
+    for (name, r) in expected.iter().filter(|_| verbose) {
+        println!("KNOWN {} ({}): {}", name, known[name], r.first_failure.as_deref().unwrap_or(""));
+    }
+    // A known failure that passes again must leave the list, so that it cannot regress unnoticed
+    let fixed: Vec<&String> = results.iter().filter(|(name, r)| r.first_failure.is_none() && known.contains_key(name)).map(|(name, _)| name).collect();
+    for name in &fixed {
+        println!("FIXED {}: passes now, remove it from goldens/known_failures.txt", name);
+    }
     println!(
-        "\n{}/{} files pass, {}/{} nodes checked pass ({:.1}s)",
+        "\n{}/{} files pass ({} known failures), {}/{} nodes checked pass ({:.1}s)",
         ok_files,
         results.len(),
+        expected.len(),
         passed,
         nodes,
         t.elapsed().as_secs_f64()
     );
+    if results.is_empty() {
+        println!("no golden file in {}", dir);
+    }
+    if results.is_empty() || !unexpected.is_empty() || !fixed.is_empty() {
+        std::process::exit(1);
+    }
+}
+
+/// goldens/known_failures.txt: `board/file  reason` per line (`#` comments). These files may fail
+/// without failing the run; any other failure fails it.
+fn known_failures() -> std::collections::HashMap<String, String> {
+    let text = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/known_failures.txt")).unwrap_or_default();
+    text.lines()
+        .map(|l| l.split('#').next().unwrap_or("").trim())
+        .filter(|l| !l.is_empty())
+        .map(|l| match l.split_once(char::is_whitespace) {
+            Some((name, reason)) => (name.to_string(), reason.trim().to_string()),
+            None => (l.to_string(), String::new()),
+        })
+        .collect()
 }

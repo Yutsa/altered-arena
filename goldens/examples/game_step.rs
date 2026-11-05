@@ -79,7 +79,10 @@ fn norm(v: &Value) -> String {
         Value::Object(m) => {
             let mut keys: Vec<&String> = m.keys().filter(|k| *k != "id" && *k != "prompt").collect();
             keys.sort();
-            let inner: Vec<String> = keys.iter().map(|k| format!("{:?}:{}", k, if *k == "label" { json!(m[*k].as_str().is_some_and(|s| !s.is_empty())).to_string() } else { norm(&m[*k]) })).collect();
+            let inner: Vec<String> = keys
+                .iter()
+                .map(|k| format!("{:?}:{}", k, if *k == "label" { json!(m[*k].as_str().is_some_and(|s| !s.is_empty())).to_string() } else { norm(&m[*k]) }))
+                .collect();
             format!("{{{}}}", inner.join(","))
         }
         Value::Array(a) => format!("[{}]", a.iter().map(norm).collect::<Vec<_>>().join(",")),
@@ -132,7 +135,13 @@ fn diff_tables(g: &mut Game, t: &Value) {
     for row in t["meeples"].as_array().into_iter().flatten() {
         let id = row["meeple_id"].as_str().and_then(|s| s.parse::<i64>().ok()).unwrap_or(0);
         seen.insert(id);
-        let php = format!("{} {} {} {}", row["type"].as_str().unwrap_or(""), row["meeple_location"].as_str().unwrap_or(""), row["meeple_state"].as_str().unwrap_or(""), row["player_id"].as_str().unwrap_or(""));
+        let php = format!(
+            "{} {} {} {}",
+            row["type"].as_str().unwrap_or(""),
+            row["meeple_location"].as_str().unwrap_or(""),
+            row["meeple_state"].as_str().unwrap_or(""),
+            row["player_id"].as_str().unwrap_or("")
+        );
         let rust = g.meeples.get(&id).map(|m| format!("{} {} {} {}", m.kind, m.location, m.state, m.pid)).unwrap_or("-".into());
         if php != rust {
             println!("  meeple {}: php {} rust {}", id, php, rust);
@@ -214,7 +223,11 @@ fn main() {
                 Err(e) => format!("error {}", e),
             };
             if norm(&node["decision"]) != rd_s {
-                problems.push(format!("  decision\n    php  {}\n    rust {}", node["decision"], rd.map(|d| d.map(|d| d.to_string()).unwrap_or_default()).unwrap_or_else(|e| e.to_string())));
+                problems.push(format!(
+                    "  decision\n    php  {}\n    rust {}",
+                    node["decision"],
+                    rd.map(|d| d.map(|d| d.to_string()).unwrap_or_default()).unwrap_or_else(|e| e.to_string())
+                ));
             }
         }
         if !problems.is_empty() {

@@ -144,7 +144,10 @@ pub(crate) fn gigantic(g: &mut Game, c: CardId) -> R<bool> {
 
 /// PHP `$a + $b` on numbers (ints stay ints)
 pub(crate) fn add(a: &Value, b: &Value) -> Value {
-    let is_float = |v: &Value| matches!(v, Value::Number(n) if n.is_f64()) || matches!(v, Value::String(s) if php::is_numeric_str(s) && (s.contains('.') || s.contains('e') || s.contains('E')));
+    let is_float = |v: &Value| {
+        matches!(v, Value::Number(n) if n.is_f64())
+            || matches!(v, Value::String(s) if php::is_numeric_str(s) && (s.contains('.') || s.contains('e') || s.contains('E')))
+    };
     if is_float(a) || is_float(b) {
         json!(php::floatval(a) + php::floatval(b))
     } else {

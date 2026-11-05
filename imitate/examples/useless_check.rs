@@ -35,7 +35,8 @@ impl Agent for Counted {
             for c in altered_ai::legal::candidates(d) {
                 if useful::is_useless_play(obs, d, &c) {
                     let name = c["cardId"].as_i64().and_then(|id| obs.card_prop(id, "name")).unwrap_or_default();
-                    let zone = obs.view()["cards"].as_array().and_then(|cs| cs.iter().find(|x| x["id"] == c["cardId"]).map(|x| x["zone"].clone())).unwrap_or_default();
+                    let zone =
+                        obs.view()["cards"].as_array().and_then(|cs| cs.iter().find(|x| x["id"] == c["cardId"]).map(|x| x["zone"].clone())).unwrap_or_default();
                     eprintln!("candidate that does nothing: {} from {}", name, zone);
                 }
             }
@@ -92,8 +93,11 @@ fn run() {
             let me = Counted { agent, counts: counts.clone() };
             let opp = Box::new(Ai::new(&a[2], params(&a[2])));
             // Seats alternate
-            let (pair, mut agents): ([Value; 2], [Box<dyn Agent>; 2]) =
-                if seed % 2 == 1 { ([decks[&deck].clone(), decks[&a[2]].clone()], [Box::new(me), opp]) } else { ([decks[&a[2]].clone(), decks[&deck].clone()], [opp, Box::new(me)]) };
+            let (pair, mut agents): ([Value; 2], [Box<dyn Agent>; 2]) = if seed % 2 == 1 {
+                ([decks[&deck].clone(), decks[&a[2]].clone()], [Box::new(me), opp])
+            } else {
+                ([decks[&a[2]].clone(), decks[&deck].clone()], [opp, Box::new(me)])
+            };
             if let Some(e) = play_game(&pair, &mut agents, seed).error {
                 eprintln!("seed {}: {}", seed, e);
             }
@@ -104,5 +108,14 @@ fn run() {
     let mut cards: Vec<_> = c.cards.iter().collect();
     cards.sort_by_key(|(_, k)| std::cmp::Reverse(**k));
     let list: Vec<String> = cards.iter().map(|(n, k)| format!("{} {}", n, k)).collect();
-    println!("{} vs {} ({} games{}): {} plays that do nothing of {} plays; {}", a[1], a[2], n, if useful::DISABLED.load(std::sync::atomic::Ordering::Relaxed) { ", filter off" } else { "" }, c.useless, c.plays, list.join(", "));
+    println!(
+        "{} vs {} ({} games{}): {} plays that do nothing of {} plays; {}",
+        a[1],
+        a[2],
+        n,
+        if useful::DISABLED.load(std::sync::atomic::Ordering::Relaxed) { ", filter off" } else { "" },
+        c.useless,
+        c.plays,
+        list.join(", ")
+    );
 }

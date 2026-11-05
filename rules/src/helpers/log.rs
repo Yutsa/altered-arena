@@ -57,12 +57,7 @@ pub fn start_engine(g: &mut Game) -> R<i64> {
 /// `Log::getLastCheckpoint($includeEngineStarts)`: 1 when there is none
 // PHP: Helpers/Log.php:77
 pub fn get_last_checkpoint(g: &Game, include_engine: bool) -> i64 {
-    g.log
-        .iter()
-        .rev()
-        .find(|e| e.kind == LogKind::Checkpoint || (include_engine && e.kind == LogKind::Engine))
-        .map(|e| e.id)
-        .unwrap_or(1)
+    g.log.iter().rev().find(|e| e.kind == LogKind::Checkpoint || (include_engine && e.kind == LogKind::Engine)).map(|e| e.id).unwrap_or(1)
 }
 
 /// `Log::getUndoableSteps()`: ids of the steps after the last checkpoint, latest first

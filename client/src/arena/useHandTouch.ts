@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type RefObject } from 'react';
-import { useGameCtx } from '../game/GameContext';
-import { holdTouch, useDrag } from '../game/drag';
+import { useGameCtx, useGameStore } from '../game/GameContext';
+import { holdTouch, useDragActions } from '../game/drag';
 import { useInspect } from '../game/inspect';
 
 /** A finger that moves less than this is a tap (px) */
@@ -31,16 +31,18 @@ interface Gesture {
  * can slide along the bottom edge of the screen without leaving the hand.
  */
 export function useHandTouch(handRef: RefObject<HTMLDivElement | null>) {
-  const { aff, decision, sending, clickCard } = useGameCtx();
-  const { begin } = useDrag();
+  const { clickCard } = useGameCtx('clickCard');
+  const { begin } = useDragActions();
+  const store = useGameStore();
   const { hide } = useInspect();
   const [focus, setFocus] = useState<number | null>(null);
   const [peek, setPeek] = useState(false);
   const g = useRef<Gesture | null>(null);
 
   // The latest values, for the window listeners of a gesture
-  const live = useRef({ aff, decision, sending, clickCard, begin, hide });
-  live.current = { aff, decision, sending, clickCard, begin, hide };
+  // The game state is read when the finger moves (no subscription: the hand is not drawn again)
+  const live = useRef({ clickCard, begin, hide });
+  live.current = { clickCard, begin, hide };
 
   const stop = useCallback(() => {
     const cur = g.current;
@@ -121,7 +123,8 @@ export function useHandTouch(handRef: RefObject<HTMLDivElement | null>) {
     }
     if (!cur.moved) return;
     // Raised towards the table: the card leaves the hand, if it can be played
-    const { aff, decision, sending, begin } = live.current;
+    const { begin } = live.current;
+    const { aff, decision, sending } = store.getState();
     const destinations = decision?.kind === 'turn' && !sending ? aff.get(cur.card)?.destinations : undefined;
     if (-dy > LIFT && destinations?.length) {
       const el = handRef.current?.querySelector<HTMLElement>(`.ah-slot[data-hand-card="${cur.card}"] [data-card-id]`);

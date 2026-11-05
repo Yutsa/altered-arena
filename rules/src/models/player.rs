@@ -4,8 +4,8 @@ use crate::core::engine;
 use crate::core::globals;
 use crate::game::{CardId, Game, PId};
 use crate::helpers::{collection, ft, utils};
-use crate::models::action::check_after_listeners;
 use crate::managers::{actions, cards, meeples, players};
+use crate::models::action::check_after_listeners;
 use crate::models::card;
 use crate::php;
 use crate::{PhpError, R};
@@ -19,12 +19,7 @@ pub fn get_name(g: &Game, pid: PId) -> R<String> {
 /// `getPref($prefId)` = `Preferences::get($pId, $prefId)`: the stored value (a string) or null
 // PHP: Core/Preferences.php:131
 pub fn get_pref(g: &Game, pid: PId, pref: i64) -> Value {
-    g.prefs
-        .iter()
-        .find(|p| p.player_id == pid && p.pref_id == pref)
-        .and_then(|p| p.value.clone())
-        .map(Value::String)
-        .unwrap_or(Value::Null)
+    g.prefs.iter().find(|p| p.player_id == pid && p.pref_id == pref).and_then(|p| p.value.clone()).map(Value::String).unwrap_or(Value::Null)
 }
 
 /// `initializeDecks()`: the starter decks the player can choose from (`playerDecks`)
@@ -77,7 +72,16 @@ pub fn can_take_action(g: &mut Game, pid: PId, action: &Value, ctx: Option<usize
 /// card is taken first; picked cards come first in the result; never reshuffles
 // PHP: Models/Player.php:100
 #[allow(clippy::too_many_arguments)]
-pub fn draw(g: &mut Game, pid: PId, nb: i64, from: Option<&str>, to: Option<&str>, source: Option<CardId>, tapped: bool, exhausting_player: Option<PId>) -> R<Vec<CardId>> {
+pub fn draw(
+    g: &mut Game,
+    pid: PId,
+    nb: i64,
+    from: Option<&str>,
+    to: Option<&str>,
+    source: Option<CardId>,
+    tapped: bool,
+    exhausting_player: Option<PId>,
+) -> R<Vec<CardId>> {
     let deck = format!("deck-{}", pid);
     let from = from.map(String::from).unwrap_or_else(|| deck.clone());
     let to = to.unwrap_or("hand").to_string();
@@ -620,7 +624,10 @@ pub fn can_play_tapped_cards(g: &mut Game, pid: PId, ty: &Value, location: &Valu
         if php::truthy(&chars) && php::loose_eq(ty, &json!("character")) {
             return Ok(true);
         }
-        if !ty.is_null() && php::isset(&play_tap, "type") && (php::loose_eq(php::get(&play_tap, "type"), ty) || php::in_array(php::get(&play_tap, "type"), additional)) {
+        if !ty.is_null()
+            && php::isset(&play_tap, "type")
+            && (php::loose_eq(php::get(&play_tap, "type"), ty) || php::in_array(php::get(&play_tap, "type"), additional))
+        {
             return Ok(true);
         }
     }
@@ -882,7 +889,9 @@ pub fn is_in_contact(g: &mut Game, pid: PId, location: Option<&str>) -> R<bool> 
 pub fn has_override_in_contact(g: &mut Game, pid: PId, location: &str) -> R<bool> {
     for c in get_played_cards(g, pid, &Value::Null)? {
         let loc = card::location(g, c)?;
-        if (loc == location || (php::truthy(&card::is_gigantic(g, c, false)?) && (loc == "stormLeft" || loc == "stormRight"))) && card::is(g, c, "overrideContact")? {
+        if (loc == location || (php::truthy(&card::is_gigantic(g, c, false)?) && (loc == "stormLeft" || loc == "stormRight")))
+            && card::is(g, c, "overrideContact")?
+        {
             return Ok(true);
         }
     }
@@ -893,7 +902,9 @@ pub fn has_override_in_contact(g: &mut Game, pid: PId, location: &str) -> R<bool
 pub fn has_override_behind(g: &mut Game, pid: PId, location: &str) -> R<bool> {
     for c in get_played_cards(g, pid, &Value::Null)? {
         let loc = card::location(g, c)?;
-        if (loc == location || (php::truthy(&card::is_gigantic(g, c, false)?) && (loc == "stormLeft" || loc == "stormRight"))) && card::is(g, c, "overrideBehind")? {
+        if (loc == location || (php::truthy(&card::is_gigantic(g, c, false)?) && (loc == "stormLeft" || loc == "stormRight")))
+            && card::is(g, c, "overrideBehind")?
+        {
             return Ok(true);
         }
     }
@@ -908,7 +919,7 @@ pub fn advance_storm(g: &mut Game, pid: PId, token: &str, biomes: &Value, n: i64
     let expedition = if token == "hero" { "stormLeft" } else { "stormRight" };
     let ascended = is_ascended(g, pid, expedition)?;
     let delta = if token == "hero" { n } else { -n };
-    let sid = if token == "hero" { (location + delta).max(0).min(7) } else { (location + delta).min(7).max(0) };
+    let sid = (location + delta).clamp(0, 7);
     if sid == location {
         g.notify("message", json!({"log": "${player_name} expedition cannot move", "player_id": pid}));
         return Ok(false);
@@ -977,8 +988,11 @@ pub fn night_cleanup(g: &mut Game, pid: PId) -> R<Value> {
                 || (card::is(g, cid, "leaveExpeditionBoostedToMana")? && card::count_token(g, cid, "boost")? > 0))
         {
             nodes.push(ft::action("Discard", json!({"cardId": cid, "destination": "mana", "tapped": true, "force": true}), json!({"pId": cpid})));
-            let mut new_node =
-                ft::action("Discard", json!({"cardId": cid, "destination": "reserve", "force": true, "seasoned": seasoned.contains(&cid)}), json!({"pId": cpid}));
+            let mut new_node = ft::action(
+                "Discard",
+                json!({"cardId": cid, "destination": "reserve", "force": true, "seasoned": seasoned.contains(&cid)}),
+                json!({"pId": cpid}),
+            );
             if card::is(g, cid, "leaveExpeditionToManaOrDraw")? {
                 new_node = ft::seq(vec![new_node, ft::action("Draw", json!({"players": "me"}), json!({"pId": cpid}))]);
             }
@@ -990,7 +1004,11 @@ pub fn night_cleanup(g: &mut Game, pid: PId) -> R<Value> {
             continue;
         }
 
-        if !card::has_token(g, cid, "asleep")? && !card::has_token(g, cid, "anchored")? && !card::has_token(g, cid, "fleeting")? && card::is(g, cid, "leaveExpeditionDefect")? {
+        if !card::has_token(g, cid, "asleep")?
+            && !card::has_token(g, cid, "anchored")?
+            && !card::has_token(g, cid, "fleeting")?
+            && card::is(g, cid, "leaveExpeditionDefect")?
+        {
             let mut to_add = ft::seq(vec![
                 ft::gain(json!(cid), "fleeting", json!(1), json!(99)),
                 ft::action("SpecialEffect", json!({"effect": "defect", "cardId": cid}), json!({"sourceId": cid})),
@@ -1008,10 +1026,16 @@ pub fn night_cleanup(g: &mut Game, pid: PId) -> R<Value> {
             let expedition_moves = globals::get(g, "expeditionMoves")?;
             let loc = card::location(g, cid)?;
             let me = pid.to_string();
-            if php::isset(&moves, &me) && php::isset(php::get(&moves, &me), &loc) && php::gt(php::get(php::get(php::get(&moves, &me), &loc), "moves"), &json!(0)) {
+            if php::isset(&moves, &me)
+                && php::isset(php::get(&moves, &me), &loc)
+                && php::gt(php::get(php::get(php::get(&moves, &me), &loc), "moves"), &json!(0))
+            {
                 has_moved = true;
             }
-            if php::isset(&expedition_moves, &me) && php::isset(php::get(&expedition_moves, &me), &loc) && php::gt(php::get(php::get(&expedition_moves, &me), &loc), &json!(0)) {
+            if php::isset(&expedition_moves, &me)
+                && php::isset(php::get(&expedition_moves, &me), &loc)
+                && php::gt(php::get(php::get(&expedition_moves, &me), &loc), &json!(0))
+            {
                 has_moved = true;
             }
             if !has_moved {
@@ -1061,10 +1085,7 @@ pub fn night_cleanup(g: &mut Game, pid: PId) -> R<Value> {
     }
 
     let moved = cards::get_many(g, &json!(moved_to_reserve), true)?;
-    g.notify(
-        "nightCleanup",
-        json!({"player_id": pid, "cards": deleted_cards, "cards2": moved, "cards3": deleted_card_tokens, "meeples": deleted_meeple_ids}),
-    );
+    g.notify("nightCleanup", json!({"player_id": pid, "cards": deleted_cards, "cards2": moved, "cards3": deleted_card_tokens, "meeples": deleted_meeple_ids}));
     if !cleanup_cards.is_empty() {
         g.notify("cleanupCards", json!({"player_id": pid, "cardIds": cleanup_cards}));
     }

@@ -9,8 +9,8 @@ use crate::game_methods;
 use crate::helpers::{collection, ft};
 use crate::managers::{cards, players};
 use crate::models::action::{
-    base_get_player, check_after_listeners, get_arg, get_event, get_source, get_source_id, insert_as_child, param, param_req, push_after_finishing_childs, resolve_action,
-    ActionClass, Ctx,
+    base_get_player, check_after_listeners, get_arg, get_event, get_source, get_source_id, insert_as_child, param, param_req, push_after_finishing_childs,
+    resolve_action, ActionClass, Ctx,
 };
 use crate::models::{card, player};
 use crate::php;
@@ -178,7 +178,10 @@ fn act_discard(a: &Discard, g: &mut Game, ctx: Ctx, card_ids: &Value, automatic:
         } else if !php::in_list(&destination0, &["discard", "landmark", "stormLeft", "stormRight"]) {
             // only the cards not going to discard or triggering classical listener
             cards_to_listen.push(*c);
-        } else if php::loose_eq(&destination0, &json!("discard")) && php::loose_eq(&loc, &json!("hand")) && !php::empty(php::get(&card::get(g, *c, "effectPassive")?, "Discard")) {
+        } else if php::loose_eq(&destination0, &json!("discard"))
+            && php::loose_eq(&loc, &json!("hand"))
+            && !php::empty(php::get(&card::get(g, *c, "effectPassive")?, "Discard"))
+        {
             // Hand cards are not in the global listener pool; add discard-reactive cards explicitly.
             cards_to_listen.push(*c);
         }
@@ -332,7 +335,8 @@ fn act_discard(a: &Discard, g: &mut Game, ctx: Ctx, card_ids: &Value, automatic:
 
         let gigantic = in_storms && php::truthy(&card::is_gigantic(g, c, false)?);
         let sacrifice = is_sacrifice(a, g, ctx)?;
-        let sabotage = is_sabotage(a, g, ctx)? || (php::loose_ne(&get_discard_controller_id(a, g, ctx)?, &json!(pid)) && (original_location == "hand" || original_location == "reserve"));
+        let sabotage = is_sabotage(a, g, ctx)?
+            || (php::loose_ne(&get_discard_controller_id(a, g, ctx)?, &json!(pid)) && (original_location == "hand" || original_location == "reserve"));
         let controller = get_discard_controller_id(a, g, ctx)?;
         let source_id = get_source_id(g, ctx)?;
         let pp = player_req(p, "getId")?;

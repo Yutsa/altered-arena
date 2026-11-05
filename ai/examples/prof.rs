@@ -21,22 +21,38 @@ fn run() {
     let c = legal::candidates(&d);
     let n = 200;
     let t = Instant::now();
-    for _ in 0..n { std::hint::black_box(g.clone()); }
+    for _ in 0..n {
+        std::hint::black_box(g.clone());
+    }
     println!("clone {:.1} us", t.elapsed().as_secs_f64() * 1e6 / n as f64);
     let t = Instant::now();
-    for _ in 0..n { std::hint::black_box(g.decision(p)); }
+    for _ in 0..n {
+        std::hint::black_box(g.decision(p));
+    }
     println!("decision {:.2} ms", t.elapsed().as_secs_f64() * 1e3 / n as f64);
     let t = Instant::now();
-    for _ in 0..n { let mut h = g.clone(); std::hint::black_box(h.view(Some(p), "")); }
+    for _ in 0..n {
+        let mut h = g.clone();
+        let _ = std::hint::black_box(h.view(Some(p), ""));
+    }
     println!("view {:.2} ms", t.elapsed().as_secs_f64() * 1e3 / n as f64);
     let t = Instant::now();
-    for _ in 0..n { let mut h = g.clone(); std::hint::black_box(h.answer(p, &legal::with_id(&d, &c[0]))).ok(); }
+    for _ in 0..n {
+        let mut h = g.clone();
+        std::hint::black_box(h.answer(p, &legal::with_id(&d, &c[0]))).ok();
+    }
     println!("answer {:.2} ms ({})", t.elapsed().as_secs_f64() * 1e3 / n as f64, c[0]);
     let t = Instant::now();
-    for _ in 0..n { let mut h = g.clone(); std::hint::black_box(bot_step(&mut h, p as i64)); }
+    for _ in 0..n {
+        let mut h = g.clone();
+        std::hint::black_box(bot_step(&mut h, p as i64));
+    }
     println!("bot step {:.2} ms", t.elapsed().as_secs_f64() * 1e3 / n as f64);
     let t = Instant::now();
     let mut steps = 0;
-    for _ in 0..20 { let mut h = g.clone(); steps += rollout_day(&mut h, 80); }
+    for _ in 0..20 {
+        let mut h = g.clone();
+        steps += rollout_day(&mut h, 80);
+    }
     println!("rollout {:.2} ms ({} steps each)", t.elapsed().as_secs_f64() * 1e3 / 20.0, steps / 20);
 }

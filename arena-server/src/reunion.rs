@@ -120,10 +120,15 @@ mod tests {
     #[test]
     fn summary_of_a_deck() {
         let r = publisher_response(&sample()).unwrap();
-        let checked = std::thread::Builder::new().stack_size(256 << 20).spawn({
-            let r = r.clone();
-            move || check(&r)
-        }).unwrap().join().unwrap();
+        let checked = std::thread::Builder::new()
+            .stack_size(256 << 20)
+            .spawn({
+                let r = r.clone();
+                move || check(&r)
+            })
+            .unwrap()
+            .join()
+            .unwrap();
         let s = summary("01a19df6-f90d-7b42-8ecf-4b8da7586cfb", &r, checked);
         assert_eq!(s["playable"], true);
         assert_eq!(s["heroRef"], "AX_Common_IsareePebble");

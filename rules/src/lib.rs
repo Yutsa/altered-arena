@@ -1,5 +1,9 @@
 //! Faithful translation of the AlteredBGA PHP rules engine (see docs/RUST_PORT.md)
 
+// The translation keeps the PHP structure: branches PHP wrote twice stay twice, and PHP's
+// method names (Node::from_str) are kept
+#![allow(clippy::if_same_then_else, clippy::should_implement_trait)]
+
 pub mod actions;
 pub mod arena;
 pub mod bot;

@@ -9,7 +9,8 @@ use serde_json::Value;
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let (dir, out) = (args.first().expect("RAW_DIR"), args.get(1).expect("OUT.json"));
-    let mut files: Vec<_> = std::fs::read_dir(dir).expect("RAW_DIR").flatten().map(|f| f.path()).filter(|p| p.extension().is_some_and(|e| e == "json")).collect();
+    let mut files: Vec<_> =
+        std::fs::read_dir(dir).expect("RAW_DIR").flatten().map(|f| f.path()).filter(|p| p.extension().is_some_and(|e| e == "json")).collect();
     files.sort();
     let mut responses = vec![];
     for f in files {

@@ -19,7 +19,7 @@ function Btn({
   kind?: string;
   disabled?: boolean;
 }) {
-  const { sending } = useGameCtx();
+  const { sending } = useGameCtx('sending');
   return (
     <button type="button" className={`btn ${kind}`} onClick={onClick} disabled={disabled || sending}>
       {children}
@@ -29,7 +29,7 @@ function Btn({
 
 /** Pass and Undo, common to every decision kind */
 function CommonButtons({ d, hidePass }: { d: Decision; hidePass?: boolean }) {
-  const { send } = useGameCtx();
+  const { send } = useGameCtx('send');
   return (
     <>
       {d.canPass && !hidePass && <Btn onClick={() => void send({ type: 'pass' })}>{d.passLabel ?? 'Pass'}</Btn>}
@@ -38,7 +38,7 @@ function CommonButtons({ d, hidePass }: { d: Decision; hidePass?: boolean }) {
 }
 
 function ConfirmButton({ d, label = 'Confirm', hidden }: { d: Decision; label?: string; hidden?: boolean }) {
-  const { ui, send } = useGameCtx();
+  const { ui, send } = useGameCtx('ui', 'send');
   if (hidden) return null;
   const a = confirmAnswer(d, ui);
   return (
@@ -49,7 +49,7 @@ function ConfirmButton({ d, label = 'Confirm', hidden }: { d: Decision; label?: 
 }
 
 function TurnControls({ d, hide }: { d: TurnDecision; hide?: PrimaryAction['kind'] }) {
-  const { send } = useGameCtx();
+  const { send } = useGameCtx('send');
   const canAct = d.play.length + d.support.length + d.tap.length > 0;
   // A tapped card shows its actions above itself (arena/CardActions.tsx), its zones on the mat
   return (
@@ -71,7 +71,7 @@ function TurnControls({ d, hide }: { d: TurnDecision; hide?: PrimaryAction['kind
 }
 
 function DeckChooser({ d }: { d: Extract<Decision, { kind: 'deck' }> }) {
-  const { catalog, send } = useGameCtx();
+  const { catalog, send } = useGameCtx('catalog', 'send');
   const [picked, setPicked] = useState<string | null>(null);
   const { decks } = useDecks();
   const list = d.decks.length ? d.decks : (decks ?? []);
@@ -91,7 +91,7 @@ function DeckChooser({ d }: { d: Extract<Decision, { kind: 'deck' }> }) {
 }
 
 function Controls({ d, hide }: { d: Decision; hide?: PrimaryAction['kind'] }) {
-  const { view, ui, send, byId, def } = useGameCtx();
+  const { view, ui, send, byId, def } = useGameCtx('view', 'ui', 'send', 'byId', 'def');
   const hideConfirm = hide === 'confirm';
   const hidePass = hide === 'pass';
   switch (d.kind) {
@@ -245,7 +245,7 @@ function Controls({ d, hide }: { d: Decision; hide?: PrimaryAction['kind'] }) {
 
 /** The effects to resolve; identical ones (The Hunger's boosts...) are one button that resolves them all */
 function ChoiceButtons({ d, hidePass }: { d: Extract<Decision, { kind: 'choice' }>; hidePass: boolean }) {
-  const { send, repeatChoice } = useGameCtx();
+  const { send, repeatChoice } = useGameCtx('send', 'repeatChoice');
   const groups = new Map<string, typeof d.choices>();
   for (const c of d.choices) {
     const k = c.enabled ? choiceKey(c) : `off|${c.id}`;
@@ -273,7 +273,7 @@ function ChoiceButtons({ d, hidePass }: { d: Extract<Decision, { kind: 'choice' 
 }
 
 function ExpeditionButton({ d, optKey, label, picked, single }: { d: Extract<Decision, { kind: 'expedition' }>; optKey: string; label: string; picked: boolean; single: boolean }) {
-  const { send, setUI } = useGameCtx();
+  const { send, setUI } = useGameCtx('send', 'setUI');
   return (
     <Btn
       kind={picked ? 'primary picked' : 'primary'}
@@ -324,7 +324,7 @@ function infoOnly(view: GameView, d: Decision, hide: PrimaryAction['kind'] | und
  * controls; the arena draws the first on the track, the second above the hand.
  */
 export function DecisionBar({ primaryOnTrack = false, before, only }: { primaryOnTrack?: boolean; before?: ReactNode; only?: 'info' | 'controls' }) {
-  const { view, decision, byId, def, sending, inspectCard, auto } = useGameCtx();
+  const { view, decision, byId, def, sending, inspectCard, auto } = useGameCtx('view', 'decision', 'byId', 'def', 'sending', 'inspectCard', 'auto');
   const [flash, setFlash] = useState(false);
   const decisionId = decision?.id;
   useEffect(() => {

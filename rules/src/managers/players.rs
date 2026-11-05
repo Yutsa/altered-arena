@@ -528,13 +528,15 @@ pub fn get_ignore_defenders(g: &mut Game, defenders: &mut Value, ignore_defender
                     !w.is_null() && php::loose_ne(w, &json!(-1)) && php::loose_ne(w, &php::key_value(&pid_k)) && has(defenders)
                 } {
                     php::unset(php::get_mut(defenders, &pid_k), &storm);
-                } else if php::loose_eq(power, &json!("contact")) && {
-                    let p = get_by_value(g, &php::key_value(&pid_k)).ok_or_else(|| PhpError::new("Error: Call to a member function isInContact() on null"))?;
-                    player::is_in_contact(g, p, Some(&storm))?
-                } {
-                    if php::key_exists(defenders, &pid_k) {
-                        php::unset(php::get_mut(defenders, &pid_k), &storm);
+                } else if php::loose_eq(power, &json!("contact"))
+                    && {
+                        let p =
+                            get_by_value(g, &php::key_value(&pid_k)).ok_or_else(|| PhpError::new("Error: Call to a member function isInContact() on null"))?;
+                        player::is_in_contact(g, p, Some(&storm))?
                     }
+                    && php::key_exists(defenders, &pid_k)
+                {
+                    php::unset(php::get_mut(defenders, &pid_k), &storm);
                 }
             }
         }

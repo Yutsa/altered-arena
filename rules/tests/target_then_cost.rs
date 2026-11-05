@@ -8,13 +8,8 @@ use altered_rules::models::card;
 use altered_rules::Game;
 use serde_json::{json, Value};
 
-/// The rich board of a card (the golden files are not in git: GOLDENS_DIR, else server/goldens)
-fn board(class: &str) -> Option<(Game, i64)> {
-    let dir = std::env::var("GOLDENS_DIR").unwrap_or_else(|_| concat!(env!("CARGO_MANIFEST_DIR"), "/../server/goldens").to_string());
-    let data: Value = serde_json::from_slice(&std::fs::read(format!("{}/rich/{}.json", dir, class)).ok()?).ok()?;
-    let g = Game::from_bga_tables(&data["db"], &[3, 1, 6, 4, 2, 5]).expect("load");
-    Some((g, data["cardId"].as_i64().expect("cardId")))
-}
+mod common;
+use common::rich as board;
 
 fn answer(g: &mut Game, player: u32, mut a: Value) {
     let d = g.decision(player).expect("a decision");
@@ -29,10 +24,7 @@ fn base_cost(g: &mut Game, id: i64) -> i64 {
 }
 
 fn count(g: &Game, pid: i64, location: &str, name: Option<&str>) -> usize {
-    g.cards
-        .values()
-        .filter(|c| c.pid == pid && c.location == location && name.is_none_or(|n| c.props.get("name").and_then(Value::as_str) == Some(n)))
-        .count()
+    g.cards.values().filter(|c| c.pid == pid && c.location == location && name.is_none_or(|n| c.props.get("name").and_then(Value::as_str) == Some(n))).count()
 }
 
 /// Plays the card; the next decision must be the choice of the target among cards of both cost
@@ -46,7 +38,12 @@ fn play_then_targets(class: &str, threshold: i64) -> Option<(Game, Vec<i64>)> {
     assert_eq!(d["kind"], "select", "{}: the target is asked first, not a choice ({})", class, d);
     let targets: Vec<i64> = d["cardIds"].as_array().unwrap().iter().filter_map(Value::as_i64).collect();
     let costs: Vec<i64> = targets.iter().map(|t| base_cost(&mut g, *t)).collect();
-    assert!(costs.iter().any(|c| *c < threshold) && costs.iter().any(|c| *c >= threshold), "{}: targets of both cost ranges in one choice ({:?})", class, costs);
+    assert!(
+        costs.iter().any(|c| *c < threshold) && costs.iter().any(|c| *c >= threshold),
+        "{}: targets of both cost ranges in one choice ({:?})",
+        class,
+        costs
+    );
     Some((g, targets))
 }
 

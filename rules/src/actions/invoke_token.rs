@@ -23,10 +23,7 @@ const STORMS: [&str; 2] = ["stormLeft", "stormRight"];
 fn get_token(g: &Game, ctx: Ctx) -> R<ClassData> {
     let token_type = php::strval(&get_ctx_arg(g, ctx, "tokenType"));
     let faction = php::explode("_", &token_type).into_iter().next().unwrap_or_default();
-    cards::classes()
-        .get(&token_type)
-        .cloned()
-        .ok_or_else(|| PhpError::new(format!("Error: Class \"\\ALT\\Cards\\{}\\{}\" not found", faction, token_type)))
+    cards::classes().get(&token_type).cloned().ok_or_else(|| PhpError::new(format!("Error: Class \"\\ALT\\Cards\\{}\\{}\" not found", faction, token_type)))
 }
 
 /// `getToken()->getName()`
@@ -236,7 +233,10 @@ fn act_invoke_token(a: &InvokeToken, g: &mut Game, ctx: Ctx, location: &Value) -
         let loc_key = php::key_of(&location);
         let mut boost_expedition = location.clone();
         let opposite = if php::loose_eq(&location, &json!("stormLeft")) { json!("stormRight") } else { json!("stormLeft") };
-        if !php::isset(php::get(&boosts, &pk), &loc_key) && php::truthy(&card::is_gigantic(g, c, false)?) && php::isset(php::get(&boosts, &pk), &php::key_of(&opposite)) {
+        if !php::isset(php::get(&boosts, &pk), &loc_key)
+            && php::truthy(&card::is_gigantic(g, c, false)?)
+            && php::isset(php::get(&boosts, &pk), &php::key_of(&opposite))
+        {
             boost_expedition = opposite;
         }
         let bk = php::key_of(&boost_expedition);
@@ -296,7 +296,9 @@ impl ActionClass for InvokeToken {
     fn get_description(&self, g: &mut Game, ctx: Ctx) -> R<Value> {
         let name = token_name(&get_token(g, ctx)?);
         let locations: Vec<String> = get_display_location(g, ctx)?.iter().map(php::strval).collect();
-        Ok(json!({"log": "Invoke ${tokenName} in ${location}", "args": {"tokenName": name, "location": locations.join(", "), "i18n": ["tokenName", "location"]}}))
+        Ok(
+            json!({"log": "Invoke ${tokenName} in ${location}", "args": {"tokenName": name, "location": locations.join(", "), "i18n": ["tokenName", "location"]}}),
+        )
     }
 
     // PHP: Actions/InvokeToken.php:114

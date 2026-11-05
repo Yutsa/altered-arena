@@ -8,7 +8,10 @@ use crate::framework::ST_RESUPPLY;
 use crate::game::{Game, PId};
 use crate::helpers::{conditions, ft};
 use crate::managers::players;
-use crate::models::action::{check_after_listeners, get_arg, get_event_recursive, get_source, get_source_id, insert_as_child, push_after_finishing_childs, resolve_action, ActionClass, Ctx};
+use crate::models::action::{
+    check_after_listeners, get_arg, get_event_recursive, get_source, get_source_id, insert_as_child, push_after_finishing_childs, resolve_action, ActionClass,
+    Ctx,
+};
 use crate::models::{card, player};
 use crate::php;
 use crate::{PhpError, R};

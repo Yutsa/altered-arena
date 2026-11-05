@@ -157,7 +157,10 @@ impl ActionClass for MoveCard {
             let mut boosts = globals::get(g, "nextCharacterInExpeditionBoost")?;
             let back = php::key_of(&opposite(&card::location(g, c)?));
             let cpid = card::pid(g, c)?.to_string();
-            if php::loose_eq(&card::get(g, c, "type")?, &json!("character")) && php::isset(php::get(&boosts, &cpid), &back) && !php::truthy(&card::is_gigantic(g, c, false)?) {
+            if php::loose_eq(&card::get(g, c, "type")?, &json!("character"))
+                && php::isset(php::get(&boosts, &cpid), &back)
+                && !php::truthy(&card::is_gigantic(g, c, false)?)
+            {
                 let n = php::get(php::get(&boosts, &cpid), &back).clone();
                 action::insert_as_child(g, ctx, &json!({"action": "boost", "args": {"cardId": c, "type": "boost", "n": n}}))?;
                 let p = player.ok_or_else(|| PhpError::new("Error: Call to a member function getId() on null"))?;

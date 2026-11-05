@@ -7,6 +7,20 @@ edition = "2021"
 version = "0.1.0"
 license = "MIT"
 
+# Checked in CI with `cargo clippy --workspace --all-targets -- -D warnings`
+[workspace.lints.clippy]
+# Translated PHP functions keep their signatures and return types
+too_many_arguments = "allow"
+type_complexity = "allow"
+# axum handlers return Result<_, Response>
+result_large_err = "allow"
+
 [profile.release]
 lto = "thin"
 codegen-units = 4
+
+# CI: the release optimisations without LTO, which links each test binary for minutes
+[profile.ci]
+inherits = "release"
+lto = false
+codegen-units = 16

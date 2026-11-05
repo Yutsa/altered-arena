@@ -1,0 +1,3 @@
+# Matches the style the code was written in (long lines, one-line small items)
+max_width = 160
+use_small_heuristics = "Max"

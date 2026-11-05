@@ -407,21 +407,17 @@ pub fn update_card_id(g: &mut Game, node_v: &Value, card_id: &Value, card_from: 
     let cid = php::get(php::get(&nd, "args"), "cardId").clone();
     let keep_placeholder = cid == json!("me") || cid == json!("mana") || (preserve && cid == json!("EFFECT"));
     let needs_prior = is_target && target_needs_prior_selection_ctx(&nd);
-    if !is_target || needs_prior {
-        if !php::isset(php::get(&nd, "args"), "cardId") || !keep_placeholder {
-            if !is_target || !card_id.is_null() {
+    if (!is_target || needs_prior) && (!php::isset(php::get(&nd, "args"), "cardId") || !keep_placeholder) && (!is_target || !card_id.is_null()) {
+        let args = php::get_mut(&mut nd, "args");
+        php::set(args, "cardId", card_id.clone());
+        php::set(args, "cardFrom", card_from.clone());
+        php::set(args, "ownerId", owner_id.clone());
+        if !card_id.is_null() && !php::is_arr(card_id) && php::in_list(card_from, &["stormLeft", "stormRight"]) {
+            let found = cards::get_raw(g, card_id, false)?;
+            if let Some(c) = found.card() {
+                let gig = crate::models::card::is_gigantic(g, c, false)?;
                 let args = php::get_mut(&mut nd, "args");
-                php::set(args, "cardId", card_id.clone());
-                php::set(args, "cardFrom", card_from.clone());
-                php::set(args, "ownerId", owner_id.clone());
-                if !card_id.is_null() && !php::is_arr(card_id) && php::in_list(card_from, &["stormLeft", "stormRight"]) {
-                    let found = cards::get_raw(g, card_id, false)?;
-                    if let Some(c) = found.card() {
-                        let gig = crate::models::card::is_gigantic(g, c, false)?;
-                        let args = php::get_mut(&mut nd, "args");
-                        php::set(args, "wasGigantic", gig);
-                    }
-                }
+                php::set(args, "wasGigantic", gig);
             }
         }
     }

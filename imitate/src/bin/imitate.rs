@@ -30,7 +30,8 @@ fn opt(args: &[String], name: &str) -> Option<String> {
 
 fn replays() -> Vec<String> {
     let dir = format!("{}/native", PRIVATE);
-    let mut files: Vec<String> = std::fs::read_dir(&dir).expect("native").flatten().map(|f| f.path().to_string_lossy().to_string()).filter(|f| f.ends_with(".replay.json")).collect();
+    let mut files: Vec<String> =
+        std::fs::read_dir(&dir).expect("native").flatten().map(|f| f.path().to_string_lossy().to_string()).filter(|f| f.ends_with(".replay.json")).collect();
     files.sort();
     if let Some(n) = std::env::var("IMIT_FILES").ok().and_then(|s| s.parse::<usize>().ok()) {
         files.truncate(n);
@@ -84,7 +85,15 @@ fn print_summary(s: &Summary, label: &str) {
     let all = &s.groups["ALL"];
     println!(
         "{}: player mean {:.2} %, decisions {:.2} % (top-3 {:.1} %, mean log-lik {:.3}, n {}), train {:.1} %, bot {:.1} %, deck AI {:.1} %",
-        label, s.player_mean, s.decision_mean, s.top3, s.mean_ll, all.n, all.pct(all.train), all.base_pct(all.bot), all.base_pct(all.ai)
+        label,
+        s.player_mean,
+        s.decision_mean,
+        s.top3,
+        s.mean_ll,
+        all.n,
+        all.pct(all.train),
+        all.base_pct(all.bot),
+        all.base_pct(all.ai)
     );
     let groups: Vec<String> = s.groups.iter().filter(|(k, _)| *k != "ALL").map(|(k, r)| format!("{} {:.0}({})", k, r.pct(r.top1), r.n)).collect();
     println!("  {}", groups.join(", "));
@@ -115,7 +124,11 @@ fn run() {
             let interner = Mutex::new(Interner::default());
             let res = cv::par_map(&files, threads, |f| dataset::decisions(f, &tables, &cfg, &interner, None));
             std::fs::create_dir_all(data_dir(&args)).unwrap();
-            std::fs::write(format!("{}/config.json", data_dir(&args)), serde_json::to_string(&json!({"copies": cfg.copies, "finish_steps": cfg.finish_steps, "seed": cfg.seed})).unwrap()).unwrap();
+            std::fs::write(
+                format!("{}/config.json", data_dir(&args)),
+                serde_json::to_string(&json!({"copies": cfg.copies, "finish_steps": cfg.finish_steps, "seed": cfg.seed})).unwrap(),
+            )
+            .unwrap();
             let mut decs = vec![];
             let mut skipped = dataset::Skipped::default();
             for (d, _, s) in res {
@@ -132,7 +145,13 @@ fn run() {
             let cands: usize = decs.iter().map(|d| d.labels.len()).sum();
             println!(
                 "extract: {} files, {} decisions, {} candidates, {} features, {} decisions whose answer is no candidate, skipped {:?}, {:.0}s",
-                files.len(), decs.len(), cands, names.len(), unreachable, skipped, t.elapsed().as_secs_f64()
+                files.len(),
+                decs.len(),
+                cands,
+                names.len(),
+                unreachable,
+                skipped,
+                t.elapsed().as_secs_f64()
             );
         }
         Some("baseline") => {
@@ -154,7 +173,13 @@ fn run() {
                     writeln!(out, "{}", serde_json::to_string(&x).unwrap()).unwrap();
                 }
             }
-            println!("baseline: {} decisions, simple bot {:.1} %, deck AI {:.1} %, {:.0}s", n, 100.0 * bot as f64 / n as f64, 100.0 * ai as f64 / n as f64, t.elapsed().as_secs_f64());
+            println!(
+                "baseline: {} decisions, simple bot {:.1} %, deck AI {:.1} %, {:.0}s",
+                n,
+                100.0 * bot as f64 / n as f64,
+                100.0 * ai as f64 / n as f64,
+                t.elapsed().as_secs_f64()
+            );
         }
         Some("cv") => {
             let t = std::time::Instant::now();
@@ -177,7 +202,8 @@ fn run() {
             let tag = opt(&args, "--tag").unwrap_or("last".into());
             print_summary(&s, &tag);
             std::fs::create_dir_all(format!("{}/cv", OUT)).unwrap();
-            std::fs::write(format!("{}/cv/{}.json", OUT, tag), serde_json::to_string_pretty(&json!({"hyper": h, "drop": drops(&args), "summary": s})).unwrap()).unwrap();
+            std::fs::write(format!("{}/cv/{}.json", OUT, tag), serde_json::to_string_pretty(&json!({"hyper": h, "drop": drops(&args), "summary": s})).unwrap())
+                .unwrap();
             let p: Vec<Value> = decs.iter().zip(&preds).map(|(d, p)| json!({"table": d.table, "step": d.step, "player": d.player, "group": d.group, "prompt": d.prompt, "day": d.day, "n": d.labels.len(), "top1": p.top1, "best": p.best, "labels": d.labels.iter().enumerate().filter(|(_, x)| **x).map(|(i, _)| i).collect::<Vec<_>>()})).collect();
             std::fs::write(format!("{}/cv/{}.preds.json", OUT, tag), serde_json::to_string(&p).unwrap()).unwrap();
             eprintln!("cv {:.0}s", t.elapsed().as_secs_f64());
@@ -202,9 +228,12 @@ fn run() {
                 let raw = |j: usize, x: f64| x / m.scale[j];
                 let weights: BTreeMap<String, f64> = (0..f).filter(|&j| keep[j] && theta[j] != 0.0).map(|j| (names[j].clone(), raw(j, theta[j]))).collect();
                 let offsets: Vec<BTreeMap<String, f64>> = (0..m.players.len())
-                    .map(|p| (0..f).filter(|&j| keep[j] && theta[f * (1 + p) + j].abs() > 1e-9).map(|j| (names[j].clone(), raw(j, theta[f * (1 + p) + j]))).collect())
+                    .map(|p| {
+                        (0..f).filter(|&j| keep[j] && theta[f * (1 + p) + j].abs() > 1e-9).map(|j| (names[j].clone(), raw(j, theta[f * (1 + p) + j]))).collect()
+                    })
                     .collect();
-                let dcfg: Value = std::fs::read_to_string(format!("{}/config.json", dir)).ok().and_then(|s| serde_json::from_str(&s).ok()).unwrap_or(Value::Null);
+                let dcfg: Value =
+                    std::fs::read_to_string(format!("{}/config.json", dir)).ok().and_then(|s| serde_json::from_str(&s).ok()).unwrap_or(Value::Null);
                 members.push((dcfg["seed"].as_u64().unwrap_or(0), weights, offsets));
                 players = m.players.clone();
                 if first.is_none() {
@@ -219,7 +248,8 @@ fn run() {
                 hs.finish()
             });
             let search_pick = names.iter().zip(&keep).any(|(n, k)| *k && n.starts_with("s:pick"));
-            let dcfg: Value = std::fs::read_to_string(format!("{}/config.json", data_dir(&args))).ok().and_then(|s| serde_json::from_str(&s).ok()).unwrap_or(Value::Null);
+            let dcfg: Value =
+                std::fs::read_to_string(format!("{}/config.json", data_dir(&args))).ok().and_then(|s| serde_json::from_str(&s).ok()).unwrap_or(Value::Null);
             let copies = dcfg["copies"].as_u64().unwrap_or(1) as usize;
             let finish_steps = dcfg["finish_steps"].as_u64().map(|x| x as usize).unwrap_or(Config::default().finish_steps);
             let more: Vec<Member> = members[1..].iter().map(|(seed, w, _)| Member { seed: *seed, weights: w.clone() }).collect();
@@ -227,7 +257,8 @@ fn run() {
             std::fs::create_dir_all(format!("{}/players", OUT)).unwrap();
             std::fs::write(format!("{}/shared.json", OUT), serde_json::to_string_pretty(&shared).unwrap()).unwrap();
             let deck_of: HashMap<&str, &str> = decs.iter().map(|d| (d.player.as_str(), d.deck.as_str())).collect();
-            let deck_info: Value = std::fs::read_to_string(format!("{}/decks.json", PRIVATE)).ok().and_then(|s| serde_json::from_str(&s).ok()).unwrap_or(Value::Null);
+            let deck_info: Value =
+                std::fs::read_to_string(format!("{}/decks.json", PRIVATE)).ok().and_then(|s| serde_json::from_str(&s).ok()).unwrap_or(Value::Null);
             for (p, name) in players.iter().enumerate() {
                 let deck = deck_of[name.as_str()].to_string();
                 let hero = deck_info[&deck]["heroName"].as_str().unwrap_or("").to_string();
@@ -265,10 +296,15 @@ fn gate(args: &[String], threads: usize) {
     let games: u64 = opt(args, "--games").and_then(|s| s.parse().ok()).unwrap_or(20);
     let decks: Value = serde_json::from_str(&std::fs::read_to_string("server/goldens/tournament_decks.json").unwrap()).unwrap();
     let shared: Shared = serde_json::from_str(&std::fs::read_to_string(format!("{}/shared.json", OUT)).unwrap()).unwrap();
-    let mut files: Vec<PlayerFile> = std::fs::read_dir(format!("{}/players", OUT)).unwrap().flatten().filter_map(|f| serde_json::from_str(&std::fs::read_to_string(f.path()).ok()?).ok()).collect();
+    let mut files: Vec<PlayerFile> = std::fs::read_dir(format!("{}/players", OUT))
+        .unwrap()
+        .flatten()
+        .filter_map(|f| serde_json::from_str(&std::fs::read_to_string(f.path()).ok()?).ok())
+        .collect();
     files.sort_by(|a, b| a.deck.cmp(&b.deck));
     let ids: Vec<String> = decks.as_object().unwrap().keys().cloned().collect();
-    let read_params = |d: &str| -> Params { std::fs::read_to_string(format!("ai/params/{}.json", d)).ok().and_then(|s| serde_json::from_str(&s).ok()).unwrap_or_default() };
+    let read_params =
+        |d: &str| -> Params { std::fs::read_to_string(format!("ai/params/{}.json", d)).ok().and_then(|s| serde_json::from_str(&s).ok()).unwrap_or_default() };
     // (player index, game, imitation AI or deck AI)
     let jobs: Vec<(usize, u64, bool)> = (0..files.len()).flat_map(|p| (0..games).flat_map(move |g| [(p, g, true), (p, g, false)])).collect();
     let t = std::time::Instant::now();
@@ -279,10 +315,18 @@ fn gate(args: &[String], threads: usize) {
             let pf = &files[p];
             let i = ids.iter().position(|x| *x == pf.deck).unwrap_or(0);
             let opp = &ids[(i + 1 + (g as usize * 7) % (ids.len() - 1)) % ids.len()];
-            let me: Box<dyn Agent> = if imit { Box::new(Imitator::new("imit", &shared, Some(pf), Some(read_params(&pf.deck)))) } else { Box::new(Ai::new("deck", read_params(&pf.deck))) };
+            let me: Box<dyn Agent> = if imit {
+                Box::new(Imitator::new("imit", &shared, Some(pf), Some(read_params(&pf.deck))))
+            } else {
+                Box::new(Ai::new("deck", read_params(&pf.deck)))
+            };
             let other: Box<dyn Agent> = Box::new(Ai::new("opp", read_params(opp)));
             let swap = g % 2 == 1;
-            let (pair, mut agents, seat) = if swap { ([decks[opp].clone(), decks[&pf.deck].clone()], [other, me], 1) } else { ([decks[&pf.deck].clone(), decks[opp].clone()], [me, other], 0) };
+            let (pair, mut agents, seat) = if swap {
+                ([decks[opp].clone(), decks[&pf.deck].clone()], [other, me], 1)
+            } else {
+                ([decks[&pf.deck].clone(), decks[opp].clone()], [me, other], 0)
+            };
             let r = play::play_game(&pair, &mut agents, 300_000 + p as u64 * 1000 + g);
             (r.winner.map(|w| w == seat), r.error, r.day, r.refused[seat], r.millis)
         },
@@ -310,10 +354,34 @@ fn gate(args: &[String], threads: usize) {
         let rate = 100.0 * iw as f64 / id.max(1) as f64;
         rows.push(json!({"player": pf.player, "deck": pf.deck, "imitation": {"wins": iw, "decided": id, "errors": ie, "refused": ir, "ms": ims},
             "deckAi": {"wins": aw, "decided": ad, "errors": ae}, "collapse": rate < 15.0}));
-        println!("{} {}: imitation {}/{} ({:.0} %), deck AI {}/{}, errors {} / {}, refused {}, {:.0} ms/game{}", pf.deck, file_name(&pf.player), iw, id, rate, aw, ad, ie.len(), ae.len(), ir, ims, if rate < 15.0 { "  COLLAPSE" } else { "" });
+        println!(
+            "{} {}: imitation {}/{} ({:.0} %), deck AI {}/{}, errors {} / {}, refused {}, {:.0} ms/game{}",
+            pf.deck,
+            file_name(&pf.player),
+            iw,
+            id,
+            rate,
+            aw,
+            ad,
+            ie.len(),
+            ae.len(),
+            ir,
+            ims,
+            if rate < 15.0 { "  COLLAPSE" } else { "" }
+        );
     }
-    println!("gate: imitation {:.1} % ({} games), deck AI {:.1} % on the same matchups, {:.0}s", 100.0 * tw / tn.max(1.0), tn, 100.0 * dw / dn.max(1.0), t.elapsed().as_secs_f64());
-    std::fs::write(format!("{}/gate.json", OUT), serde_json::to_string_pretty(&json!({"games": games, "rows": rows, "imitation": tw / tn.max(1.0), "deckAi": dw / dn.max(1.0)})).unwrap()).unwrap();
+    println!(
+        "gate: imitation {:.1} % ({} games), deck AI {:.1} % on the same matchups, {:.0}s",
+        100.0 * tw / tn.max(1.0),
+        tn,
+        100.0 * dw / dn.max(1.0),
+        t.elapsed().as_secs_f64()
+    );
+    std::fs::write(
+        format!("{}/gate.json", OUT),
+        serde_json::to_string_pretty(&json!({"games": games, "rows": rows, "imitation": tw / tn.max(1.0), "deckAi": dw / dn.max(1.0)})).unwrap(),
+    )
+    .unwrap();
 }
 
 fn pct(r: &Value, k: &str, n: &str) -> f64 {
@@ -331,7 +399,9 @@ fn report(args: &[String]) {
     let gate = read(format!("{}/gate.json", OUT));
     let preds = read(format!("{}/cv/{}.preds.json", OUT, tag));
     let s = &cv["summary"];
-    let mut files: Vec<PlayerFile> = std::fs::read_dir(format!("{}/players", OUT)).map(|d| d.flatten().filter_map(|f| serde_json::from_str(&std::fs::read_to_string(f.path()).ok()?).ok()).collect()).unwrap_or_default();
+    let mut files: Vec<PlayerFile> = std::fs::read_dir(format!("{}/players", OUT))
+        .map(|d| d.flatten().filter_map(|f| serde_json::from_str(&std::fs::read_to_string(f.path()).ok()?).ok()).collect())
+        .unwrap_or_default();
     files.sort_by(|a, b| a.deck.cmp(&b.deck));
     let mut o = String::new();
     o += "# Imitation AIs of tournament 617607: report\n\n";
@@ -349,14 +419,29 @@ fn report(args: &[String]) {
     o += "### By decision kind (held-out top-1)\n\n| kind | decisions | final | first model | simple bot | deck AI |\n|---|---|---|---|---|---|\n";
     for (g, r) in s["groups"].as_object().unwrap() {
         let rb = &b["summary"]["groups"][g];
-        o += &format!("| {} | {} | {:.1} % | {:.1} % | {:.1} % | {:.1} % |\n", g, r["n"], pct(r, "top1", "n"), pct(rb, "top1", "n"), pct(r, "bot", "base_n"), pct(r, "ai", "base_n"));
+        o += &format!(
+            "| {} | {} | {:.1} % | {:.1} % | {:.1} % | {:.1} % |\n",
+            g,
+            r["n"],
+            pct(r, "top1", "n"),
+            pct(rb, "top1", "n"),
+            pct(r, "bot", "base_n"),
+            pct(r, "ai", "base_n")
+        );
     }
     o += "\n### By day\n\n| day | decisions | final | first model |\n|---|---|---|---|\n";
     for (g, r) in s["days"].as_object().unwrap() {
-        o += &format!("| {} | {} | {:.1} % | {:.1} % |\n", g, r["n"], pct(r, "top1", "n"), pct(if b["summary"]["days"][g].is_null() { &b["summary"]["days"][g.trim_end_matches('+')] } else { &b["summary"]["days"][g] }, "top1", "n"));
+        o += &format!(
+            "| {} | {} | {:.1} % | {:.1} % |\n",
+            g,
+            r["n"],
+            pct(r, "top1", "n"),
+            pct(if b["summary"]["days"][g].is_null() { &b["summary"]["days"][g.trim_end_matches('+')] } else { &b["summary"]["days"][g] }, "top1", "n")
+        );
     }
     o += "\n## Players\n\nHeld-out top-1 per decision kind: turn / Mana / target / choice / other.\n\n| AI (player — hero) | deck | games | decisions | simple bot | deck AI | first model | **final** | top-3 | train | turn | Mana | target | choice | other | gate wins | deck AI wins |\n|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|\n";
-    let gate_rows: HashMap<String, Value> = gate["rows"].as_array().into_iter().flatten().map(|r| (r["player"].as_str().unwrap_or("").to_string(), r.clone())).collect();
+    let gate_rows: HashMap<String, Value> =
+        gate["rows"].as_array().into_iter().flatten().map(|r| (r["player"].as_str().unwrap_or("").to_string(), r.clone())).collect();
     for pf in &files {
         let r = &s["players"][&pf.player];
         let rb = &b["summary"]["players"][&pf.player];
@@ -371,9 +456,27 @@ fn report(args: &[String]) {
         }
         let gr = &gate_rows.get(&pf.player).cloned().unwrap_or(Value::Null);
         let gw = |k: &str| format!("{}/{}", gr[k]["wins"], gr[k]["decided"]);
-        o += &format!("| {} | {} | {} | {} | {:.1} | {:.1} | {:.1} | **{:.1}** | {:.1} | {:.1} | {} | {} | {} | {} | {:.0} | {}{} | {} |\n",
-            if pf.label.is_empty() { &pf.player } else { &pf.label }, pf.deck, s["games"][&pf.player], r["n"], pct(r, "bot", "base_n"), pct(r, "ai", "base_n"), pct(rb, "top1", "n"), pct(r, "top1", "n"), pct(r, "top3", "n"), pct(r, "train", "n"),
-            g("turn"), g("mana"), g("target"), g("choice"), 100.0 * other.0 / other.1.max(1.0), gw("imitation"), if gr["collapse"] == true { " **collapse**" } else { "" }, gw("deckAi"));
+        o += &format!(
+            "| {} | {} | {} | {} | {:.1} | {:.1} | {:.1} | **{:.1}** | {:.1} | {:.1} | {} | {} | {} | {} | {:.0} | {}{} | {} |\n",
+            if pf.label.is_empty() { &pf.player } else { &pf.label },
+            pf.deck,
+            s["games"][&pf.player],
+            r["n"],
+            pct(r, "bot", "base_n"),
+            pct(r, "ai", "base_n"),
+            pct(rb, "top1", "n"),
+            pct(r, "top1", "n"),
+            pct(r, "top3", "n"),
+            pct(r, "train", "n"),
+            g("turn"),
+            g("mana"),
+            g("target"),
+            g("choice"),
+            100.0 * other.0 / other.1.max(1.0),
+            gw("imitation"),
+            if gr["collapse"] == true { " **collapse**" } else { "" },
+            gw("deckAi")
+        );
     }
     // The most frequent remaining misses: decision group and prompt
     let mut misses: BTreeMap<String, (usize, usize)> = BTreeMap::new();
@@ -386,14 +489,15 @@ fn report(args: &[String]) {
         }
     }
     let mut m: Vec<(String, (usize, usize))> = misses.into_iter().collect();
-    m.sort_by(|a, b| b.1 .0.cmp(&a.1 .0));
+    m.sort_by_key(|e| std::cmp::Reverse(e.1 .0));
     o += "\n## Most frequent remaining misses (held-out)\n\n| kind / prompt | missed | of | rate |\n|---|---|---|---|\n";
     for (k, (x, n)) in m.iter().take(15) {
         o += &format!("| {} | {} | {} | {:.0} % |\n", k.replace('|', "/").replacen('/', "|", 0), x, n, 100.0 * *x as f64 / *n as f64);
     }
     if !gate.is_null() {
         let errors: usize = gate["rows"].as_array().into_iter().flatten().map(|r| r["imitation"]["errors"].as_array().map(|a| a.len()).unwrap_or(0)).sum();
-        let collapses: Vec<String> = gate["rows"].as_array().into_iter().flatten().filter(|r| r["collapse"] == true).map(|r| r["deck"].as_str().unwrap_or("").to_string()).collect();
+        let collapses: Vec<String> =
+            gate["rows"].as_array().into_iter().flatten().filter(|r| r["collapse"] == true).map(|r| r["deck"].as_str().unwrap_or("").to_string()).collect();
         o += &format!("\n## Gates\n\nEach AI played {} full games against the deck AIs of other decks (mixed opponents, fixed seeds, seats alternated); the player's deck AI played the same matchups. Imitation AIs win **{:.1} %**, the deck AIs {:.1} %. Errors (panics, stuck or unfinished games) in the imitation games: {}. AIs under 15 % wins: {}.\n",
             gate["games"], 100.0 * gate["imitation"].as_f64().unwrap_or(0.0), 100.0 * gate["deckAi"].as_f64().unwrap_or(0.0), errors, if collapses.is_empty() { "none".to_string() } else { collapses.join(", ") });
     }
@@ -441,13 +545,18 @@ fn check(args: &[String], threads: usize) {
         })
         .collect();
     let shared: Shared = serde_json::from_str(&std::fs::read_to_string(format!("{}/shared.json", OUT)).unwrap()).unwrap();
-    let files: Vec<PlayerFile> = std::fs::read_dir(format!("{}/players", OUT)).unwrap().flatten().filter_map(|f| serde_json::from_str(&std::fs::read_to_string(f.path()).ok()?).ok()).collect();
+    let files: Vec<PlayerFile> = std::fs::read_dir(format!("{}/players", OUT))
+        .unwrap()
+        .flatten()
+        .filter_map(|f| serde_json::from_str(&std::fs::read_to_string(f.path()).ok()?).ok())
+        .collect();
     let by_player: HashMap<&str, &PlayerFile> = files.iter().map(|p| (p.player.as_str(), p)).collect();
     let best: HashMap<(i64, usize), (usize, bool)> = decs.iter().zip(&preds).map(|(d, p)| ((d.table, d.step), (p.best, p.top1))).collect();
     let tables = tables();
     let n: usize = opt(args, "--files").and_then(|s| s.parse().ok()).unwrap_or(6);
     let files_r: Vec<String> = replays().into_iter().take(n).collect();
-    let read_params = |d: &str| -> Params { std::fs::read_to_string(format!("ai/params/{}.json", d)).ok().and_then(|s| serde_json::from_str(&s).ok()).unwrap_or_default() };
+    let read_params =
+        |d: &str| -> Params { std::fs::read_to_string(format!("ai/params/{}.json", d)).ok().and_then(|s| serde_json::from_str(&s).ok()).unwrap_or_default() };
     let res = cv::par_map(&files_r, threads, |f| {
         let nr = dataset::read_replay(f).unwrap();
         let decks: [Value; 2] = [nr.decks[0].clone(), nr.decks[1].clone()];

@@ -7,13 +7,8 @@ use altered_rules::framework;
 use altered_rules::Game;
 use serde_json::{json, Value};
 
-/// The golden files are not in git: `GOLDENS_DIR`, else `server/goldens` of this checkout
-fn tiktok() -> Option<Game> {
-    let dir = std::env::var("GOLDENS_DIR").unwrap_or_else(|_| concat!(env!("CARGO_MANIFEST_DIR"), "/../server/goldens").to_string());
-    let path = format!("{}/rich/AX_Common_TikTok.json", dir);
-    let data: Value = serde_json::from_slice(&std::fs::read(path).ok()?).ok()?;
-    Some(Game::from_bga_tables(&data["db"], &[3, 1, 6, 4, 2, 5]).expect("load"))
-}
+mod common;
+use common::tiktok;
 
 /// Runs a flow as player 2001's engine, as a server request
 fn run(g: &mut Game, flow: Value) {
@@ -84,7 +79,7 @@ fn discard_from_deck_all() {
 
 /// Player 2001's hand in the recorded position, by id
 fn hand(g: &Game) -> Vec<i64> {
-    let mut ids: Vec<i64> = g.cards.values().filter(|c| c.location == "hand" && c.pid == 2001).map(|c| c.id as i64).collect();
+    let mut ids: Vec<i64> = g.cards.values().filter(|c| c.location == "hand" && c.pid == 2001).map(|c| c.id).collect();
     ids.sort();
     ids
 }
@@ -133,10 +128,7 @@ fn exchange_reserve_and_hand() {
 fn discard_do_then_draw_n() {
     let Some(mut g) = tiktok() else { return };
     let hand = count(&g, "hand");
-    run(
-        &mut g,
-        json!({"action": "DiscardDo", "pId": 2001, "args": {"effect": {"action": "Draw", "args": {"players": "me"}}}}),
-    );
+    run(&mut g, json!({"action": "DiscardDo", "pId": 2001, "args": {"effect": {"action": "Draw", "args": {"players": "me"}}}}));
     let d = g.decision(2001).expect("decision");
     assert_eq!(d["kind"], json!("select"), "{}", d);
     assert_eq!(d["cardIds"], json!([2418, 2419]));

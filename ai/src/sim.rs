@@ -44,10 +44,13 @@ pub fn hidden_groups(g: &Game, me: PId) -> Vec<Vec<i64>> {
 
 /// Deals again the contents of the cards `ids` (each keeps its id, place and state)
 pub fn deal(g: &mut Game, ids: &[i64], rng: &mut impl RngCore) {
-    let mut contents: Vec<_> = ids.iter().map(|id| {
-        let c = &g.cards[id];
-        (c.props.clone(), c.db_props.clone(), c.reload)
-    }).collect();
+    let mut contents: Vec<_> = ids
+        .iter()
+        .map(|id| {
+            let c = &g.cards[id];
+            (c.props.clone(), c.db_props.clone(), c.reload)
+        })
+        .collect();
     // Canonical order first: the deal must not depend on where each card was
     contents.sort_by_cached_key(|(_, db, _)| serde_json::to_string(&**db).unwrap_or_default());
     contents.shuffle(rng);

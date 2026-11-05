@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { CardCatalog, CardDef, CardView } from '@protocol';
 
 export interface InspectTarget {
@@ -11,7 +11,6 @@ export interface InspectTarget {
 }
 
 interface InspectCtx {
-  target: InspectTarget | null;
   show: (t: InspectTarget) => void;
   hide: (onlyHover?: boolean) => void;
   catalog: CardCatalog | null;
@@ -19,8 +18,9 @@ interface InspectCtx {
   resolveName: (name: string) => CardDef | null;
 }
 
+/** The card shown: apart from the functions, so showing one does not redraw every card name */
+const TargetCtx = createContext<InspectTarget | null>(null);
 const Ctx = createContext<InspectCtx>({
-  target: null,
   show: () => {},
   hide: () => {},
   catalog: null,
@@ -49,14 +49,18 @@ export function InspectProvider({
       }
     return m;
   }, [catalog]);
-  const preferred = useMemo(() => new Set(preferredRefs ?? []), [preferredRefs]);
+  // The cards of the game change with every view: read when a name is resolved, not a dependency
+  const preferred = useRef<Set<string>>(new Set());
+  useLayoutEffect(() => {
+    preferred.current = new Set(preferredRefs ?? []);
+  }, [preferredRefs]);
   const resolveName = useCallback(
     (name: string) => {
       const l = byName.get(name.toLowerCase());
       if (!l) return null;
-      return l.find((d) => preferred.has(d.ref)) ?? l.find((d) => d.rarity === 'common') ?? l[0];
+      return l.find((d) => preferred.current.has(d.ref)) ?? l.find((d) => d.rarity === 'common') ?? l[0];
     },
-    [byName, preferred],
+    [byName],
   );
   const show = useCallback((t: InspectTarget) => {
     setTarget((cur) => (cur?.mode === 'modal' && t.mode === 'hover' ? cur : t));
@@ -64,8 +68,15 @@ export function InspectProvider({
   const hide = useCallback((onlyHover?: boolean) => {
     setTarget((cur) => (onlyHover && cur?.mode === 'modal' ? cur : null));
   }, []);
-  const value = useMemo(() => ({ target, show, hide, catalog, resolveName }), [target, show, hide, catalog, resolveName]);
-  return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
+  const value = useMemo(() => ({ show, hide, catalog, resolveName }), [show, hide, catalog, resolveName]);
+  return (
+    <Ctx.Provider value={value}>
+      <TargetCtx.Provider value={target}>{children}</TargetCtx.Provider>
+    </Ctx.Provider>
+  );
 }
 
+/** The inspection functions (stable) */
 export const useInspect = () => useContext(Ctx);
+/** The card shown now, if any */
+export const useInspectTarget = () => useContext(TargetCtx);

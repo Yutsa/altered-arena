@@ -1,0 +1,16 @@
+# Golden files allowed to fail: `board/file  reason`. The goldens run fails on any other failure,
+# and on a file of this list that passes again (remove it then).
+#
+# Angry Crowd (ALT_DUSTER_B_OR_99_R2) asks for its target right away, where PHP first asked which
+# kind of target (an XOR of two Target actions, one per Base Cost range): rules/tests/target_then_cost.rs
+decks/D34-D24-69                Angry Crowd asks for the target first
+replays/937786842               Angry Crowd asks for the target first
+replays/938027923               Angry Crowd asks for the target first
+replays/938046321               Angry Crowd asks for the target first
+replays/938077521               Angry Crowd asks for the target first
+replays/938317263               Angry Crowd asks for the target first
+tournament_replays/938027923    Angry Crowd asks for the target first
+tournament_replays/938046321    Angry Crowd asks for the target first
+tournament_replays/938077521    Angry Crowd asks for the target first
+# Also a state difference after playing Angry Crowd (its Fleeting mark): to check
+decks/D21-D34-96                Angry Crowd asks for the target first, and the state differs

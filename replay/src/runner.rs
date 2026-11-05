@@ -91,7 +91,18 @@ struct State {
 }
 
 pub fn run(r: &BgaReplay) -> Outcome {
-    let mut out = Outcome { table: r.table, steps: vec![], requests: 0, replayed: 0, divergence: None, closest: 0, backtracks: 0, game_over: false, game: None, prefs0: vec![] };
+    let mut out = Outcome {
+        table: r.table,
+        steps: vec![],
+        requests: 0,
+        replayed: 0,
+        divergence: None,
+        closest: 0,
+        backtracks: 0,
+        game_over: false,
+        game: None,
+        prefs0: vec![],
+    };
     let g = match setup::create(r) {
         Ok(g) => g,
         Err(e) => {
@@ -105,18 +116,18 @@ pub fn run(r: &BgaReplay) -> Outcome {
     let moves: Vec<&Move> = r.moves[start..].iter().collect();
     let mut undo_default = BTreeMap::new();
     for pid in PLAYER_IDS {
-        let confirms = r.moves.iter().any(|m| m.states.iter().any(|s| s.1 == pid as i64 && (s.0 == ST_CONFIRM_TURN || s.0 == ST_CONFIRM_PARTIAL_TURN)));
-        undo_default.insert(pid as i64, if confirms { 1 } else { 2 });
+        let confirms = r.moves.iter().any(|m| m.states.iter().any(|s| s.1 == pid && (s.0 == ST_CONFIRM_TURN || s.0 == ST_CONFIRM_PARTIAL_TURN)));
+        undo_default.insert(pid, if confirms { 1 } else { 2 });
     }
     let mut ctx = Ctx { r, moves, first_new_ids: r.first_new_ids(), reveals: r.reveals(), undo_default, near: false };
     out.requests = ctx.moves.len();
     let mut st = State { g, after_undo: false };
     for pid in PLAYER_IDS {
-        setup::set_pref(&mut st.g, pid as i64, OPTION_PLAYER_UNDO, ctx.undo_default[&(pid as i64)]);
+        setup::set_pref(&mut st.g, pid, OPTION_PLAYER_UNDO, ctx.undo_default[&{ pid }]);
         // explore.php writes 0 for the preferences the runner cannot infer
-        setup::set_pref(&mut st.g, pid as i64, OPTION_CONFIRM, 0);
-        setup::set_pref(&mut st.g, pid as i64, OPTION_CONFIRM_UNDOABLE, 0);
-        out.prefs0.extend([(pid as i64, OPTION_PLAYER_UNDO, ctx.undo_default[&(pid as i64)]), (pid as i64, OPTION_CONFIRM, 0), (pid as i64, OPTION_CONFIRM_UNDOABLE, 0)]);
+        setup::set_pref(&mut st.g, pid, OPTION_CONFIRM, 0);
+        setup::set_pref(&mut st.g, pid, OPTION_CONFIRM_UNDOABLE, 0);
+        out.prefs0.extend([(pid, OPTION_PLAYER_UNDO, ctx.undo_default[&{ pid }]), (pid, OPTION_CONFIRM, 0), (pid, OPTION_CONFIRM_UNDOABLE, 0)]);
     }
     // Exact answers only (with backtracking) first; the closest answers only if that fails
     let first = replay_from(&ctx, st.clone());
@@ -125,7 +136,11 @@ pub fn run(r: &BgaReplay) -> Outcome {
     } else {
         ctx.near = true;
         let second = replay_from(&ctx, st);
-        if second.divergence.is_none() || second.replayed > first.replayed { second } else { first }
+        if second.divergence.is_none() || second.replayed > first.replayed {
+            second
+        } else {
+            first
+        }
     };
     out.steps = res.steps;
     out.replayed = res.replayed;
@@ -199,7 +214,14 @@ fn replay_from(ctx: &Ctx, mut st: State) -> Run {
                 }
             }
             if std::env::var("DEBUG_BT").is_ok() {
-                eprintln!("backtrack from {} to move {} ({} alternatives, at {}): {:?}", ctx.moves[failed].id, ctx.moves[f.i].id, f.alts.len(), f.k, f.alts.iter().map(|a| a.1.iter().map(|s| s.answer.to_string()).collect::<Vec<_>>()).collect::<Vec<_>>());
+                eprintln!(
+                    "backtrack from {} to move {} ({} alternatives, at {}): {:?}",
+                    ctx.moves[failed].id,
+                    ctx.moves[f.i].id,
+                    f.alts.len(),
+                    f.k,
+                    f.alts.iter().map(|a| a.1.iter().map(|s| s.answer.to_string()).collect::<Vec<_>>()).collect::<Vec<_>>()
+                );
             }
             if f.k + 1 < f.alts.len() {
                 f.k += 1;
@@ -285,8 +307,8 @@ fn options(base: &State, prep: &Prep, m: &Move, all: bool) -> (Vec<(usize, State
         matches = erased_sequences(base, m, prep, all).into_iter().map(|(s, st)| (0, s, st)).collect();
     }
     // The answers whose notifications follow the replay's order first
-    matches.sort_by(|a, b| b.0.cmp(&a.0));
-    near.sort_by(|a, b| b.0.cmp(&a.0));
+    matches.sort_by_key(|m| std::cmp::Reverse(m.0));
+    near.sort_by_key(|m| std::cmp::Reverse(m.0));
     (matches, near)
 }
 
@@ -406,7 +428,6 @@ fn prepare(ctx: &Ctx, st: &mut State, m: &Move, variant: usize) -> Prep {
     // in ST_CONFIRM_TURN had the confirmation on, one who went through it had it off, and a partial
     // confirmation needs the undo on. Each state carries the player it is about.
     for pid in PLAYER_IDS {
-        let pid = pid as i64;
         let of: Vec<i64> = m.states.iter().filter(|s| s.1 == pid).map(|s| s.0).collect();
         let undo = if of.contains(&ST_CONFIRM_TURN) {
             let confirm = if m.states.last() == Some(&(ST_CONFIRM_TURN, pid)) { 2 } else { 0 };
@@ -428,7 +449,7 @@ fn prepare(ctx: &Ctx, st: &mut State, m: &Move, variant: usize) -> Prep {
     // the next new id the replay shows tells where its counters were
     {
         if let Some(&(cards, meeples)) = ctx.first_new_ids.get(&m.id) {
-            let max_card = st.g.cards.values().map(|c| c.id as i64).max().unwrap_or(0);
+            let max_card = st.g.cards.values().map(|c| c.id).max().unwrap_or(0);
             let max_meeple = st.g.meeples.values().map(|c| c.id).max().unwrap_or(0);
             let mut ids = json!({});
             if let Some(id) = cards.filter(|&id| id > st.g.next_card_id && id > max_card) {
@@ -451,7 +472,7 @@ fn prepare(ctx: &Ctx, st: &mut State, m: &Move, variant: usize) -> Prep {
     let mut variants = 1;
     for (pid, lists) in deck_lists(ctx, &st.g, m) {
         let loc = format!("deck-{}", pid);
-        let mut deck: Vec<(i64, i64)> = st.g.cards.values().filter(|c| c.location == loc).map(|c| (c.state, c.id as i64)).collect();
+        let mut deck: Vec<(i64, i64)> = st.g.cards.values().filter(|c| c.location == loc).map(|c| (c.state, c.id)).collect();
         deck.sort();
         let ids: Vec<i64> = deck.iter().map(|d| d.1).collect();
         let orders = interleavings(&lists);
@@ -503,8 +524,9 @@ fn deck_lists(ctx: &Ctx, g: &Game, m: &Move) -> Vec<(i64, Vec<Vec<i64>>)> {
         }
         // A card shown on several channels counts in the first one only
         let mut seen = HashSet::new();
-        let lists: Vec<Vec<i64>> = lists.into_values().map(|l| l.into_iter().filter(|id| seen.insert(*id)).collect::<Vec<_>>()).filter(|l| !l.is_empty()).collect();
-        out.push((pid as i64, lists));
+        let lists: Vec<Vec<i64>> =
+            lists.into_values().map(|l| l.into_iter().filter(|id| seen.insert(*id)).collect::<Vec<_>>()).filter(|l| !l.is_empty()).collect();
+        out.push((pid, lists));
     }
     out
 }
@@ -646,15 +668,27 @@ fn explain(ctx: &Ctx, st: &State, i: usize) -> String {
         let res = play(&mut next.g, *pid, a);
         if std::env::var("CANDS").is_ok() {
             if let Ok(ns) = &res {
-                eprintln!("CAND {} {} -> {:?}", pid, a, ns.iter().map(|n| format!("{} {}", n["name"].as_str().unwrap_or(""), &n["args"].to_string()[..n["args"].to_string().len().min(120)])).collect::<Vec<_>>());
+                eprintln!(
+                    "CAND {} {} -> {:?}",
+                    pid,
+                    a,
+                    ns.iter()
+                        .map(|n| format!("{} {}", n["name"].as_str().unwrap_or(""), &n["args"].to_string()[..n["args"].to_string().len().min(120)]))
+                        .collect::<Vec<_>>()
+                );
             }
-            if let Some(d) = base.g.decision(*pid) { eprintln!("DECISION {}", &d.to_string()[..d.to_string().len().min(800)]); }
+            if let Some(d) = base.g.decision(*pid) {
+                eprintln!("DECISION {}", &d.to_string()[..d.to_string().len().min(800)]);
+            }
         }
         let (score, why) = match res {
             Err(e) => (0, format!("refused: {}", e)),
             Ok(notifs) => {
                 let after = sig::positions(&next.g);
-                (sig::score(m, &after, &notifs) + 1, sig::diff(&next.g, m, &before, &after, &notifs).unwrap_or_else(|| "matches, but the next requests do not replay".into()))
+                (
+                    sig::score(m, &after, &notifs) + 1,
+                    sig::diff(&next.g, m, &before, &after, &notifs).unwrap_or_else(|| "matches, but the next requests do not replay".into()),
+                )
             }
         };
         if best.as_ref().is_none_or(|b| score > b.0) {
@@ -676,10 +710,17 @@ fn explain(ctx: &Ctx, st: &State, i: usize) -> String {
                     let os = base.g.oracle_state();
                     let mut zones: BTreeMap<String, Vec<(i64, i64)>> = BTreeMap::new();
                     for c in os["cards"].as_array().into_iter().flatten() {
-                        zones.entry(format!("{}:{}", c["owner"], c["zone"].as_str().unwrap_or(""))).or_default().push((c["order"].as_i64().unwrap_or(0), c["id"].as_i64().unwrap_or(0)));
+                        zones
+                            .entry(format!("{}:{}", c["owner"], c["zone"].as_str().unwrap_or("")))
+                            .or_default()
+                            .push((c["order"].as_i64().unwrap_or(0), c["id"].as_i64().unwrap_or(0)));
                     }
                     for (k, v) in zones.iter_mut() {
-                        if k.ends_with(":deck") { v.sort(); } else { v.sort_by_key(|x| x.1); }
+                        if k.ends_with(":deck") {
+                            v.sort();
+                        } else {
+                            v.sort_by_key(|x| x.1);
+                        }
                     }
                     for (k, want) in node["state"]["zones"].as_object().into_iter().flatten() {
                         let got: Vec<i64> = zones.get(k).map(|v| v.iter().map(|x| x.1).collect()).unwrap_or_default();
@@ -696,7 +737,12 @@ fn explain(ctx: &Ctx, st: &State, i: usize) -> String {
                         Err(e) => format!("; golden {} {}: refused: {}", pid, next["answer"], e),
                         Ok(notifs) => {
                             let after = sig::positions(&next_g.g);
-                            format!("; golden {} {}: {}", pid, next["answer"], sig::diff(&next_g.g, m, &before, &after, &notifs).unwrap_or_else(|| "matches".into()))
+                            format!(
+                                "; golden {} {}: {}",
+                                pid,
+                                next["answer"],
+                                sig::diff(&next_g.g, m, &before, &after, &notifs).unwrap_or_else(|| "matches".into())
+                            )
                         }
                     };
                     break;

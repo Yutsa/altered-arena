@@ -1,6 +1,6 @@
 import { useRef, type MouseEvent, type PointerEvent } from 'react';
-import { useGameCtx } from './GameContext';
-import { holdTouch, useDrag } from './drag';
+import { useGame, useGameCtx } from './GameContext';
+import { holdTouch, useDragActions } from './drag';
 import { useInspect } from './inspect';
 
 const DRAG_THRESHOLD = 8;
@@ -17,8 +17,8 @@ const HOVER_MS = 280;
  * cards): only the mouse is handled here.
  */
 export function useCardPointer(cardId: number, { touchElsewhere = false }: { touchElsewhere?: boolean } = {}) {
-  const { aff, clickCard, inspectCard, decision, sending } = useGameCtx();
-  const { begin, drag } = useDrag();
+  const { clickCard, inspectCard } = useGameCtx('clickCard', 'inspectCard');
+  const { begin, current } = useDragActions();
   const { hide } = useInspect();
   const st = useRef<{
     x: number;
@@ -32,7 +32,7 @@ export function useCardPointer(cardId: number, { touchElsewhere = false }: { tou
   } | null>(null);
   const hoverTimer = useRef<number | undefined>(undefined);
 
-  const destinations = decision?.kind === 'turn' && !sending ? aff.get(cardId)?.destinations : undefined;
+  const destinations = useGame((s) => (s.decision?.kind === 'turn' && !s.sending ? s.aff.get(cardId)?.destinations : undefined));
   const draggable = !!destinations?.length;
 
   const clear = () => {
@@ -92,7 +92,7 @@ export function useCardPointer(cardId: number, { touchElsewhere = false }: { tou
         clear();
       },
       onPointerEnter(e: PointerEvent) {
-        if (e.pointerType !== 'mouse' || drag) return;
+        if (e.pointerType !== 'mouse' || current()) return;
         const x = e.clientX;
         hoverTimer.current = window.setTimeout(() => inspectCard(cardId, 'hover', x), HOVER_MS);
       },

@@ -53,7 +53,7 @@ pub fn shown(m: &Move) -> BTreeMap<Piece, Vec<String>> {
                 _ => loc,
             };
             let locs = out.entry(piece).or_default();
-            if !locs.iter().any(|l| *l == loc) {
+            if !locs.contains(&loc) {
                 locs.push(loc);
             }
         });
@@ -68,7 +68,7 @@ pub fn positions(g: &Game) -> BTreeMap<Piece, String> {
     for c in g.cards.values() {
         let tapped = c.props.get("tapped").is_some_and(|t| t.as_bool() == Some(true) || int(t) == 1);
         let loc = if tapped { format!("{}!", c.location) } else { c.location.clone() };
-        out.insert(Piece::Card(c.id as i64), at(&loc, c.pid));
+        out.insert(Piece::Card(c.id), at(&loc, c.pid));
     }
     for m in g.meeples.values() {
         let state = m.state.parse::<i64>().unwrap_or(0);
@@ -141,7 +141,12 @@ fn listeners_diff(g: &Game, m: &Move) -> Option<String> {
     for (k, want) in last {
         let Some(got) = listener(&mut g, &k) else { continue };
         if norm(&want) != norm(&got) {
-            return Some(format!("{}: bga {} / engine {}", k, &want.to_string()[..want.to_string().len().min(200)], &got.to_string()[..got.to_string().len().min(200)]));
+            return Some(format!(
+                "{}: bga {} / engine {}",
+                k,
+                &want.to_string()[..want.to_string().len().min(200)],
+                &got.to_string()[..got.to_string().len().min(200)]
+            ));
         }
     }
     None
@@ -153,7 +158,11 @@ pub fn diff(g: &Game, m: &Move, before: &BTreeMap<Piece, String>, after: &BTreeM
     if want_states != got_states {
         return Some(format!("states: bga {:?} / engine {:?}", want_states, got_states));
     }
-    pieces_diff(g, m, before, after).or_else(|| targets_diff(m, notifs)).or_else(|| values_diff(m, notifs)).or_else(|| mana_diff(g, m)).or_else(|| listeners_diff(g, m))
+    pieces_diff(g, m, before, after)
+        .or_else(|| targets_diff(m, notifs))
+        .or_else(|| values_diff(m, notifs))
+        .or_else(|| mana_diff(g, m))
+        .or_else(|| listeners_diff(g, m))
 }
 
 /// Numbers the notifications carry (a die selected, a player's Mana): every one BGA sent on the

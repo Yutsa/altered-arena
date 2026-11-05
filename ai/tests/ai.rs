@@ -16,7 +16,8 @@ fn big_stack(f: impl FnOnce() + Send + 'static) {
 }
 
 fn starter_game(seed: i64, a: &str, b: &str) -> Game {
-    let players: Vec<NewPlayer> = [a, b].iter().map(|d| NewPlayer { name: "P".into(), bot: false, deck: Some(d.to_string()), api_deck: None, reunion_deck: None }).collect();
+    let players: Vec<NewPlayer> =
+        [a, b].iter().map(|d| NewPlayer { name: "P".into(), bot: false, deck: Some(d.to_string()), api_deck: None, reunion_deck: None }).collect();
     Game::create(seed, &players, &altered_ai::play::dice_for(seed as u64)).unwrap()
 }
 

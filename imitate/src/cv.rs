@@ -95,6 +95,7 @@ pub fn logo_ensemble(sets: &[(Vec<String>, Vec<Decision>)], drop: &[String], h: 
             let theta = model::train(&mtrain, h);
             let mtest = model::matrix(&test, names.len(), &keep, &players, Some(&mtrain.scale));
             let mut s = vec![];
+            #[allow(clippy::needless_range_loop)] // k indexes both the test rows and sum
             for k in 0..test.len() {
                 mtest.scores(&theta, k, &mut s);
                 if sum[k].is_empty() {

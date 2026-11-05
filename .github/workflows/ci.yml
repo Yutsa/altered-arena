@@ -1,0 +1,142 @@
+# Checks of every pull request (required to merge into main), also run by the release workflow
+# before it deploys:
+#   rust     rustfmt, clippy (warnings are errors), the workspace tests
+#   goldens  the golden decision trees, in 4 parallel jobs
+#   client   TypeScript check and production build
+#   image    the Docker image builds
+
+name: CI
+
+on:
+  pull_request:
+  workflow_call:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read # also downloads the golden files of a release
+
+jobs:
+  # Builds use the `ci` profile (release without LTO): same optimisations, links in seconds
+  rust:
+    name: Rust (fmt, clippy, tests)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+        with:
+          toolchain: stable
+          components: rustfmt, clippy
+
+      - name: rustfmt
+        run: cargo fmt --all --check
+
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+
+      # The golden files are not in git: goldens/ARCHIVE names the release asset holding them
+      - name: Golden files (cache)
+        id: goldens-cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: server/goldens
+          key: goldens-${{ hashFiles('goldens/ARCHIVE') }}
+
+      - name: Golden files (download)
+        if: steps.goldens-cache.outputs.cache-hit != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GOLDENS_REPO: ${{ github.repository }}
+        run: tools/goldens_fetch.sh
+
+      - name: clippy
+        run: cargo clippy --profile ci --workspace --all-targets -- -D warnings
+
+      # CI is set: the tests that load a golden file fail when it is missing
+      - name: Tests
+        run: cargo test --profile ci --workspace
+
+  # The goldens, a quarter of the files per job
+  goldens:
+    name: Goldens (${{ matrix.shard }}/4)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+        with:
+          toolchain: stable
+
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+
+      # The golden files are not in git: goldens/ARCHIVE names the release asset holding them
+      - name: Golden files (cache)
+        id: goldens-cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: server/goldens
+          key: goldens-${{ hashFiles('goldens/ARCHIVE') }}
+
+      - name: Golden files (download)
+        if: steps.goldens-cache.outputs.cache-hit != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GOLDENS_REPO: ${{ github.repository }}
+        run: tools/goldens_fetch.sh
+
+      - name: Goldens
+        run: cargo run --profile ci -p goldens -- server/goldens --shard ${{ matrix.shard }}/4
+
+  client:
+    name: Client (typecheck, build)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: client
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run build
+
+  image:
+    name: Docker image
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - name: Build image
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          platforms: linux/amd64
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

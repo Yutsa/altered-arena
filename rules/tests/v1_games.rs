@@ -76,12 +76,7 @@ fn first_diff(a: &Value, b: &Value, path: &str) -> Option<String> {
 #[test]
 fn games_created_and_played_as_php() {
     // A request runs whole chains of states recursively: a large stack
-    std::thread::Builder::new()
-        .stack_size(256 << 20)
-        .spawn(run)
-        .unwrap()
-        .join()
-        .unwrap();
+    std::thread::Builder::new().stack_size(256 << 20).spawn(run).unwrap().join().unwrap();
 }
 
 fn run() {
@@ -91,7 +86,13 @@ fn run() {
             .as_array()
             .unwrap()
             .iter()
-            .map(|p| NewPlayer { name: p["name"].as_str().unwrap_or("").to_string(), bot: p["bot"].as_bool().unwrap_or(false), deck: p["deck"].as_str().map(String::from), api_deck: None, reunion_deck: None })
+            .map(|p| NewPlayer {
+                name: p["name"].as_str().unwrap_or("").to_string(),
+                bot: p["bot"].as_bool().unwrap_or(false),
+                deck: p["deck"].as_str().map(String::from),
+                api_deck: None,
+                reunion_deck: None,
+            })
             .collect();
         let dice: Vec<i64> = cfg["dice"].as_array().unwrap().iter().filter_map(Value::as_i64).collect();
         let game_id = r["phpGame"].as_i64().unwrap();

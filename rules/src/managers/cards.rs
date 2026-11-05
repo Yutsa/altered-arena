@@ -64,7 +64,7 @@ fn translit(c: char) -> &'static str {
 
 /// `slugify($text)` (Managers/Cards.php:16)
 pub fn slugify(text: &str) -> String {
-    let t = text.replace('ō', "o").replace('ö', "o").replace('ā', "a").replace('ä', "a");
+    let t = text.replace(['ō', 'ö'], "o").replace(['ā', 'ä'], "a");
     let t: String = t.chars().filter(|c| c.is_alphabetic() || c.is_ascii_digit()).collect();
     let mut out = String::new();
     for c in t.chars() {
@@ -136,7 +136,9 @@ pub fn instantiate_props(db: &Props, id: CardId) -> R<Props> {
         None => {
             // slugify transliteration differs from iconv for some names: same faction, rarity and name
             let found = classes().iter().find(|(_, c)| {
-                c.get("faction") == db.get("faction") && php::loose_eq(c.get("rarity").unwrap_or(&Value::Null), db.get("rarity").unwrap_or(&Value::Null)) && c.get("name") == db.get("name")
+                c.get("faction") == db.get("faction")
+                    && php::loose_eq(c.get("rarity").unwrap_or(&Value::Null), db.get("rarity").unwrap_or(&Value::Null))
+                    && c.get("name") == db.get("name")
             });
             match found {
                 Some((k, c)) => (k.clone(), c.clone()),
@@ -154,7 +156,7 @@ pub fn instantiate_props(db: &Props, id: CardId) -> R<Props> {
         }
     }
     for p in DYNAMIC_PROPERTIES {
-        if let Some(v) = db.get(*p) {
+        if let Some(v) = db.get(p) {
             if !v.is_null() {
                 props.insert(p.to_string(), v.clone());
             }
@@ -942,7 +944,9 @@ pub fn generate_unique(unique: &Value) -> R<Value> {
     php::set(&mut properties, "artist", php::get(unique, "illustrator").clone());
 
     let elements = php::get(unique, "elements");
-    for (prop, element) in [("costHand", "MAIN_COST"), ("costReserve", "RECALL_COST"), ("forest", "FOREST_POWER"), ("mountain", "MOUNTAIN_POWER"), ("ocean", "OCEAN_POWER")] {
+    for (prop, element) in
+        [("costHand", "MAIN_COST"), ("costReserve", "RECALL_COST"), ("forest", "FOREST_POWER"), ("mountain", "MOUNTAIN_POWER"), ("ocean", "OCEAN_POWER")]
+    {
         php::set(&mut properties, prop, json!(php::intval(php::get(elements, element))));
     }
 

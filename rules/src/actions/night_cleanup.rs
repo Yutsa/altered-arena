@@ -62,11 +62,15 @@ fn act_night_cleanup(a: &NightCleanup, g: &mut Game, ctx: Ctx, reserve_ids: &Val
     let pargs = php::get(php::get(&args, "_private"), "active").clone();
 
     // Number of cards
-    if php::loose_ne(&json!(php::count_strict(reserve_ids)?), php::get(&args, "nReserve")) || php::loose_ne(&json!(php::count_strict(landmark_ids)?), php::get(&args, "nLandmarks")) {
+    if php::loose_ne(&json!(php::count_strict(reserve_ids)?), php::get(&args, "nReserve"))
+        || php::loose_ne(&json!(php::count_strict(landmark_ids)?), php::get(&args, "nLandmarks"))
+    {
         return Err(PhpError::new("You must select the correct number of cards. Should not happen"));
     }
     // Valid card ids
-    if !php::empty(&php::array_diff(reserve_ids, php::get(&pargs, "reserveCards"))) || !php::empty(&php::array_diff(landmark_ids, php::get(&pargs, "landmarkCards"))) {
+    if !php::empty(&php::array_diff(reserve_ids, php::get(&pargs, "reserveCards")))
+        || !php::empty(&php::array_diff(landmark_ids, php::get(&pargs, "landmarkCards")))
+    {
         return Err(PhpError::new("You selected a card that should not be discarded. Should not happen"));
     }
 

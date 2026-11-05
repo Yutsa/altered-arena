@@ -1,0 +1,170 @@
+{
+ "cpu": 4,
+ "runs": 3,
+ "results": {
+  "phone": {
+   "steps": {
+    "commits": 2.97,
+    "rendered": 1300.57,
+    "matCards": 15.44,
+    "renderMs": 12.05,
+    "paintP50": 54.4,
+    "paintP95": 76,
+    "longMs": 109,
+    "inserted": 23.13,
+    "imgs": 152,
+    "blank": 0
+   },
+   "select": {
+    "commits": 1.83,
+    "rendered": 198.67,
+    "matCards": 2.33,
+    "renderMs": 2.93,
+    "paintP50": 44.9,
+    "paintP95": 78.7,
+    "longMs": 0,
+    "inserted": 12.67,
+    "imgs": 2,
+    "blank": 0
+   },
+   "topRendered": [
+    [
+     "motion.div",
+     21943
+    ],
+    [
+     "RichText",
+     21860
+    ],
+    [
+     "PresenceChild",
+     21386
+    ],
+    [
+     "PopChild",
+     21386
+    ],
+    [
+     "PopChildMeasure",
+     21386
+    ],
+    [
+     "CardName",
+     9441
+    ],
+    [
+     "Glyph",
+     5199
+    ],
+    [
+     "BiomeGlyph",
+     4771
+    ],
+    [
+     "MatCard",
+     1760
+    ],
+    [
+     "DropZone",
+     1393
+    ],
+    [
+     "Tile",
+     995
+    ],
+    [
+     "ZoneSlots",
+     796
+    ]
+   ]
+  },
+  "desktop": {
+   "steps": {
+    "commits": 3.04,
+    "rendered": 1337.89,
+    "matCards": 15.44,
+    "renderMs": 12.73,
+    "paintP50": 56.4,
+    "paintP95": 77.8,
+    "longMs": 116,
+    "inserted": 23.13,
+    "imgs": 152,
+    "blank": 0
+   },
+   "select": {
+    "commits": 2.17,
+    "rendered": 226.33,
+    "matCards": 2.67,
+    "renderMs": 3.37,
+    "paintP50": 44.2,
+    "paintP95": 106.4,
+    "longMs": 0,
+    "inserted": 12.67,
+    "imgs": 2,
+    "blank": 0
+   },
+   "hover": {
+    "commits": 2,
+    "rendered": 175.5,
+    "matCards": 2,
+    "renderMs": 2.97,
+    "paintP50": 376.7,
+    "paintP95": 391.5,
+    "longMs": 0,
+    "inserted": 10,
+    "imgs": 2,
+    "blank": 0
+   },
+   "topRendered": [
+    [
+     "motion.div",
+     22596
+    ],
+    [
+     "RichText",
+     22511
+    ],
+    [
+     "PresenceChild",
+     22038
+    ],
+    [
+     "PopChild",
+     22038
+    ],
+    [
+     "PopChildMeasure",
+     22038
+    ],
+    [
+     "CardName",
+     9719
+    ],
+    [
+     "Glyph",
+     5341
+    ],
+    [
+     "BiomeGlyph",
+     4913
+    ],
+    [
+     "MatCard",
+     1760
+    ],
+    [
+     "DropZone",
+     1435
+    ],
+    [
+     "Tile",
+     1025
+    ],
+    [
+     "ZoneSlots",
+     820
+    ]
+   ]
+  }
+ }
+}

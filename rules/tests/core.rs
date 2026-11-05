@@ -3,8 +3,10 @@
 use altered_rules::core::{engine, globals, node};
 use altered_rules::framework;
 use altered_rules::php;
-use altered_rules::Game;
 use serde_json::{json, Value};
+
+mod common;
+use common::{golden, tiktok};
 
 #[test]
 fn php_loose_comparisons() {
@@ -39,12 +41,6 @@ fn php_arrays() {
     assert_eq!(n, json!({"k": 1}));
 }
 
-fn tiktok() -> Option<Game> {
-    let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../server/goldens/rich/AX_Common_TikTok.json");
-    let data: Value = serde_json::from_slice(&std::fs::read(path).ok()?).ok()?;
-    Some(Game::from_bga_tables(&data["db"], &[3, 1, 6, 4, 2, 5]).expect("load"))
-}
-
 #[test]
 fn engine_passes_an_impossible_reaction_and_gives_the_turn_back() {
     let Some(mut g) = tiktok() else { return };
@@ -71,8 +67,7 @@ fn turn_decision_lists_the_playable_cards() {
     assert_eq!(d["kind"], json!("turn"));
     let ids = |d: &Value| -> Vec<i64> { d["play"].as_array().unwrap().iter().map(|p| p["cardId"].as_i64().unwrap()).collect() };
     // The playable cards PHP offered in the recorded position
-    let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../server/goldens/rich/AX_Common_TikTok.json");
-    let data: Value = serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap();
+    let data = golden("rich/AX_Common_TikTok.json").unwrap();
     assert_eq!(ids(&d), ids(&data["tree"]["decision"]));
     assert!(ids(&d).contains(&data["cardId"].as_i64().unwrap()));
     assert_eq!(g.waiting_for(), vec![2001]);

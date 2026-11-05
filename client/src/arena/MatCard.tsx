@@ -1,8 +1,8 @@
 import { memo, useEffect, useRef, useState, type SyntheticEvent } from 'react';
 import type { Biome, CardView } from '@protocol';
-import { useGameCtx } from '../game/GameContext';
+import { useAff, useCard, useGame, useGameCtx } from '../game/GameContext';
 import { useCardPointer } from '../game/useCardPointer';
-import { useDrag } from '../game/drag';
+import { useDragState } from '../game/drag';
 import { hasActions } from '../game/decisions';
 import { iconUrl, STATUS_INFO } from '../game/keywords';
 import { artUrl } from '../api/catalog';
@@ -18,12 +18,14 @@ type Fx = { key: number; text: string; up: boolean };
  * losses pop a short "+1" above the card.
  */
 export const MatCard = memo(function MatCard({ id, kind }: { id: number; kind: 'exp' | 'zone' | 'hero' }) {
-  const { byId, def, aff, ui, send, focusSource } = useGameCtx();
-  const { drag } = useDrag();
+  const { def, send } = useGameCtx('def', 'send');
+  const card = useCard(id);
+  const a = useAff(id);
+  const selected = useGame((s) => s.ui.selected === id);
+  const focused = useGame((s) => s.focusSource === id);
+  const dragged = useDragState((d) => d?.cardId === id);
   const { draggable, handlers } = useCardPointer(id);
-  const card = byId.get(id);
   const d = def(card);
-  const a = aff.get(id);
   const fx = useStatFx(card);
   const [artFailed, setArtFailed] = useState(false);
   const isChar = !!card?.stats && (d?.type === 'character' || d?.type === 'token');
@@ -38,9 +40,9 @@ export const MatCard = memo(function MatCard({ id, kind }: { id: number; kind: '
     a?.selectable ? 'is-selectable' : '',
     a?.picked ? 'is-picked' : '',
     a?.source ? 'is-source' : '',
-    focusSource === id ? 'is-trigger-focus' : '',
-    ui.selected === id ? 'is-selected' : '',
-    drag?.cardId === id ? 'is-dragged' : '',
+    focused ? 'is-trigger-focus' : '',
+    selected ? 'is-selected' : '',
+    dragged ? 'is-dragged' : '',
     card?.exhausted ? 'is-exhausted' : '',
     fx ? (fx.up ? 'fx-up' : 'fx-down') : '',
   ].join(' ');
@@ -55,7 +57,7 @@ export const MatCard = memo(function MatCard({ id, kind }: { id: number; kind: '
       {!d ? (
         <img className="mc-art" src="/img/card-back.jpg" alt="Face-down card" draggable={false} />
       ) : !artFailed ? (
-        <img className="mc-art" src={artUrl(d)} alt={d.name} draggable={false} loading="lazy" onError={() => setArtFailed(true)} />
+        <img className="mc-art" src={artUrl(d)} alt={d.name} draggable={false} onError={() => setArtFailed(true)} />
       ) : (
         <div className="mc-art mc-art-missing">{d.name}</div>
       )}

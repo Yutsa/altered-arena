@@ -6,7 +6,7 @@ import { confirmAnswer, effectQueue, primaryAction } from '../game/decisions';
  * the turn, confirm, pass), or who the game is waiting for.
  */
 export function TrackButton() {
-  const { view, decision, ui, send, sending, you, auto } = useGameCtx();
+  const { view, decision, ui, send, sending, you, auto } = useGameCtx('view', 'decision', 'ui', 'send', 'sending', 'you', 'auto');
 
   if (view.phase === 'ended') return <span className="track-btn idle">End</span>;
   // Answered for the player; the end of a turn keeps its button (confirm now). Nothing to do: a

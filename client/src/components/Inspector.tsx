@@ -1,6 +1,6 @@
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'motion/react';
-import { useInspect, type InspectTarget } from '../game/inspect';
+import { useInspect, useInspectTarget, type InspectTarget } from '../game/inspect';
 import { Card, BIOMES } from './Card';
 import { STATUS_INFO } from '../game/keywords';
 import { RichText } from './RichText';
@@ -17,7 +17,8 @@ function hasDetails(t: InspectTarget): boolean {
 
 /** Large readable version of a card: hover preview on desktop, modal on tap / long press. */
 export function Inspector() {
-  const { target, hide } = useInspect();
+  const { hide } = useInspect();
+  const target = useInspectTarget();
   return createPortal(
     <AnimatePresence>
       {target && (

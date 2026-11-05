@@ -1,0 +1,170 @@
+{
+ "cpu": 4,
+ "runs": 3,
+ "results": {
+  "phone": {
+   "steps": {
+    "commits": 4.04,
+    "rendered": 111.28,
+    "matCards": 1.85,
+    "renderMs": 3.76,
+    "paintP50": 42.5,
+    "paintP95": 59.9,
+    "longMs": 0,
+    "inserted": 18.11,
+    "imgs": 152,
+    "blank": 0
+   },
+   "select": {
+    "commits": 2.5,
+    "rendered": 25.17,
+    "matCards": 0,
+    "renderMs": 1.38,
+    "paintP50": 44.9,
+    "paintP95": 81.5,
+    "longMs": 0,
+    "inserted": 12.67,
+    "imgs": 2,
+    "blank": 0
+   },
+   "topRendered": [
+    [
+     "BiomeGlyph",
+     1419
+    ],
+    [
+     "Marker",
+     796
+    ],
+    [
+     "ExpCell",
+     738
+    ],
+    [
+     "PlayerChip",
+     456
+    ],
+    [
+     "Totals",
+     456
+    ],
+    [
+     "Ghost",
+     456
+    ],
+    [
+     "DecisionBar",
+     452
+    ],
+    [
+     "ZoneSlots",
+     398
+    ],
+    [
+     "TrackButton",
+     313
+    ],
+    [
+     "CardActions",
+     313
+    ],
+    [
+     "TargetArrows",
+     313
+    ],
+    [
+     "PhaseBanner",
+     272
+    ]
+   ]
+  },
+  "desktop": {
+   "steps": {
+    "commits": 4.13,
+    "rendered": 113.28,
+    "matCards": 1.85,
+    "renderMs": 3.86,
+    "paintP50": 42.4,
+    "paintP95": 59.2,
+    "longMs": 0,
+    "inserted": 18.11,
+    "imgs": 152,
+    "blank": 0
+   },
+   "select": {
+    "commits": 2.83,
+    "rendered": 25.33,
+    "matCards": 0,
+    "renderMs": 1.62,
+    "paintP50": 44.4,
+    "paintP95": 103.1,
+    "longMs": 0,
+    "inserted": 12.67,
+    "imgs": 2,
+    "blank": 0
+   },
+   "hover": {
+    "commits": 2,
+    "rendered": 11.75,
+    "matCards": 0,
+    "renderMs": 1.2,
+    "paintP50": 378.5,
+    "paintP95": 390.6,
+    "longMs": 0,
+    "inserted": 10,
+    "imgs": 2,
+    "blank": 0
+   },
+   "topRendered": [
+    [
+     "BiomeGlyph",
+     1419
+    ],
+    [
+     "Marker",
+     796
+    ],
+    [
+     "ExpCell",
+     738
+    ],
+    [
+     "PlayerChip",
+     480
+    ],
+    [
+     "Totals",
+     456
+    ],
+    [
+     "Ghost",
+     456
+    ],
+    [
+     "DecisionBar",
+     452
+    ],
+    [
+     "ZoneSlots",
+     398
+    ],
+    [
+     "TrackButton",
+     325
+    ],
+    [
+     "CardActions",
+     325
+    ],
+    [
+     "TargetArrows",
+     325
+    ],
+    [
+     "PhaseBanner",
+     284
+    ]
+   ]
+  }
+ }
+}

@@ -193,8 +193,7 @@ impl PhpArrayShape {
             Hash,
         }
         let mut st = St::Uninit;
-        let mut count = 0u64;
-        for &k in keys {
+        for (count, &k) in keys.iter().enumerate() {
             let h = k as u64;
             st = match st {
                 St::Uninit if h < 8 => St::Packed { size: 8, used: h + 1 },
@@ -202,10 +201,9 @@ impl PhpArrayShape {
                 // A key below nNumUsed falls in a hole: "we have to keep the order"
                 St::Packed { used, .. } if h < used => St::Hash,
                 St::Packed { size, .. } if h < size => St::Packed { size, used: h + 1 },
-                St::Packed { size, .. } if (h >> 1) < size && (size >> 1) < count => St::Packed { size: size * 2, used: h + 1 },
+                St::Packed { size, .. } if (h >> 1) < size && (size >> 1) < count as u64 => St::Packed { size: size * 2, used: h + 1 },
                 St::Packed { .. } | St::Hash => St::Hash,
             };
-            count += 1;
         }
         match st {
             St::Packed { used, .. } => PhpArrayShape { packed: true, used, slots: keys.iter().map(|&k| k as u64).collect() },

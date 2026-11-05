@@ -64,7 +64,7 @@ fn i(v: &Value) -> f64 {
 }
 
 /// Biomes of a region (all three while its Tumult card is face down)
-fn region_biomes<'a>(view: &'a Value, pos: i64) -> Vec<&'a str> {
+fn region_biomes(view: &Value, pos: i64) -> Vec<&str> {
     let r = view["regions"].as_array().and_then(|rs| rs.iter().find(|r| r["index"].as_i64() == Some(pos)));
     match r.and_then(|r| r["biomes"].as_array()) {
         Some(b) => b.iter().filter_map(|x| x.as_str()).collect(),
@@ -119,7 +119,9 @@ pub fn evaluate(view: &Value, w: &Weights) -> f64 {
     }
 
     // Resources
-    let count = |owner: i64, zone: &str| view["cards"].as_array().map(|c| c.iter().filter(|c| c["owner"].as_i64() == Some(owner) && c["zone"] == zone).count()).unwrap_or(0) as f64;
+    let count = |owner: i64, zone: &str| {
+        view["cards"].as_array().map(|c| c.iter().filter(|c| c["owner"].as_i64() == Some(owner) && c["zone"] == zone).count()).unwrap_or(0) as f64
+    };
     let opp = theirs["id"].as_i64().unwrap_or(0);
     v += w.hand * (i(&mine["handCount"]) - i(&theirs["handCount"]));
     v += w.reserve * (count(me, "reserve") - count(opp, "reserve"));

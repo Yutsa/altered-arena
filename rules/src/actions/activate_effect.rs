@@ -181,7 +181,8 @@ impl ActionClass for ActivateEffect {
                 let gig = php::truthy(&card::is_gigantic(g, c, false)?);
                 ok = !players::has_opponent_blocking_power(g, p, &loc, gig)?;
             }
-            let ok = ok || php::loose_ne(&card::get(g, c, "type")?, &json!("character")) || !php::in_array(&json!("character"), &card::get_additional_type(g, c)?);
+            let ok =
+                ok || php::loose_ne(&card::get(g, c, "type")?, &json!("character")) || !php::in_array(&json!("character"), &card::get_additional_type(g, c)?);
             if ok {
                 let effect_type = get_arg(self, g, ctx, "effectType")?;
                 let prop = format!("effect{}", php::strval(&effect_type));
@@ -191,7 +192,10 @@ impl ActionClass for ActivateEffect {
 
                 if !php::empty(&card::get(g, c, &prop)?) {
                     let active = players::get_active(g);
-                    g.notify("mediumMessage", json!({"log": format!("${{player_name}} activates ${{card_name}} {} effect", prop), "player_id": active, "cardId": c}));
+                    g.notify(
+                        "mediumMessage",
+                        json!({"log": format!("${{player_name}} activates ${{card_name}} {} effect", prop), "player_id": active, "cardId": c}),
+                    );
                     let raw = card::get(g, c, &prop)?;
                     // ownEffect: nested effects run as the source card (Thomas Edison), not the target.
                     let tag_source_id = if php::truthy(&get_arg(self, g, ctx, "ownEffect")?) {

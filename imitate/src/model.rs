@@ -84,7 +84,17 @@ pub fn matrix(decs: &[&Decision], nfeat: usize, keep: &[bool], players: &[String
             (0..nfeat).map(|j| if n[j] > 0 { (sq[j] / n[j] as f64).sqrt().max(1e-6) } else { 1.0 }).collect()
         }
     };
-    let mut m = Matrix { nfeat, players: players.to_vec(), dec_player: vec![], dec_start: vec![0], cand_start: vec![0], label: vec![], idx: vec![], val: vec![], scale: scale.clone() };
+    let mut m = Matrix {
+        nfeat,
+        players: players.to_vec(),
+        dec_player: vec![],
+        dec_start: vec![0],
+        cand_start: vec![0],
+        label: vec![],
+        idx: vec![],
+        val: vec![],
+        scale: scale.clone(),
+    };
     for d in decs {
         m.dec_player.push(pindex[d.player.as_str()]);
         for (c, row) in d.feats.iter().enumerate() {
@@ -264,7 +274,12 @@ pub fn pred_of(m: &Matrix, d: usize, s: &[f64]) -> Pred {
     let mut order: Vec<usize> = (0..s.len()).collect();
     order.sort_by(|&x, &y| s[y].partial_cmp(&s[x]).unwrap_or(std::cmp::Ordering::Equal).then(x.cmp(&y)));
     let lab = |c: usize| m.label[a + c];
-    let lz = logsumexp(&s);
+    let lz = logsumexp(s);
     let ls: Vec<f64> = (0..s.len()).filter(|&c| lab(c)).map(|c| s[c]).collect();
-    Pred { top1: lab(order[0]), top3: order.iter().take(3).any(|&c| lab(c)), logp: if ls.is_empty() { None } else { Some(logsumexp(&ls) - lz) }, best: order[0] }
+    Pred {
+        top1: lab(order[0]),
+        top3: order.iter().take(3).any(|&c| lab(c)),
+        logp: if ls.is_empty() { None } else { Some(logsumexp(&ls) - lz) },
+        best: order[0],
+    }
 }

@@ -31,7 +31,7 @@ const triggeredBy = (c: ChoiceOption) => (c.resolvesTo ? (/\[\[([^\]]+)\]\]/.exe
  * comes up to be looked at.
  */
 export function EffectQueue({ collapsed, onCollapse }: { collapsed: boolean; onCollapse: () => void }) {
-  const { decision, byId, def, send, sending, setFocusSource, inspectCard, setResolveIntent } = useGameCtx();
+  const { decision, byId, def, send, sending, setFocusSource, inspectCard, setResolveIntent } = useGameCtx('decision', 'byId', 'def', 'send', 'sending', 'setFocusSource', 'inspectCard', 'setResolveIntent');
   const d = decision;
   const q = effectQueue(decision);
   const [hovered, setHovered] = useState<number | null>(null);
@@ -130,7 +130,7 @@ export function EffectQueue({ collapsed, onCollapse }: { collapsed: boolean; onC
 
 /** The effects queue minimized: a badge right of the main button, a click brings the queue back */
 export function EffectQueueBadge({ onExpand }: { onExpand: () => void }) {
-  const { decision, byId, def } = useGameCtx();
+  const { decision, byId, def } = useGameCtx('decision', 'byId', 'def');
   const q = effectQueue(decision);
   if (!q) return null;
   const first = q.effects.find((c) => c.enabled) ?? q.effects[0];

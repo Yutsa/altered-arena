@@ -1,11 +1,11 @@
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import type { CardView, Phase, PlayerView } from '@protocol';
-import { useGameCtx } from '../game/GameContext';
+import { useCard, useGame, useGameCtx, useZone } from '../game/GameContext';
 import { BoardCard } from '../components/BoardCard';
 import { CardListModal } from '../components/Picker';
 import { DecisionBar } from '../components/DecisionBar';
-import { useDrag } from '../game/drag';
+import { useDragState } from '../game/drag';
 import { Card } from '../components/Card';
 import { useHandTouch } from './useHandTouch';
 
@@ -30,9 +30,8 @@ const MANA_ROWS = 8;
 const MANA_THIN_ROWS = 24;
 
 export function ManaBar({ player, mine }: { player: PlayerView; mine: boolean }) {
-  const { zoneCards } = useGameCtx();
+  const mana = useZone(player.id, 'mana');
   const [open, setOpen] = useState(false);
-  const mana = zoneCards(player.id, 'mana');
   // Beyond MANA_ROWS orbs the gauge would leave its band: the orbs become thin bars in the same
   // height, then, past MANA_THIN_ROWS, they go on in more columns (as even as possible)
   const cols = Math.max(1, Math.ceil(player.manaTotal / MANA_THIN_ROWS));
@@ -54,7 +53,7 @@ export function ManaBar({ player, mine }: { player: PlayerView; mine: boolean })
         </b>
         <span
           className={`mb-gauge ${cols > 1 ? 'multi' : ''} ${thin ? 'thin' : ''}`}
-          style={thin ? ({ ['--mb-rows' as string]: rows, ['--mb-full' as string]: MANA_ROWS } as CSSProperties) : undefined}
+          style={thin ? ({ '--mb-rows': rows, '--mb-full': MANA_ROWS } as CSSProperties) : undefined}
         >
           {Array.from({ length: player.manaTotal }, (_, i) => {
             // Filled column by column, from the mat's edge (bottom for me, top for the opponent)
@@ -71,7 +70,7 @@ export function ManaBar({ player, mine }: { player: PlayerView; mine: boolean })
 
 /** Name and state of a player */
 export function PlayerChip({ player, mine, className, action }: { player: PlayerView; mine: boolean; className: string; action?: ReactNode }) {
-  const { view, decision, send, you } = useGameCtx();
+  const { view, decision, send, you } = useGameCtx('view', 'decision', 'send', 'you');
   const waiting = view.waitingFor.includes(player.id);
   const pickable = decision?.kind === 'player' && decision.players.includes(player.id);
   return (
@@ -126,7 +125,7 @@ function FullscreenButton() {
 
 /** Day and phase, log, connection, full screen, way back */
 export function InfoChip({ onLeave, connected, onLog, unread, extra }: { onLeave: () => void; connected: boolean; onLog: () => void; unread: number; extra?: ReactNode }) {
-  const { view } = useGameCtx();
+  const { view } = useGameCtx('view');
   return (
     <div className="chip info-chip">
       <span className="ic-day">Day {view.day}</span>
@@ -174,7 +173,7 @@ export function TrackNotice({ at }: { at: { x: number; y: number } | null }) {
 
 /** A short banner when the phase changes ("Day 3 · Morning", "Dusk"...). */
 export function PhaseBanner() {
-  const { view } = useGameCtx();
+  const { view } = useGameCtx('view');
   const key = `${view.day}:${view.phase}`;
   const first = useRef(true);
   const [shown, setShown] = useState<string | null>(null);
@@ -219,7 +218,8 @@ function fanLayout(n: number) {
  * follows its card in the fan, kept inside the window.
  */
 function HandPeek({ id }: { id: number }) {
-  const { byId, def } = useGameCtx();
+  const { def } = useGameCtx('def');
+  const card = useCard(id);
   const ref = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
     let raf = 0;
@@ -239,7 +239,6 @@ function HandPeek({ id }: { id: number }) {
     follow();
     return () => cancelAnimationFrame(raf);
   }, [id]);
-  const card = byId.get(id);
   const d = def(card);
   if (!d) return null;
   return createPortal(
@@ -278,8 +277,10 @@ export function ArenaHand({
   /** Width of a card in the hand (stage px) */
   cardW?: number;
 }) {
-  const { me, zoneCards, ui, you, def } = useGameCtx();
-  const { drag } = useDrag();
+  const { me, you, def } = useGameCtx('me', 'you', 'def');
+  const selected = useGame((s) => s.ui.selected);
+  const held = useZone(me?.id, 'hand');
+  const out = useDragState((d) => (d && !d.returning ? d.cardId : null));
   const handRef = useRef<HTMLDivElement>(null);
   const touch = useHandTouch(handRef);
   // Draw order: the server lists the hand by card id, so the order of arrival is kept here (the
@@ -287,7 +288,6 @@ export function ArenaHand({
   const arrival = useRef(new Map<number, number>());
   const arrivals = useRef(0);
   if (!me || you === null) return null;
-  const held = zoneCards(me.id, 'hand');
   const ids = new Set(held.map((c) => c.id));
   for (const id of [...arrival.current.keys()]) if (!ids.has(id)) arrival.current.delete(id);
   for (const c of held) if (!arrival.current.has(c.id)) arrival.current.set(c.id, arrivals.current++);
@@ -299,7 +299,6 @@ export function ArenaHand({
   };
   const cards = [...held].sort((a, b) => rank(a) - rank(b) || drawn(a) - drawn(b));
 
-  const out = drag && !drag.returning ? drag.cardId : null;
   const fanned = cards.filter((c) => c.id !== out);
   const fan = fanLayout(fanned.length);
   // The card that left keeps the place it had, hidden
@@ -328,11 +327,11 @@ export function ArenaHand({
           <div
             key={c.id}
             data-hand-card={c.id}
-            className={`ah-slot ${ui.selected === c.id ? 'lifted' : ''} ${touch.focus === c.id ? 'focus' : ''}`}
+            className={`ah-slot ${selected === c.id ? 'lifted' : ''} ${touch.focus === c.id ? 'focus' : ''}`}
             style={{
-              ['--x' as string]: `calc(var(--card-hand-w) * ${l.xs[i] * squeeze})`,
-              ['--rot' as string]: `${off * l.spread}deg`,
-              ['--dy' as string]: `${off * off * 3}px`,
+              '--x': `calc(var(--card-hand-w) * ${l.xs[i] * squeeze})`,
+              '--rot': `${off * l.spread}deg`,
+              '--dy': `${off * off * 3}px`,
               zIndex: i + 1,
             }}
           >
@@ -438,9 +437,9 @@ export function OppHand({ player }: { player: PlayerView }) {
             alt=""
             draggable={false}
             style={{
-              ['--x' as string]: `calc(var(--opp-card-w) * ${off * step})`,
-              ['--rot' as string]: `${-off * spread}deg`,
-              ['--dy' as string]: `${-off * off * 2}px`,
+              '--x': `calc(var(--opp-card-w) * ${off * step})`,
+              '--rot': `${-off * spread}deg`,
+              '--dy': `${-off * off * 2}px`,
             }}
           />
         );

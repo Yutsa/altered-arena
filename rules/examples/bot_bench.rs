@@ -13,7 +13,12 @@ use std::time::Instant;
 
 fn main() {
     let games: usize = std::env::args().nth(1).and_then(|a| a.parse().ok()).unwrap_or(40);
-    std::thread::Builder::new().stack_size(std::env::var("STACK_KB").ok().and_then(|s| s.parse::<usize>().ok()).unwrap_or(256 << 10) << 10).spawn(move || run(games)).unwrap().join().unwrap();
+    std::thread::Builder::new()
+        .stack_size(std::env::var("STACK_KB").ok().and_then(|s| s.parse::<usize>().ok()).unwrap_or(256 << 10) << 10)
+        .spawn(move || run(games))
+        .unwrap()
+        .join()
+        .unwrap();
 }
 
 fn run(games: usize) {
@@ -24,7 +29,8 @@ fn run(games: usize) {
     let mut check = 0u64;
     for i in 0..games {
         let decks = [STARTER_DECKS[(i * 7) % n].0, STARTER_DECKS[(i * 11 + 3) % n].0];
-        let players: Vec<NewPlayer> = decks.iter().map(|d| NewPlayer { name: "Bot".into(), bot: true, deck: Some(d.to_string()), api_deck: None, reunion_deck: None }).collect();
+        let players: Vec<NewPlayer> =
+            decks.iter().map(|d| NewPlayer { name: "Bot".into(), bot: true, deck: Some(d.to_string()), api_deck: None, reunion_deck: None }).collect();
         let dice: Vec<i64> = (0..100).map(|k| (k * 7 + i as i64) % 6 + 1).collect();
         let t = Instant::now();
         let mut g = Game::create(1000 + i as i64, &players, &dice).unwrap();

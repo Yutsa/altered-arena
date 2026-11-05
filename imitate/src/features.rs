@@ -99,7 +99,9 @@ fn terms(view: &Value, w: &Weights) -> [[f64; 12]; 2] {
             }
         }
         let id = a["id"].as_i64().unwrap_or(0);
-        let count = |zone: &str| view["cards"].as_array().map(|c| c.iter().filter(|c| c["owner"].as_i64() == Some(id) && c["zone"] == zone).count()).unwrap_or(0) as f64;
+        let count = |zone: &str| {
+            view["cards"].as_array().map(|c| c.iter().filter(|c| c["owner"].as_i64() == Some(id) && c["zone"] == zone).count()).unwrap_or(0) as f64
+        };
         t[5] = num(&a["handCount"]);
         t[6] = count("reserve");
         t[7] = count("landmark");
@@ -130,12 +132,7 @@ pub fn prompt_class(p: &str) -> String {
 /// the words every prompt has left out
 pub fn prompt_words(p: &str) -> Vec<String> {
     const COMMON: [&str; 16] = ["you", "must", "may", "choose", "target", "card", "cards", "the", "from", "max", "base", "cost", "of", "up", "to", "and"];
-    let mut out: Vec<String> = p
-        .to_lowercase()
-        .split(|c: char| !c.is_alphabetic())
-        .filter(|w| w.len() >= 3 && !COMMON.contains(w))
-        .map(String::from)
-        .collect();
+    let mut out: Vec<String> = p.to_lowercase().split(|c: char| !c.is_alphabetic()).filter(|w| w.len() >= 3 && !COMMON.contains(w)).map(String::from).collect();
     out.sort();
     out.dedup();
     out
@@ -218,10 +215,22 @@ impl<'a> Ctx<'a> {
                 let power = ["forest", "mountain", "ocean"].iter().map(|b| num(&c["stats"][*b])).sum();
                 let key = self.obs.card_key(&Value::from(id)).unwrap_or_else(|| "?".into());
                 let ctype = self.obs.card_prop(id, "type").and_then(|t| t.as_str().map(String::from)).unwrap_or_else(|| "?".into());
-                let text = |k1: &str, k2: &str| self.obs.card_prop(id, k1).or_else(|| self.obs.card_prop(id, k2)).and_then(|t| t.as_str().map(String::from)).unwrap_or_default();
+                let text = |k1: &str, k2: &str| {
+                    self.obs.card_prop(id, k1).or_else(|| self.obs.card_prop(id, k2)).and_then(|t| t.as_str().map(String::from)).unwrap_or_default()
+                };
                 let mut fx = keywords(&text("effectDesc", "effect"), "");
                 fx.extend(keywords(&text("supportDesc", "support"), "s"));
-                CardInfo { key, ctype, mine: c["owner"].as_i64() == Some(self.obs.me), zone, cost, power, boosts: num(&c["boosts"]), exhausted: c["exhausted"] == true, fx }
+                CardInfo {
+                    key,
+                    ctype,
+                    mine: c["owner"].as_i64() == Some(self.obs.me),
+                    zone,
+                    cost,
+                    power,
+                    boosts: num(&c["boosts"]),
+                    exhausted: c["exhausted"] == true,
+                    fx,
+                }
             });
             self.info.insert(id, i);
         }
@@ -498,7 +507,13 @@ pub fn extract(obs: &Observation, d: &Value, cands: &[Value], rng: &mut ChaCha8R
             "support" => ctx.card(&mut f, "support", &a["cardId"]),
             "tap" => ctx.card(&mut f, "tap", &a["cardId"]),
             "select" => {
-                let role = if grp == "mana" { "mana" } else if grp == "number" { "numdiscard" } else { "tgt" };
+                let role = if grp == "mana" {
+                    "mana"
+                } else if grp == "number" {
+                    "numdiscard"
+                } else {
+                    "tgt"
+                };
                 let sel = ids(&a["cardIds"]);
                 f.push((format!("{}:n", role), sel.len() as f32));
                 if sel.is_empty() {
@@ -519,7 +534,10 @@ pub fn extract(obs: &Observation, d: &Value, cands: &[Value], rng: &mut ChaCha8R
                                 "heroExpedition" | "companionExpedition" => "exp",
                                 z => z,
                             };
-                            let tags: Vec<String> = [if c.mine { "mine" } else { "opp" }.to_string(), format!("at={}", place)].into_iter().chain(flags.iter().map(|x| x.to_string())).collect();
+                            let tags: Vec<String> = [if c.mine { "mine" } else { "opp" }.to_string(), format!("at={}", place)]
+                                .into_iter()
+                                .chain(flags.iter().map(|x| x.to_string()))
+                                .collect();
                             let (power, cost) = (c.power, c.cost);
                             for w in &words {
                                 for t in &tags {

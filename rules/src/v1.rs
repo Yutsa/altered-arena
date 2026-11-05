@@ -63,7 +63,13 @@ pub fn view_state(g: &mut Game, pid: PId) -> R<RawState> {
     g.begin_request(Some(pid))?;
     let (def, args) = framework::state_with_args(g)?;
     let args = php::round_trip(&private_args(&args, pid));
-    Ok(RawState { def, args, active_player: g.active_player_id(), multiactive: framework::get_active_player_list(g), is_active: framework::is_player_active(g, pid) })
+    Ok(RawState {
+        def,
+        args,
+        active_player: g.active_player_id(),
+        multiactive: framework::get_active_player_list(g),
+        is_active: framework::is_player_active(g, pid),
+    })
 }
 
 /// `$waiting` of V1::build
@@ -139,7 +145,10 @@ pub fn decision(g: &mut Game, raw: &RawState, you: PId) -> R<Option<Value>> {
                 return Ok(None);
             }
             let n = php::intval(php::coalesce(php::get(&private, "n"), &json!(3)));
-            with(&base, json!({"kind": "select", "cardIds": php::coalesce(php::get(&private, "cards"), &php::arr()), "min": n, "max": n, "toMana": true, "prompt": format!("Choose {} cards to put in your Mana", n)}))
+            with(
+                &base,
+                json!({"kind": "select", "cardIds": php::coalesce(php::get(&private, "cards"), &php::arr()), "min": n, "max": n, "toMana": true, "prompt": format!("Choose {} cards to put in your Mana", n)}),
+            )
         }
         "chooseAssignment" => {
             let mut play = vec![];
@@ -198,7 +207,10 @@ pub fn decision(g: &mut Game, raw: &RawState, you: PId) -> R<Option<Value>> {
                 Value::Object(m)
             };
             let up_to = php::truthy(php::coalesce(php::get(args, "upTo"), &json!(false)));
-            with(&base, json!({"kind": "select", "cardIds": ids, "min": if up_to { 0 } else { max }, "max": max, "costs": costs, "showInPicker": php::truthy(php::coalesce(php::get(args, "manaOrbs"), &json!(false)))}))
+            with(
+                &base,
+                json!({"kind": "select", "cardIds": ids, "min": if up_to { 0 } else { max }, "max": max, "costs": costs, "showInPicker": php::truthy(php::coalesce(php::get(args, "manaOrbs"), &json!(false)))}),
+            )
         }
         "discard" => {
             let ids = ints(php::coalesce(php::get(&private, "cards"), &php::arr()));
@@ -305,7 +317,10 @@ pub fn decision(g: &mut Game, raw: &RawState, you: PId) -> R<Option<Value>> {
             let values: Vec<i64> = (1..=n).collect();
             with(&base, json!({"kind": "number", "values": values}))
         }
-        "exchange" => with(&base, json!({"kind": "exchange", "hand": php::coalesce(php::get(args, "handIds"), &php::arr()), "reserve": php::coalesce(php::get(args, "reserveIds"), &php::arr())})),
+        "exchange" => with(
+            &base,
+            json!({"kind": "exchange", "hand": php::coalesce(php::get(args, "handIds"), &php::arr()), "reserve": php::coalesce(php::get(args, "reserveIds"), &php::arr())}),
+        ),
         "markRegion" => {
             let mut buttons = vec![];
             for m in php::vals(php::coalesce(php::get(args, "markers"), &php::arr())) {
@@ -318,7 +333,8 @@ pub fn decision(g: &mut Game, raw: &RawState, you: PId) -> R<Option<Value>> {
                 .into_iter()
                 .map(|m| json!({"id": php::intval(php::get(m, "id")), "biome": php::strval(php::get(m, "type"))}))
                 .collect();
-            let regions: Vec<i64> = php::entries(php::coalesce(php::get(args, "regions"), &php::arr())).into_iter().map(|(rid, _)| php::intval(&json!(rid))).collect();
+            let regions: Vec<i64> =
+                php::entries(php::coalesce(php::get(args, "regions"), &php::arr())).into_iter().map(|(rid, _)| php::intval(&json!(rid))).collect();
             with(&base, json!({"kind": "buttons", "buttons": buttons, "markRegion": {"markers": markers, "regions": regions}}))
         }
         "moveRegionMarker" => {
@@ -506,7 +522,10 @@ pub fn to_action(raw: &RawState, a: &Value) -> R<(String, Value)> {
             }
             atomic("actTarget", vec![ids])
         }
-        "cleanup" => atomic("actNightCleanup", vec![ints(php::coalesce(php::get(a, "reserve"), &php::arr())), ints(php::coalesce(php::get(a, "landmarks"), &php::arr()))]),
+        "cleanup" => atomic(
+            "actNightCleanup",
+            vec![ints(php::coalesce(php::get(a, "reserve"), &php::arr())), ints(php::coalesce(php::get(a, "landmarks"), &php::arr()))],
+        ),
         "expedition" => {
             let keys = php::coalesce(php::get(a, "keys"), &php::arr()).clone();
             if name == "moveExpedition" {
@@ -796,7 +815,9 @@ pub fn card_ref(g: &Game, id: i64) -> R<String> {
     }
     // getCardInstance found the class by faction, rarity and name
     let found = cards::classes().iter().find(|(_, p)| {
-        p.get("faction") == c.db_props.get("faction") && php::loose_eq(p.get("rarity").unwrap_or(&Value::Null), c.db_props.get("rarity").unwrap_or(&Value::Null)) && p.get("name") == c.db_props.get("name")
+        p.get("faction") == c.db_props.get("faction")
+            && php::loose_eq(p.get("rarity").unwrap_or(&Value::Null), c.db_props.get("rarity").unwrap_or(&Value::Null))
+            && p.get("name") == c.db_props.get("name")
     });
     Ok(found.map(|(k, _)| k.clone()).unwrap_or(name))
 }
@@ -877,11 +898,9 @@ fn card_view(g: &Game, id: i64, tokens: &[String], positions: &mut std::collecti
     if token {
         v["token"] = json!(true);
     }
-    if p.get("type") == Some(&json!("character")) || token {
-        if p.get("forest").is_some_and(|x| !x.is_null()) {
-            let stat = |k: &str| php::intval(p.get(k).unwrap_or(&Value::Null)) + boosts;
-            v["stats"] = json!({"forest": stat("forest"), "mountain": stat("mountain"), "ocean": stat("ocean")});
-        }
+    if (p.get("type") == Some(&json!("character")) || token) && p.get("forest").is_some_and(|x| !x.is_null()) {
+        let stat = |k: &str| php::intval(p.get(k).unwrap_or(&Value::Null)) + boosts;
+        v["stats"] = json!({"forest": stat("forest"), "mountain": stat("mountain"), "ocean": stat("ocean")});
     }
     for k in ["costHand", "costReserve"] {
         if let Some(x) = p.get(k) {
@@ -1127,7 +1146,7 @@ fn build_view(g: &mut Game, you: Option<PId>, game_id: &str, with_decision: bool
     let passed = if globals::is(g, "dayPhase")? { globals::get(g, "skippedPlayers")? } else { php::arr() };
     let mut player_views = vec![];
     for pid in players::get_all(g) {
-        let hero = card_views.iter().filter(|c| c["zone"] == json!("hero") && c["owner"] == json!(pid)).map(|c| c["id"].clone()).last();
+        let hero = card_views.iter().filter(|c| c["zone"] == json!("hero") && c["owner"] == json!(pid)).map(|c| c["id"].clone()).next_back();
         let mut expeditions = Map::new();
         for (side, loc) in [("hero", "stormLeft"), ("companion", "stormRight")] {
             let b = php::get(php::get(&biomes, &pid.to_string()), loc);
@@ -1457,7 +1476,13 @@ pub fn log_line(g: &Game, n: &Value) -> Option<LogLine> {
     }
     if let Some(l) = a.get("displayLocation").cloned() {
         let s = php::strval(&l);
-        let d = if s == "stormLeft" { "Hero's expedition" } else if s == "landmark" { "Landmark's zone" } else { "Companion's expedition" };
+        let d = if s == "stormLeft" {
+            "Hero's expedition"
+        } else if s == "landmark" {
+            "Landmark's zone"
+        } else {
+            "Companion's expedition"
+        };
         a.insert("displayLocation".into(), json!(d));
     }
     if name == "newPhase" {
@@ -1475,10 +1500,7 @@ pub fn log_line(g: &Game, n: &Value) -> Option<LogLine> {
         .flatten();
     let cast = (name == "playCard" && php::get(&args, "location") == &json!("limbo")).then(|| php::intval(php::get(&args, "cardId")));
     let targets = if name == "targetCards" {
-        php::vals(php::get(&args, "cardIds"))
-            .into_iter()
-            .map(|c| php::intval(if php::is_arr(c) { php::get(c, "id") } else { c }))
-            .collect()
+        php::vals(php::get(&args, "cardIds")).into_iter().map(|c| php::intval(if php::is_arr(c) { php::get(c, "id") } else { c })).collect()
     } else {
         vec![]
     };

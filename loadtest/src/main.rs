@@ -39,7 +39,11 @@ impl Lcg {
         self.0 >> 33
     }
     fn below(&mut self, n: usize) -> usize {
-        if n == 0 { 0 } else { (self.next() % n as u64) as usize }
+        if n == 0 {
+            0
+        } else {
+            (self.next() % n as u64) as usize
+        }
     }
 }
 
@@ -70,7 +74,11 @@ fn pick_answer(d: &Value, rng: &mut Lcg) -> Value {
         }
         "choice" => {
             let en: Vec<Value> = arr("choices").into_iter().filter(|c| c["enabled"].as_bool().unwrap_or(false)).collect();
-            if en.is_empty() { json!({"type": "pass"}) } else { json!({"type": "choice", "id": en[rng.below(en.len())]["id"]}) }
+            if en.is_empty() {
+                json!({"type": "pass"})
+            } else {
+                json!({"type": "choice", "id": en[rng.below(en.len())]["id"]})
+            }
         }
         "expedition" => {
             let e = arr("expeditions");
@@ -80,7 +88,9 @@ fn pick_answer(d: &Value, rng: &mut Lcg) -> Value {
         "player" if !arr("players").is_empty() => json!({"type": "player", "player": arr("players")[0]}),
         "number" => json!({"type": "number", "value": arr("values").last().cloned().unwrap_or(json!(0))}),
         "location" if !arr("locations").is_empty() => json!({"type": "location", "key": arr("locations")[0]["key"]}),
-        "exchange" if !arr("hand").is_empty() && !arr("reserve").is_empty() => json!({"type": "exchange", "hand": arr("hand")[0], "reserve": arr("reserve")[0]}),
+        "exchange" if !arr("hand").is_empty() && !arr("reserve").is_empty() => {
+            json!({"type": "exchange", "hand": arr("hand")[0], "reserve": arr("reserve")[0]})
+        }
         "cleanup" => {
             let r = d["reserve"]["cardIds"].as_array().cloned().unwrap_or_default();
             let l = d["landmarks"]["cardIds"].as_array().cloned().unwrap_or_default();
@@ -152,7 +162,12 @@ async fn play_seat(client: reqwest::Client, url: String, game: String, player: u
                     view = body;
                 } else {
                     stats.decisions_refused.fetch_add(1, Ordering::Relaxed);
-                    let reason = format!("{} {}: {}", view["decision"]["kind"].as_str().unwrap_or("?"), answer["type"].as_str().unwrap_or("?"), body["error"].as_str().unwrap_or("?"));
+                    let reason = format!(
+                        "{} {}: {}",
+                        view["decision"]["kind"].as_str().unwrap_or("?"),
+                        answer["type"].as_str().unwrap_or("?"),
+                        body["error"].as_str().unwrap_or("?")
+                    );
                     *stats.refused_reasons.lock().await.entry(reason).or_insert(0) += 1;
                     // Retry with a fresh view (and a pass if possible)
                     if let Ok(r) = client.get(format!("{}?{}", base, auth)).send().await {
@@ -244,8 +259,20 @@ async fn main() {
     let decks: Vec<Value> = client.get(format!("{}/api/v1/decks", url)).send().await.unwrap().json().await.unwrap();
     let start = Instant::now();
     let until = start + Duration::from_secs(duration);
-    let base_rss = if pid > 0 { sample_process(pid).map(|s| s.0).unwrap_or(0) } else if !docker.is_empty() { docker_mem_kb(&docker).0 } else { 0 };
-    let cpu_start = if pid > 0 { cpu_seconds(pid) } else if !docker.is_empty() { docker_cpu_seconds(&docker) } else { 0.0 };
+    let base_rss = if pid > 0 {
+        sample_process(pid).map(|s| s.0).unwrap_or(0)
+    } else if !docker.is_empty() {
+        docker_mem_kb(&docker).0
+    } else {
+        0
+    };
+    let cpu_start = if pid > 0 {
+        cpu_seconds(pid)
+    } else if !docker.is_empty() {
+        docker_cpu_seconds(&docker)
+    } else {
+        0.0
+    };
     let tx_start = if docker.is_empty() { 0 } else { docker_tx_bytes(&docker) };
     let max_mem_current = Arc::new(AtomicU64::new(0));
 
@@ -309,7 +336,7 @@ async fn main() {
                     let (client, url, game, stats) = (client.clone(), url.clone(), game.clone(), stats.clone());
                     let token = p["token"].as_str().unwrap_or("").to_string();
                     let player = p["id"].as_u64().unwrap_or(0);
-                    let seed = (i as u64) << 20 | round << 4 | player % 16;
+                    let seed = (i as u64) << 20 | round << 4 | (player % 16);
                     seats.push(tokio::spawn(play_seat(client, url, game, player, token, think, until, stats, seed)));
                 }
                 for s in seats {
@@ -340,7 +367,13 @@ async fn main() {
     progress.abort();
 
     let elapsed = start.elapsed().as_secs_f64();
-    let cpu_used = if pid > 0 { cpu_seconds(pid) - cpu_start } else if !docker.is_empty() { docker_cpu_seconds(&docker) - cpu_start } else { 0.0 };
+    let cpu_used = if pid > 0 {
+        cpu_seconds(pid) - cpu_start
+    } else if !docker.is_empty() {
+        docker_cpu_seconds(&docker) - cpu_start
+    } else {
+        0.0
+    };
     let tx = if docker.is_empty() { 0 } else { docker_tx_bytes(&docker) - tx_start };
     let mut steady = stats.steady_latencies_us.lock().await.clone();
     steady.sort_unstable();

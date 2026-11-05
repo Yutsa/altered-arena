@@ -1,0 +1,4 @@
+# The golden files CI downloads: asset goldens.tar.zst of the GitHub release TAG of this repository
+# (tools/goldens_publish.sh makes a new one, tools/goldens_fetch.sh downloads it)
+TAG=goldens-2026-11-05
+SHA256=6d45f9c708d9d3940987a7f004479986ada34812c88e15367f55d44b8de18975

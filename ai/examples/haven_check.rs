@@ -27,8 +27,12 @@ impl Agent for Counted {
             let view = obs.view();
             let card = view["cards"].as_array().and_then(|cs| cs.iter().find(|c| c["id"] == a["cardId"])).cloned().unwrap_or(Value::Null);
             let haven = a["type"] == "tap" && card["ref"] == "AX_Rare_HavenBravosBastion";
-            let reserve_char = a["type"] == "play" && card["zone"] == "reserve" && a["cardId"].as_i64().and_then(|id| obs.card_prop(id, "type")) == Some(serde_json::json!("character"));
-            let haven_ready = d["tap"].as_array().into_iter().flatten().any(|id| view["cards"].as_array().and_then(|cs| cs.iter().find(|c| c["id"] == *id)).map(|c| c["ref"] == "AX_Rare_HavenBravosBastion").unwrap_or(false));
+            let reserve_char = a["type"] == "play"
+                && card["zone"] == "reserve"
+                && a["cardId"].as_i64().and_then(|id| obs.card_prop(id, "type")) == Some(serde_json::json!("character"));
+            let haven_ready = d["tap"].as_array().into_iter().flatten().any(|id| {
+                view["cards"].as_array().and_then(|cs| cs.iter().find(|c| c["id"] == *id)).map(|c| c["ref"] == "AX_Rare_HavenBravosBastion").unwrap_or(false)
+            });
             if reserve_char && !self.pending && haven_ready {
                 self.missed.fetch_add(1, Ordering::SeqCst);
                 if std::env::var("HAVEN_LOG").is_ok() {
@@ -58,7 +62,8 @@ fn run() {
     let a: Vec<String> = std::env::args().collect();
     let decks: Value = serde_json::from_str(&std::fs::read_to_string("server/goldens/tournament_decks.json").unwrap()).unwrap();
     let n: u64 = a[3].parse().unwrap();
-    let params = |d: &str| std::fs::read_to_string(format!("ai/params/{}.json", d)).ok().map(|s| serde_json::from_str::<Params>(&s).unwrap()).unwrap_or_default();
+    let params =
+        |d: &str| std::fs::read_to_string(format!("ai/params/{}.json", d)).ok().map(|s| serde_json::from_str::<Params>(&s).unwrap()).unwrap_or_default();
     let used = Arc::new(AtomicUsize::new(0));
     let wasted = Arc::new(AtomicUsize::new(0));
     let missed = Arc::new(AtomicUsize::new(0));
@@ -77,5 +82,12 @@ fn run() {
         },
         |&seed, e| eprintln!("seed {} panicked: {}", seed, e),
     );
-    println!("{} vs {}: Haven taps used {}, wasted {}, Reserve Characters played without the ready Haven {}", a[1], a[2], used.load(Ordering::SeqCst), wasted.load(Ordering::SeqCst), missed.load(Ordering::SeqCst));
+    println!(
+        "{} vs {}: Haven taps used {}, wasted {}, Reserve Characters played without the ready Haven {}",
+        a[1],
+        a[2],
+        used.load(Ordering::SeqCst),
+        wasted.load(Ordering::SeqCst),
+        missed.load(Ordering::SeqCst)
+    );
 }

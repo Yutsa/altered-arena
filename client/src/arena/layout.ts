@@ -79,7 +79,7 @@ const SLICES: [number, number][] = [
 export function rowBackground(l: ArenaLayout, i: number): CSSProperties {
   const [f0, f1] = SLICES[i];
   const imgH = l.rows[i] / (f1 - f0);
-  return { height: l.rows[i], ['--bgw' as string]: `${l.plane.w}px`, ['--bgh' as string]: `${imgH}px`, ['--bgy' as string]: `${-f0 * imgH}px` };
+  return { height: l.rows[i], '--bgw': `${l.plane.w}px`, '--bgh': `${imgH}px`, '--bgy': `${-f0 * imgH}px` };
 }
 
 /**
