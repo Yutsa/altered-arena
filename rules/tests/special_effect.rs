@@ -5,12 +5,8 @@ use altered_rules::helpers::{conditions_extra, utils};
 use altered_rules::Game;
 use serde_json::{json, Value};
 
-fn tiktok() -> Option<Game> {
-    // The goldens are not in git: ALTERED_GOLDENS points to them from a worktree
-    let dir = std::env::var("ALTERED_GOLDENS").unwrap_or_else(|_| concat!(env!("CARGO_MANIFEST_DIR"), "/../server/goldens").to_string());
-    let data: Value = serde_json::from_slice(&std::fs::read(format!("{}/rich/AX_Common_TikTok.json", dir)).ok()?).ok()?;
-    Some(Game::from_bga_tables(&data["db"], &[3, 1, 6, 4, 2, 5]).expect("load"))
-}
+mod common;
+use common::tiktok;
 
 /// Runs one SpecialEffect node whose source is card 2401 (in the hand of player 2001)
 fn run(g: &mut Game, effect: &str, args: Value) {

@@ -8,13 +8,8 @@ use altered_rules::models::card;
 use altered_rules::Game;
 use serde_json::{json, Value};
 
-/// The rich board of a card (the golden files are not in git: GOLDENS_DIR, else server/goldens)
-fn board(class: &str) -> Option<(Game, i64)> {
-    let dir = std::env::var("GOLDENS_DIR").unwrap_or_else(|_| concat!(env!("CARGO_MANIFEST_DIR"), "/../server/goldens").to_string());
-    let data: Value = serde_json::from_slice(&std::fs::read(format!("{}/rich/{}.json", dir, class)).ok()?).ok()?;
-    let g = Game::from_bga_tables(&data["db"], &[3, 1, 6, 4, 2, 5]).expect("load");
-    Some((g, data["cardId"].as_i64().expect("cardId")))
-}
+mod common;
+use common::rich as board;
 
 fn answer(g: &mut Game, player: u32, mut a: Value) {
     let d = g.decision(player).expect("a decision");

@@ -388,8 +388,46 @@ fn main() {
             failures.push(res);
         }
     }
-    for (name, r) in failures.iter().take(if verbose { usize::MAX } else { 20 }) {
+    let known = known_failures();
+    let (expected, unexpected): (Vec<&(String, Report)>, Vec<_>) = failures.into_iter().partition(|res| known.contains_key(&res.0));
+    for (name, r) in unexpected.iter().take(if verbose { usize::MAX } else { 20 }) {
         println!("FAIL {}: {}", name, r.first_failure.as_deref().unwrap_or(""));
     }
-    println!("\n{}/{} files pass, {}/{} nodes checked pass ({:.1}s)", ok_files, results.len(), passed, nodes, t.elapsed().as_secs_f64());
+    for (name, r) in expected.iter().filter(|_| verbose) {
+        println!("KNOWN {} ({}): {}", name, known[name], r.first_failure.as_deref().unwrap_or(""));
+    }
+    // A known failure that passes again must leave the list, so that it cannot regress unnoticed
+    let fixed: Vec<&String> = results.iter().filter(|(name, r)| r.first_failure.is_none() && known.contains_key(name)).map(|(name, _)| name).collect();
+    for name in &fixed {
+        println!("FIXED {}: passes now, remove it from goldens/known_failures.txt", name);
+    }
+    println!(
+        "\n{}/{} files pass ({} known failures), {}/{} nodes checked pass ({:.1}s)",
+        ok_files,
+        results.len(),
+        expected.len(),
+        passed,
+        nodes,
+        t.elapsed().as_secs_f64()
+    );
+    if results.is_empty() {
+        println!("no golden file in {}", dir);
+    }
+    if results.is_empty() || !unexpected.is_empty() || !fixed.is_empty() {
+        std::process::exit(1);
+    }
+}
+
+/// goldens/known_failures.txt: `board/file  reason` per line (`#` comments). These files may fail
+/// without failing the run; any other failure fails it.
+fn known_failures() -> std::collections::HashMap<String, String> {
+    let text = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/known_failures.txt")).unwrap_or_default();
+    text.lines()
+        .map(|l| l.split('#').next().unwrap_or("").trim())
+        .filter(|l| !l.is_empty())
+        .map(|l| match l.split_once(char::is_whitespace) {
+            Some((name, reason)) => (name.to_string(), reason.trim().to_string()),
+            None => (l.to_string(), String::new()),
+        })
+        .collect()
 }

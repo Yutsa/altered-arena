@@ -6,11 +6,8 @@ use altered_rules::models::card;
 use altered_rules::Game;
 use serde_json::{json, Value};
 
-fn tiktok() -> Option<Game> {
-    let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../server/goldens/rich/AX_Common_TikTok.json");
-    let data: Value = serde_json::from_slice(&std::fs::read(path).ok()?).ok()?;
-    Some(Game::from_bga_tables(&data["db"], &[3, 1, 6, 4, 2, 5]).expect("load"))
-}
+mod common;
+use common::tiktok;
 
 fn check(g: &mut Game, cond: &str, card: Option<i64>, event: Value) -> bool {
     conditions::check(g, &json!({ "condition": cond }), card, &event).unwrap()

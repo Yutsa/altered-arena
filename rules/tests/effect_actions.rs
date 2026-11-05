@@ -9,12 +9,11 @@ use altered_rules::models::card;
 use altered_rules::{php, Game, PhpError};
 use serde_json::{json, Value};
 
+mod common;
+
+/// The TikTok board, in a request of player 2001
 fn tiktok() -> Option<Game> {
-    let local = concat!(env!("CARGO_MANIFEST_DIR"), "/../server/goldens/rich/AX_Common_TikTok.json");
-    let shared = "/Users/edouardwillisseck/dev/perso/altered/altered-arena/server/goldens/rich/AX_Common_TikTok.json";
-    let bytes = std::fs::read(local).or_else(|_| std::fs::read(shared)).ok()?;
-    let data: Value = serde_json::from_slice(&bytes).ok()?;
-    let mut g = Game::from_bga_tables(&data["db"], &[3, 1, 6, 4, 2, 5]).expect("load");
+    let mut g = common::tiktok()?;
     g.begin_request(Some(2001)).unwrap();
     Some(g)
 }

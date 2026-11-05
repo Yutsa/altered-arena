@@ -7,13 +7,8 @@ use altered_rules::framework;
 use altered_rules::Game;
 use serde_json::{json, Value};
 
-/// The golden files are not in git: `GOLDENS_DIR`, else `server/goldens` of this checkout
-fn tiktok() -> Option<Game> {
-    let dir = std::env::var("GOLDENS_DIR").unwrap_or_else(|_| concat!(env!("CARGO_MANIFEST_DIR"), "/../server/goldens").to_string());
-    let path = format!("{}/rich/AX_Common_TikTok.json", dir);
-    let data: Value = serde_json::from_slice(&std::fs::read(path).ok()?).ok()?;
-    Some(Game::from_bga_tables(&data["db"], &[3, 1, 6, 4, 2, 5]).expect("load"))
-}
+mod common;
+use common::tiktok;
 
 /// Runs a flow as player 2001's engine, as a server request
 fn run(g: &mut Game, flow: Value) {
