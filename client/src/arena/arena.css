@@ -683,7 +683,7 @@ body:has(.marker-ghost) { cursor: grabbing; }
 .chip-opp { left: 12px; top: 10px; }
 .chip-me { left: 12px; bottom: 12px; }
 .layout-phone .chip-me { left: auto; right: 8px; bottom: 6px; }
-.layout-phone .chip-opp { left: 50%; top: 4px; translate: -50% 0; }
+.layout-phone .chip-opp { left: 8px; top: 2px; }
 .layout-phone .chip { padding: 3px 8px; gap: 6px; border-radius: 11px; }
 .player-chip.mine { border-color: rgb(94 224 176 / 0.7); }
 .player-chip.waiting.theirs { border-color: var(--opp); }
@@ -794,7 +794,7 @@ body:has(.marker-ghost) { cursor: grabbing; }
 }
 
 .info-chip { right: 12px; top: 10px; }
-.layout-phone .info-chip { right: 6px; top: 4px; }
+.layout-phone .info-chip { right: 6px; top: 2px; padding-block: 2px; }
 .ic-day { font: 700 calc(var(--chip-font) * 1.15) / 1 var(--font-title); color: #ffd98a; }
 .ic-phases { display: flex; gap: 2px; }
 .ic-phases img { width: 1.6em; height: 1.6em; opacity: 0.3; filter: grayscale(1); transition: all 0.3s; }
@@ -804,6 +804,10 @@ body:has(.marker-ghost) { cursor: grabbing; }
 .layout-phone .ic-phases img:not(.current) { display: none; }
 .ic-btn {
   position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1.2;
   padding: 3px 10px;
   border-radius: 8px;
   border: 1px solid var(--gold);
@@ -811,6 +815,8 @@ body:has(.marker-ghost) { cursor: grabbing; }
   color: #fff;
   font-size: var(--chip-font);
 }
+.ic-btn svg { display: block; width: 1.2em; height: 1.2em; }
+.layout-phone .ic-btn { padding: 2px 8px; }
 .ic-badge { margin-left: 4px; padding: 0 5px; border-radius: 8px; background: var(--opp); color: #111; font-size: 0.8em; font-weight: 700; }
 .conn { width: 8px; height: 8px; border-radius: 50%; background: #69db7c; }
 .conn.down { background: #ff6b6b; animation: blink 1s infinite; }
@@ -865,12 +871,9 @@ body:has(.marker-ghost) { cursor: grabbing; }
 .track-notice .hint { flex: none; }
 .layout-phone .track-notice { width: 340px; }
 
-/* Casting a spell: dragged over the board, the whole mat lights up */
-@property --cast-a {
-  syntax: '<angle>';
-  inherits: false;
-  initial-value: 0deg;
-}
+/* Casting a spell: dragged over the board, the whole mat lights up. Only its opacity changes
+   (composited): the glow itself is painted once, a pulsing shadow on the tilted mat repainted the
+   whole mat every frame and made phones stutter. */
 .arena-plane::after {
   content: '';
   position: absolute;
@@ -882,12 +885,11 @@ body:has(.marker-ghost) { cursor: grabbing; }
   background: radial-gradient(ellipse at 50% 50%, rgb(190 140 255 / 0.22), transparent 70%);
   transition: opacity 0.18s;
   z-index: 30;
+  will-change: opacity;
 }
 body.drag-spell .arena-plane::after { opacity: 0.35; }
 body.drag-cast .arena-plane::after { opacity: 1; animation: arena-cast-board 1.1s ease-in-out infinite; }
-@keyframes arena-cast-board {
-  50% { box-shadow: inset 0 0 0 4px rgb(255 220 140 / 0.95), inset 0 0 120px 40px rgb(170 110 255 / 0.7); }
-}
+@keyframes arena-cast-board { 50% { opacity: 0.6; } }
 /* The track keeps its dashed outline for tap to cast, not during a drag: the whole mat is the target */
 body.drag-spell .arena .track-drop.drop-valid { outline: none; background: none; box-shadow: none; }
 body.drag-spell .arena .track-drop .drop-label { display: none; }
@@ -900,11 +902,13 @@ body.drag-spell .arena .track-drop .drop-label { display: none; }
   inset: -9%;
   z-index: -1;
   border-radius: 18px;
-  background: conic-gradient(from var(--cast-a), #7fe3ff, #c58bff, #ffd27a, #ff8ad8, #7fe3ff);
+  /* A still halo that breathes (opacity only): a turning gradient repainted it every frame */
+  background: conic-gradient(#7fe3ff, #c58bff, #ffd27a, #ff8ad8, #7fe3ff);
   filter: blur(10px);
-  animation: arena-cast-spin 1.4s linear infinite;
+  animation: arena-cast-halo 1.1s ease-in-out infinite;
+  will-change: opacity;
 }
-@keyframes arena-cast-spin { to { --cast-a: 360deg; } }
+@keyframes arena-cast-halo { 50% { opacity: 0.55; } }
 .cast-tag {
   position: absolute;
   left: 50%;

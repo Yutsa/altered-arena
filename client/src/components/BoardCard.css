@@ -96,3 +96,8 @@
 }
 .drag-ghost.over { filter: drop-shadow(0 0 22px var(--accent)); }
 body.is-dragging { cursor: grabbing; }
+/* Touch screens: no shadow filter on the ghost, which follows the finger every frame */
+@media (pointer: coarse) {
+  .drag-ghost,
+  .drag-ghost.over { filter: none; }
+}

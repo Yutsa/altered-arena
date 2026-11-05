@@ -62,7 +62,7 @@ const PHONE: ArenaLayout = {
     '--mana-slot-h': '7px',
     '--mana-gap': '2px',
     '--opp-card-w': '46px',
-    '--opp-hand-x': '170px',
+    '--opp-hand-x': '50%',
   },
 };
 
