@@ -7,5 +7,6 @@
       "package-name": "altered-arena",
       "changelog-path": "CHANGELOG.md"
     }
-  }
+  },
+  "include-component-in-tag": false
 }
