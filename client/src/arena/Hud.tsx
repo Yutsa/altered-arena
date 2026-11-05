@@ -20,7 +20,7 @@ export const phaseLabel = (p: Phase) =>
   p === 'setup' ? 'Setup' : p === 'tiebreaker' ? 'Tiebreaker' : p === 'ended' ? 'Game over' : (PHASES.find((x) => x.phase === p)?.label ?? p);
 
 /**
- * Mana of a player, as on BGA: a vertical gauge on the mat, beside the totals of the player's
+ * Mana of a player, as on BGA: a vertical gauge on the mat, left of the player's hero
  * expeditions, one slot per Mana Orb, lit when it is ready. Anchor of the cards put in mana; a
  * click lists them.
  */

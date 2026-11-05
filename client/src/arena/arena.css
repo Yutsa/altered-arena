@@ -238,11 +238,6 @@
 }
 .scout-zone.drop-valid { display: block; }
 
-.totals { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; justify-self: center; position: relative; }
-.totals-companion { align-items: flex-end; }
-.tot { display: flex; align-items: center; gap: 4px; }
-.totals-companion .tot { flex-direction: row-reverse; }
-.tot.dim { opacity: 0.38; }
 .tot-icon {
   width: var(--tot-icon);
   height: var(--tot-icon);
@@ -256,31 +251,6 @@
 .tot-forest .tot-icon { background: var(--b-forest); }
 .tot-mountain .tot-icon { background: var(--b-mountain); }
 .tot-ocean .tot-icon { background: var(--b-ocean); }
-.tot-num {
-  min-width: calc(var(--tot-icon) * 1.25);
-  height: var(--tot-icon);
-  padding: 0 4px;
-  border-radius: 7px;
-  background: var(--cream);
-  color: #2a2040;
-  font: 700 var(--tot-num) / var(--tot-icon) var(--font-title);
-  text-align: center;
-  animation: arena-num 0.3s ease-out;
-}
-.tot-arrow { font-size: calc(var(--tot-num) * 0.75); color: rgb(255 255 255 / 0.55); width: 0.9em; text-align: center; }
-.tot-arrow.win.me { color: var(--me); text-shadow: 0 0 8px var(--me); }
-.tot-arrow.win.op { color: var(--opp); text-shadow: 0 0 8px var(--opp); }
-.tot-blocked {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  translate: -50% -50%;
-  padding: 2px 6px;
-  border-radius: 6px;
-  background: #c92a2a;
-  font: 700 calc(var(--chip-font) * 0.9) / 1.2 var(--font-text);
-}
-.totals.blocked .tot { opacity: 0.35; }
 
 /* ---------------------------------------------------------------- cards on the mat */
 .mc {
@@ -541,6 +511,40 @@
   z-index: 3;
 }
 .region-chips .tot-icon { border-width: 1.5px; box-shadow: 0 1px 3px rgb(0 0 0 / 0.6); }
+/* Statistics of both expeditions of a side, on that end of the track (Mat.tsx, TotalsPost): the
+   opponent's row, the biomes, my row; a number is dimmed out of its player's region, lit where it wins */
+.totals-post {
+  --tot-icon: var(--post-row);
+  position: absolute;
+  top: 50%;
+  translate: -50% -50%;
+  z-index: 3;
+  display: grid;
+  grid-template-columns: repeat(3, var(--post-cell));
+  grid-auto-rows: var(--post-row);
+  gap: var(--post-gap);
+  padding: calc(var(--post-gap) * 1.5);
+  place-items: center;
+  border-radius: 10px;
+  background: rgb(14 12 30 / 0.9);
+  box-shadow: 0 0 0 3px var(--cream), 0 4px 12px rgb(20 10 40 / 0.6);
+  pointer-events: none;
+}
+.totals-post .tot-icon { border-width: 1.5px; }
+.post-num {
+  width: var(--post-cell);
+  height: var(--post-row);
+  border-radius: 6px;
+  background: var(--cream);
+  color: #2a2040;
+  font: 700 var(--post-num) / var(--post-row) var(--font-title);
+  text-align: center;
+  animation: arena-num 0.3s ease-out;
+}
+.post-num.dim { opacity: 0.38; }
+.post-num.win.me { background: var(--me); color: #0f2a20; box-shadow: 0 0 0 2px #fff, 0 0 10px var(--me); }
+.post-num.win.op { background: var(--opp); color: #3a140b; box-shadow: 0 0 0 2px #fff, 0 0 10px var(--opp); }
+.post-num.blocked { opacity: 0.35; text-decoration: line-through 2px #c92a2a; }
 /* Terrain markers (Nadir): round biome tokens, as on BGA */
 .terrain-marker { display: grid; place-items: center; }
 .terrain-marker .tot-icon { border-width: 3px; box-shadow: 0 0 0 2px rgb(20 16 40 / 0.5), 0 4px 8px rgb(0 0 0 / 0.6); }
@@ -736,8 +740,8 @@ body:has(.marker-ghost) { cursor: grabbing; }
 .pc-switch:active { transform: scale(0.95); }
 .pc-switch { position: relative; }
 .pc-switch.attn { box-shadow: 0 0 0 4px rgb(20 16 50 / 0.55), 0 0 20px rgb(88 166 255 / 0.5); }
-/* Mana gauges on the mat (BGA), beside the totals of each player's expeditions */
-.totals-cell { display: flex; align-items: center; justify-content: center; gap: calc(var(--mana-w) * 0.22); }
+/* Mana gauges on the mat (BGA), left of each player's hero expedition */
+.mana-cell { display: flex; align-items: center; justify-content: center; gap: calc(var(--mana-w) * 0.22); }
 .mana-bar {
   position: relative;
   z-index: 6;

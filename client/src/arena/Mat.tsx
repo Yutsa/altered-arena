@@ -169,36 +169,8 @@ function MatZone({ l, row, player, mine }: { l: ArenaLayout; row: 0 | 4; player:
 }
 
 // ---------------------------------------------------------------------------
-// Expedition bands: totals, hero expedition, hero card, companion expedition, totals
+// Expedition bands: Mana, hero expedition, hero card, companion expedition
 // ---------------------------------------------------------------------------
-
-function Totals({ player, side }: { player: PlayerView; side: Side }) {
-  const { view, you } = useGameCtx('view', 'you');
-  const exp = player.expeditions[side];
-  const f = forecast(view, player, side);
-  const who = player.id === you ? 'me' : 'op';
-  const arrow = side === 'hero' ? '▶' : '◀';
-  return (
-    <div className={`totals totals-${side} ${exp.blocked ? 'blocked' : ''}`}>
-      {BIOMES.map((b: Biome) => {
-        const inRegion = !f.region || f.region.includes(b);
-        const win = f.winning.includes(b);
-        return (
-          <span key={b} className={`tot tot-${b} ${inRegion ? '' : 'dim'}`}>
-            <span className="tot-icon">
-              <BiomeGlyph biome={b} />
-            </span>
-            <b key={exp.stats[b]} className="tot-num">
-              {exp.stats[b]}
-            </b>
-            <span className={`tot-arrow ${win ? `win ${who}` : ''}`}>{arrow}</span>
-          </span>
-        );
-      })}
-      {exp.blocked && <span className="tot-blocked">Blocked</span>}
-    </div>
-  );
-}
 
 function ExpCell({ player, side, mine }: { player: PlayerView; side: Side; mine: boolean }) {
   const zone: Zone = side === 'hero' ? 'heroExpedition' : 'companionExpedition';
@@ -298,14 +270,13 @@ function MatBand({ l, row, player, mine }: { l: ArenaLayout; row: 1 | 3; player:
       {player && (
         <>
           <span />
-          <div className="totals-cell">
+          <div className="mana-cell">
             <ManaBar player={player} mine={mine} />
-            <Totals player={player} side="hero" />
           </div>
           <ExpCell player={player} side="hero" mine={mine} />
           <HeroCell player={player} />
           <ExpCell player={player} side="companion" mine={mine} />
-          <Totals player={player} side="companion" />
+          <span />
           <span />
         </>
       )}
@@ -392,6 +363,63 @@ function Ghost({ player, side, mine }: { player: PlayerView; side: Side; mine: b
   );
 }
 
+/**
+ * Centre of the totals post on each end of the track, in track units from that end: on the cream
+ * part of the end card, between the hero (companion) emblem and region 0 (7), so both stay visible.
+ */
+const POST_X = 0.715;
+
+/** One player's statistics in a post: a cell per biome, dimmed out of their region, lit where they win */
+function PostRow({ player, side, mine }: { player: PlayerView; side: Side; mine: boolean }) {
+  const { view } = useGameCtx('view');
+  const exp = player.expeditions[side];
+  const f = forecast(view, player, side);
+  return (
+    <>
+      {BIOMES.map((b: Biome) => {
+        const inRegion = !f.region || f.region.includes(b);
+        const win = f.winning.includes(b);
+        const cls = `post-num ${inRegion ? '' : 'dim'} ${win ? `win ${mine ? 'me' : 'op'}` : ''} ${exp.blocked ? 'blocked' : ''}`;
+        return (
+          <b key={`${b}-${exp.stats[b]}`} className={cls}>
+            {exp.stats[b]}
+          </b>
+        );
+      })}
+    </>
+  );
+}
+
+/**
+ * The statistics of both expeditions of one side, as a post at that end of the track: the
+ * opponent's on top, the biomes, mine below, so each biome reads as one column.
+ */
+function TotalsPost({ side, u }: { side: Side; u: number }) {
+  const { me, opp, you } = useGameCtx('me', 'opp', 'you');
+  if (!me || !opp) return null;
+  const mineId = you ?? me.id;
+  const label = (p: PlayerView) =>
+    `${p.name}: ${BIOMES.map((b) => `${b} ${p.expeditions[side].stats[b]}`).join(', ')}${p.expeditions[side].blocked ? ' (blocked)' : ''}`;
+  return (
+    <div
+      className={`totals-post post-${side}`}
+      style={{ left: (side === 'hero' ? POST_X : TRACK_UNITS - POST_X) * u }}
+      role="group"
+      aria-label={`${side === 'hero' ? 'Hero' : 'Companion'} expeditions. ${label(opp)}. ${label(me)}.`}
+    >
+      <PostRow player={opp} side={side} mine={opp.id === mineId} />
+      {BIOMES.map((b: Biome) => (
+        <span key={b} className={`tot-${b}`}>
+          <span className="tot-icon">
+            <BiomeGlyph biome={b} />
+          </span>
+        </span>
+      ))}
+      <PostRow player={me} side={side} mine={me.id === mineId} />
+    </div>
+  );
+}
+
 function MatTrack({ l }: { l: ArenaLayout }) {
   const { view, me, opp, you } = useGameCtx('view', 'me', 'opp', 'you');
   const trackW = l.plane.w * 0.88;
@@ -439,6 +467,8 @@ function MatTrack({ l }: { l: ArenaLayout }) {
             </span>
           );
         })}
+        <TotalsPost side="hero" u={u} />
+        <TotalsPost side="companion" u={u} />
       </div>
     </div>
   );
