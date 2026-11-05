@@ -1,6 +1,6 @@
 import { useState, type CSSProperties } from 'react';
 import type { Biome, GameView, PlayerView, Side, Zone } from '@protocol';
-import { useGameCtx } from '../game/GameContext';
+import { useCard, useGame, useGameCtx, useZone } from '../game/GameContext';
 import { toggleKey } from '../game/decisions';
 import { DropZone } from '../components/DropZone';
 import { CardListModal } from '../components/Picker';
@@ -17,7 +17,7 @@ import { HeroMarkers, MARKED_SHIFT, RegionMarkers, regionBiomes } from './Terrai
 
 /** A location option of the current decision that designates this zone of this player, if any */
 function useLocation(player: PlayerView | undefined, zone: Zone) {
-  const { decision, send } = useGameCtx();
+  const { decision, send } = useGameCtx('decision', 'send');
   if (!player || decision?.kind !== 'location') return null;
   const loc = decision.locations.find((l) => l.player === player.id && l.zone === zone);
   return loc ? () => void send({ type: 'location', key: loc.key }) : null;
@@ -25,7 +25,7 @@ function useLocation(player: PlayerView | undefined, zone: Zone) {
 
 /** An expedition option of the current decision, and how to pick it */
 function useExpeditionPick(player: PlayerView | undefined, side: Side) {
-  const { decision, ui, setUI, send } = useGameCtx();
+  const { decision, ui, setUI, send } = useGameCtx('decision', 'ui', 'setUI', 'send');
   if (!player || decision?.kind !== 'expedition') return null;
   const opt = decision.expeditions.find((o) => o.player === player.id && o.side === side);
   if (!opt) return null;
@@ -43,9 +43,10 @@ function useExpeditionPick(player: PlayerView | undefined, side: Side) {
 
 /** A card revealed on top of the deck: face up there until it is drawn */
 function RevealedTop({ id }: { id: number }) {
-  const { byId, def } = useGameCtx();
+  const { def } = useGameCtx('def');
+  const card = useCard(id);
   const { handlers } = useCardPointer(id);
-  const d = def(byId.get(id));
+  const d = def(card);
   return (
     <span className="pile-revealed" data-card-id={id} {...handlers}>
       {d && <img src={artUrl(d)} alt={d.name} draggable={false} />}
@@ -55,10 +56,10 @@ function RevealedTop({ id }: { id: number }) {
 }
 
 function Piles({ player }: { player: PlayerView }) {
-  const { zoneCards, def, view } = useGameCtx();
-  const revealed = revealedOnTop(view).get(player.id);
+  const { def } = useGameCtx('def');
+  const revealed = useGame((s) => revealedOnTop(s.view).get(player.id));
   const [open, setOpen] = useState(false);
-  const discard = zoneCards(player.id, 'discard');
+  const discard = useZone(player.id, 'discard');
   const top = discard.at(-1);
   const topDef = def(top);
   return (
@@ -88,8 +89,7 @@ function Piles({ player }: { player: PlayerView }) {
 }
 
 function ZoneSlots({ player, zone, mine, place }: { player: PlayerView; zone: 'reserve' | 'landmark'; mine: boolean; place: ZonePlace }) {
-  const { zoneCards } = useGameCtx();
-  const cards = zoneCards(player.id, zone);
+  const cards = useZone(player.id, zone);
   const slots = zone === 'reserve' ? player.reserveSlots : player.landmarkSlots;
   const pickLocation = useLocation(player, zone);
   const body = (
@@ -97,7 +97,7 @@ function ZoneSlots({ player, zone, mine, place }: { player: PlayerView; zone: 'r
       <span className="zone-label">
         {zone === 'reserve' ? 'Reserve' : 'Landmarks'} {cards.length}/{slots}
       </span>
-      <div className={`zone-cards ${place.step !== undefined ? 'packed' : ''}`} style={place.step !== undefined ? ({ ['--zone-step' as string]: `${place.step}px` } as CSSProperties) : undefined}>
+      <div className={`zone-cards ${place.step !== undefined ? 'packed' : ''}`} style={place.step !== undefined ? ({ '--zone-step': `${place.step}px` } as CSSProperties) : undefined}>
         {cards.map((c) => (
           <MatCard key={c.id} id={c.id} kind="zone" />
         ))}
@@ -150,9 +150,10 @@ function zonePlaces(l: ArenaLayout, row: 0 | 4, nReserve: number, nLandmarks: nu
 }
 
 function MatZone({ l, row, player, mine }: { l: ArenaLayout; row: 0 | 4; player: PlayerView | undefined; mine: boolean }) {
-  const { zoneCards } = useGameCtx();
-  const n = (zone: 'reserve' | 'landmark', slots: number) => (player ? Math.max(zoneCards(player.id, zone).length, slots) : 0);
-  const [reserve, landmarks] = zonePlaces(l, row, n('reserve', player?.reserveSlots ?? 0), n('landmark', player?.landmarkSlots ?? 0));
+  const nReserve = useZone(player?.id, 'reserve').length;
+  const nLandmarks = useZone(player?.id, 'landmark').length;
+  const n = (count: number, slots: number) => (player ? Math.max(count, slots) : 0);
+  const [reserve, landmarks] = zonePlaces(l, row, n(nReserve, player?.reserveSlots ?? 0), n(nLandmarks, player?.landmarkSlots ?? 0));
   return (
     <div className={`mat-row mat-zone ${row === 0 ? 'zone-top' : 'zone-bottom'}`} style={rowBackground(l, row)}>
       <div className="mat-patch" style={deckPatch(l, row)} />
@@ -172,7 +173,7 @@ function MatZone({ l, row, player, mine }: { l: ArenaLayout; row: 0 | 4; player:
 // ---------------------------------------------------------------------------
 
 function Totals({ player, side }: { player: PlayerView; side: Side }) {
-  const { view, you } = useGameCtx();
+  const { view, you } = useGameCtx('view', 'you');
   const exp = player.expeditions[side];
   const f = forecast(view, player, side);
   const who = player.id === you ? 'me' : 'op';
@@ -200,9 +201,8 @@ function Totals({ player, side }: { player: PlayerView; side: Side }) {
 }
 
 function ExpCell({ player, side, mine }: { player: PlayerView; side: Side; mine: boolean }) {
-  const { zoneCards } = useGameCtx();
   const zone: Zone = side === 'hero' ? 'heroExpedition' : 'companionExpedition';
-  const cards = zoneCards(player.id, zone);
+  const cards = useZone(player.id, zone);
   const pickExp = useExpeditionPick(player, side);
   const pickLocation = useLocation(player, zone);
   const pick = pickExp?.pick ?? pickLocation;
@@ -280,7 +280,7 @@ function ExpSky() {
 
 /** The hero card, with the first player token on it as on BGA */
 function HeroCell({ player }: { player: PlayerView }) {
-  const { view } = useGameCtx();
+  const { view } = useGameCtx('view');
   return (
     <div className="hero-cell">
       {player.heroCardId !== null && <MatCard id={player.heroCardId} kind="hero" />}
@@ -350,7 +350,7 @@ function sharesRegion(view: GameView, player: PlayerView, region: number) {
 }
 
 function Marker({ player, side, mine, other }: { player: PlayerView; side: Side; mine: boolean; other: boolean }) {
-  const { view } = useGameCtx();
+  const { view } = useGameCtx('view');
   const pick = useExpeditionPick(player, side);
   const exp = player.expeditions[side];
   // Both expeditions of a player in the same region: side by side, each on its way (the hero one
@@ -377,7 +377,7 @@ function Marker({ player, side, mine, other }: { player: PlayerView; side: Side;
 }
 
 function Ghost({ player, side, mine }: { player: PlayerView; side: Side; mine: boolean }) {
-  const { view } = useGameCtx();
+  const { view } = useGameCtx('view');
   const f = forecast(view, player, side);
   if (!f.advances || view.phase === 'night' || view.phase === 'setup') return null;
   const next = Math.max(0, Math.min(7, f.next));
@@ -392,7 +392,7 @@ function Ghost({ player, side, mine }: { player: PlayerView; side: Side; mine: b
 }
 
 function MatTrack({ l }: { l: ArenaLayout }) {
-  const { view, me, opp, you } = useGameCtx();
+  const { view, me, opp, you } = useGameCtx('view', 'me', 'opp', 'you');
   const trackW = l.plane.w * 0.88;
   const u = trackW / TRACK_UNITS;
   const h = l.trackH;
@@ -451,7 +451,7 @@ function PassedVeil({ l, player }: { l: ArenaLayout; player: PlayerView | undefi
 
 /** The tilted mat: opponent zone, opponent expeditions, Tumult, my expeditions, my zone. */
 export function Mat({ l }: { l: ArenaLayout }) {
-  const { me, opp, you } = useGameCtx();
+  const { me, opp, you } = useGameCtx('me', 'opp', 'you');
   const mine = you !== null;
   return (
     <>

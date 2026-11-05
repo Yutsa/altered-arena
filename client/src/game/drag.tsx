@@ -1,7 +1,8 @@
 import { createContext, useCallback, useContext, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { createStore, useStore, type StoreApi } from 'zustand';
 import { createPortal } from 'react-dom';
 import type { Destination } from '@protocol';
-import { useGameCtx } from './GameContext';
+import { useCard, useGameCtx } from './GameContext';
 import { Card } from '../components/Card';
 
 interface DragState {
@@ -14,18 +15,32 @@ interface DragState {
   returning?: boolean;
 }
 
-interface DragCtxValue {
-  drag: DragState | null;
+interface DragActions {
   begin: (cardId: number, destinations: Destination[], x: number, y: number, from: HTMLElement) => void;
   move: (x: number, y: number) => void;
   end: (drop: boolean) => void;
+  /** The drag going on now (read in event handlers: no subscription) */
+  current: () => DragState | null;
 }
 
 /** Where the last dragged card was dropped: the arena flies it from there instead of from the hand */
 export const lastDrop: { cardId: number | null; x: number; y: number; at: number } = { cardId: null, x: 0, y: 0, at: 0 };
 
-const DragCtx = createContext<DragCtxValue>({ drag: null, begin: () => {}, move: () => {}, end: () => {} });
-export const useDrag = () => useContext(DragCtx);
+const noDrag = createStore<DragState | null>(() => null);
+const DragCtx = createContext<{ store: StoreApi<DragState | null>; actions: DragActions }>({
+  store: noDrag,
+  actions: { begin: () => {}, move: () => {}, end: () => {}, current: () => null },
+});
+/** The drag functions (stable: no redraw when a drag starts or ends) */
+export const useDragActions = () => useContext(DragCtx).actions;
+/** A value derived from the drag going on: the component is drawn again only when it changes */
+export function useDragState<T>(select: (d: DragState | null) => T): T {
+  return useStore(useContext(DragCtx).store, select);
+}
+/** The drag going on and the drag functions */
+export function useDrag() {
+  return { drag: useDragState((d) => d), ...useDragActions() };
+}
 
 /**
  * Finds the drop zone under the pointer: the innermost element with data-drop among the allowed
@@ -100,8 +115,9 @@ interface Motion {
  * whatever the pointer does (released anywhere, lost, the window left, Escape).
  */
 export function DragProvider({ children }: { children: ReactNode }) {
-  const { byId, def, play } = useGameCtx();
-  const [drag, setDrag] = useState<DragState | null>(null);
+  const { def, play } = useGameCtx('def', 'play');
+  const [store] = useState(() => createStore<DragState | null>(() => null));
+  const drag = useStore(store);
   const dragRef = useRef<DragState | null>(null);
   const ghostRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState(0);
@@ -112,7 +128,7 @@ export function DragProvider({ children }: { children: ReactNode }) {
 
   const set = (s: DragState | null) => {
     dragRef.current = s;
-    setDrag(s);
+    store.setState(s, true);
     bodyClasses(s);
   };
 
@@ -250,8 +266,9 @@ export function DragProvider({ children }: { children: ReactNode }) {
   const endRef = useRef(end);
   endRef.current = end;
 
-  const value = useMemo(() => ({ drag, begin, move, end }), [drag, begin, move, end]);
-  const card = drag ? byId.get(drag.cardId) : undefined;
+  const current = useCallback(() => dragRef.current, []);
+  const value = useMemo(() => ({ store, actions: { begin, move, end, current } }), [store, begin, move, end, current]);
+  const card = useCard(drag?.cardId);
   return (
     <DragCtx.Provider value={value}>
       {children}
@@ -260,7 +277,7 @@ export function DragProvider({ children }: { children: ReactNode }) {
           <div
             ref={ghostRef}
             className={`drag-ghost ${drag.over || drag.dropped ? 'over' : ''} ${drag.over === 'spell' ? 'cast' : ''}`}
-            style={{ ['--card-hand-w' as string]: `${size}px` } as CSSProperties}
+            style={{ '--card-hand-w': `${size}px` } as CSSProperties}
           >
             <Card def={def(card)} card={card} size="hand" />
             {drag.over === 'spell' && !drag.dropped && <span className="cast-tag">Release to cast</span>}

@@ -1,10 +1,13 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { createStore, useStore, type StoreApi } from 'zustand';
+import { useShallow } from 'zustand/react/shallow';
 import type { CardCatalog, CardDef, CardView, Decision, Destination, GameView, LogEntry, PlayerId, PlayerView, Zone } from '@protocol';
 import { affordances, autoAnswer, emptyUI, hasActions, togglePick, type Affordance, type ResolveIntent, type UIState } from './decisions';
 import type { AnswerBody } from './useGame';
 import { useInspect } from './inspect';
 import { cardDef } from '../api/catalog';
 import { confirmTurnPref } from '../screens/storage';
+import { shareMap, shareView } from './share';
 
 export interface GameCtxValue {
   view: GameView;
@@ -40,16 +43,65 @@ export interface GameCtxValue {
   setResolveIntent: (intent: ResolveIntent | null) => void;
 }
 
-const Ctx = createContext<GameCtxValue | null>(null);
+/**
+ * The game state lives in a store (zustand), not in a React context value: a component subscribes
+ * to the parts it reads and is drawn again only when one of them changes. The provider computes
+ * the state from the view and writes it to the store; unchanged cards, zones and affordances keep
+ * their identity from one view to the next (structural sharing), so a new view redraws only the
+ * cards that changed.
+ */
+const StoreCtx = createContext<StoreApi<GameCtxValue> | null>(null);
 
-export function useGameCtx(): GameCtxValue {
-  const v = useContext(Ctx);
-  if (!v) throw new Error('useGameCtx outside GameProvider');
-  return v;
+function useGameStore(): StoreApi<GameCtxValue> {
+  const s = useContext(StoreCtx);
+  if (!s) throw new Error('useGameCtx outside GameProvider');
+  return s;
+}
+
+/** One value derived from the game state: the component is drawn again only when it changes (Object.is) */
+export function useGame<T>(select: (s: GameCtxValue) => T): T {
+  return useStore(useGameStore(), select);
+}
+
+/** Some fields of the game state: the component is drawn again only when one of them changes */
+export function useGameCtx<K extends keyof GameCtxValue>(...keys: K[]): Pick<GameCtxValue, K> {
+  return useStore(
+    useGameStore(),
+    useShallow((s) => {
+      const o = {} as Pick<GameCtxValue, K>;
+      for (const k of keys) o[k] = s[k];
+      return o;
+    }),
+  );
+}
+
+const NO_CARDS: CardView[] = [];
+/** One card of the view (the same object while it does not change) */
+export const useCard = (id: number | null | undefined) => useGame((s) => (id == null ? undefined : s.byId.get(id)));
+/** What the current decision offers for this card */
+export const useAff = (id: number) => useGame((s) => s.aff.get(id));
+/** The cards of a zone, in order (the same array while they do not change) */
+export const useZone = (owner: PlayerId | undefined, zone: Zone) => useGame((s) => (owner === undefined ? NO_CARDS : s.zoneCards(owner, zone)));
+
+/** A function whose identity never changes and which always calls the latest `fn` */
+function useStableFn<A extends unknown[], R>(fn: (...a: A) => R): (...a: A) => R {
+  const ref = useRef(fn);
+  useLayoutEffect(() => {
+    ref.current = fn;
+  });
+  return useCallback((...a: A) => ref.current(...a), []);
+}
+
+/** `value`, or the previous one where they are deep-equal (see share.ts) */
+function useShared<T>(value: T, by: (prev: T | null, next: T) => T): T {
+  const prev = useRef<T | null>(null);
+  const out = by(prev.current, value);
+  prev.current = out;
+  return out;
 }
 
 export function GameProvider({
-  view,
+  view: viewIn,
   catalog,
   log,
   sending,
@@ -68,6 +120,7 @@ export function GameProvider({
   readOnly?: boolean;
   children: ReactNode;
 }) {
+  const view = useShared(viewIn, shareView);
   const decision = readOnly ? null : view.decision;
   const [ui, setUIState] = useState<UIState>(() => emptyUI(decision?.id ?? null));
   const inspect = useInspect();
@@ -78,17 +131,14 @@ export function GameProvider({
   useEffect(() => {
     if (ui.decisionId !== decisionId) setUIState(emptyUI(decisionId));
   }, [decisionId, ui.decisionId]);
-  const setUI = useCallback(
-    (f: (u: UIState) => UIState) => setUIState((u) => f(u.decisionId === decisionId ? u : emptyUI(decisionId))),
-    [decisionId],
-  );
+  const setUI = useStableFn((f: (u: UIState) => UIState) => setUIState((u) => f(u.decisionId === decisionId ? u : emptyUI(decisionId))));
 
   // Cards move when a new view arrives: a hover preview would point at a card that left
   const { hide } = inspect;
   useEffect(() => hide(true), [view.seq, hide]);
 
   const byId = useMemo(() => new Map(view.cards.map((c) => [c.id, c])), [view.cards]);
-  const zones = useMemo(() => {
+  const zonesNow = useMemo(() => {
     const m = new Map<string, CardView[]>();
     for (const c of view.cards) {
       const owner = c.controller ?? c.owner;
@@ -100,15 +150,19 @@ export function GameProvider({
     for (const l of m.values()) l.sort((a, b) => a.position - b.position || a.id - b.id);
     return m;
   }, [view.cards]);
-  const zoneCards = useCallback((owner: PlayerId, zone: Zone) => zones.get(`${owner}:${zone}`) ?? [], [zones]);
+  const zones = useShared(zonesNow, shareMap);
+  const zoneCards = useCallback((owner: PlayerId, zone: Zone) => zones.get(`${owner}:${zone}`) ?? NO_CARDS, [zones]);
   const def = useCallback((c: CardView | undefined | null) => cardDef(catalog, c), [catalog]);
-  const aff = useMemo(() => affordances(decision, current), [decision, current]);
+  const aff = useShared(
+    useMemo(() => affordances(decision, current), [decision, current]),
+    shareMap,
+  );
 
   // Cards sent to the Mana zone stay face down until they get there: at the setup, the engine moves
   // them only once the other player chose theirs. A new decision of mine ends it.
   const [focusSource, setFocusSource] = useState<number | null>(null);
   const [toMana, setToMana] = useState<{ decisionId: string; cardIds: number[] } | null>(null);
-  const send = useCallback(
+  const send = useStableFn(
     async (a: AnswerBody) => {
       const sent = a.type === 'select' && decision?.kind === 'select' && decision.toMana ? { decisionId: decision.id, cardIds: a.cardIds } : null;
       if (sent) setToMana(sent);
@@ -116,7 +170,6 @@ export function GameProvider({
       if (!ok && sent) setToMana(null);
       return ok;
     },
-    [sendRaw, decision],
   );
   const manaPending = useMemo(
     () =>
@@ -163,33 +216,28 @@ export function GameProvider({
     setResolveIntent(null);
   }, [undoneTo]);
   // The player answers the current decision: its repeat must not answer it again
-  const repeatChoice = useCallback(
-    (key: string | null) => {
-      autoDone.current = decisionId;
-      setRepeat(key);
-    },
-    [decisionId],
-  );
+  const repeatChoice = useStableFn((key: string | null) => {
+    autoDone.current = decisionId;
+    setRepeat(key);
+  });
   // The repeated choice ends with the first decision that does not offer it
   useEffect(() => {
     if (repeat !== null && decision && !auto) setRepeat(null);
   }, [repeat, decision, auto]);
 
   const you = view.you;
+  const setFocus = useStableFn(setFocusSource);
+  const setIntent = useStableFn(setResolveIntent);
   const me = view.players.find((p) => p.id === you) ?? (you === null ? view.players[0] : undefined);
   const opp = view.players.find((p) => p.id !== me?.id);
 
-  const inspectCard = useCallback(
-    (id: number, mode: 'hover' | 'modal' = 'modal', x?: number) => {
-      const c = byId.get(id);
-      const d = def(c);
-      if (d) inspect.show({ def: d, card: c, mode, x });
-    },
-    [byId, def, inspect],
-  );
+  const inspectCard = useStableFn((id: number, mode: 'hover' | 'modal' = 'modal', x?: number) => {
+    const c = byId.get(id);
+    const d = def(c);
+    if (d) inspect.show({ def: d, card: c, mode, x });
+  });
 
-  const clickCard = useCallback(
-    (id: number) => {
+  const clickCard = useStableFn((id: number) => {
       const a = aff.get(id);
       if (decision && !sending) {
         if (decision.kind === 'turn' && hasActions(a)) {
@@ -209,17 +257,12 @@ export function GameProvider({
         }
       }
       inspectCard(id, 'modal');
-    },
-    [aff, decision, sending, setUI, inspectCard, send],
-  );
+  });
 
-  const play = useCallback(
-    (cardId: number, destination: Destination) => {
-      setUI((u) => ({ ...u, selected: null }));
-      return send({ type: 'play', cardId, destination });
-    },
-    [send, setUI],
-  );
+  const play = useStableFn((cardId: number, destination: Destination) => {
+    setUI((u) => ({ ...u, selected: null }));
+    return send({ type: 'play', cardId, destination });
+  });
 
   const value: GameCtxValue = {
     view,
@@ -245,8 +288,11 @@ export function GameProvider({
     repeatChoice,
     manaPending,
     focusSource,
-    setFocusSource,
-    setResolveIntent,
+    setFocusSource: setFocus,
+    setResolveIntent: setIntent,
   };
-  return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
+  const [store] = useState(() => createStore<GameCtxValue>(() => value));
+  // Before paint: the components that read a changed part are drawn again in the same frame
+  useLayoutEffect(() => store.setState(value, true));
+  return <StoreCtx.Provider value={store}>{children}</StoreCtx.Provider>;
 }

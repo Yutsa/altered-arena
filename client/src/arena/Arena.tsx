@@ -37,7 +37,7 @@ export function Arena({
   /** Against bots: takes back the player's last move (a round button beside the main one) */
   undo?: { onUndo: () => void; disabled: boolean };
 }) {
-  const { view, me, opp, log, you, catalog, decision } = useGameCtx();
+  const { view, me, opp, log, you, catalog, decision } = useGameCtx('view', 'me', 'opp', 'log', 'you', 'catalog', 'decision');
   // Undo: against bots, the server takes back my last move (the engine's undo is not offered)
   const undoBtn = undo;
   // Effects to resolve: the hand is not playable, it retracts. The queue's minimize button shrinks
@@ -132,7 +132,7 @@ export function Arena({
 
   const stageStyle = { width: l.W, height: l.H, transform: `translate(-50%, -50%) scale(${scale})`, ...l.vars } as CSSProperties;
   return (
-    <div className={`arena layout-${l.mode}`} ref={rootRef} style={{ ['--stage-scale' as string]: scale } as CSSProperties}>
+    <div className={`arena layout-${l.mode}`} ref={rootRef} style={{ '--stage-scale': scale } as CSSProperties}>
       <div className="arena-stage" ref={stageRef} style={stageStyle}>
         <div
           className="arena-scene"

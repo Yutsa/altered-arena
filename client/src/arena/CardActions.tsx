@@ -27,7 +27,7 @@ function Icon({ name, size }: { name: keyof typeof ICONS; size: number }) {
  * (its zones light up), so they have no button here.
  */
 export function CardActions() {
-  const { decision, ui, setUI, aff, byId, def, play, send, inspectCard, sending } = useGameCtx();
+  const { decision, ui, setUI, aff, byId, def, play, send, inspectCard, sending } = useGameCtx('decision', 'ui', 'setUI', 'aff', 'byId', 'def', 'play', 'send', 'inspectCard', 'sending');
   const id = decision?.kind === 'turn' ? ui.selected : null;
   const ref = useRef<HTMLDivElement>(null);
 

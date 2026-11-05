@@ -25,7 +25,7 @@ const ZONE_LABELS: Record<string, string> = {
 
 /** Read-only list of cards (discard pile, mana...) */
 export function CardListModal({ title, cardIds, onClose }: { title: string; cardIds: number[]; onClose: () => void }) {
-  const { byId, def, inspectCard } = useGameCtx();
+  const { byId, def, inspectCard } = useGameCtx('byId', 'def', 'inspectCard');
   return (
     <Modal title={title} onClose={onClose} wide>
       <div className="picker-grid">
@@ -45,7 +45,7 @@ export function CardListModal({ title, cardIds, onClose }: { title: string; card
 
 /** A select decision over cards that are not on the table (or showInPicker). */
 export function SelectPicker({ decision, cardIds }: { decision: SelectDecision; cardIds: number[] }) {
-  const { byId, def, ui, setUI, send, sending, inspectCard } = useGameCtx();
+  const { byId, def, ui, setUI, send, sending, inspectCard } = useGameCtx('byId', 'def', 'ui', 'setUI', 'send', 'sending', 'inspectCard');
   const [hidden, setHidden] = useState(false);
   const answer = confirmAnswer(decision, ui);
   if (hidden)

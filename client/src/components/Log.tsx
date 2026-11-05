@@ -1,12 +1,17 @@
-import { useEffect, useRef } from 'react';
+import { memo, useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import type { LogEntry, PlayerId } from '@protocol';
 import { RichText } from './RichText';
 import './Log.css';
 
-/** Game log, newest at the bottom. */
-export function Log({ entries, you, open, onClose }: { entries: LogEntry[]; you: PlayerId | null; open: boolean; onClose: () => void }) {
+/**
+ * Game log, newest at the bottom. Its entries are drawn once it has been opened (closed, it is off
+ * screen): up to 500 animated lines that a new view would otherwise draw again.
+ */
+export const Log = memo(function Log({ entries, you, open, onClose }: { entries: LogEntry[]; you: PlayerId | null; open: boolean; onClose: () => void }) {
   const ref = useRef<HTMLDivElement>(null);
+  const [opened, setOpened] = useState(open);
+  if (open && !opened) setOpened(true);
   useEffect(() => {
     const el = ref.current;
     if (el) el.scrollTop = el.scrollHeight;
@@ -20,22 +25,29 @@ export function Log({ entries, you, open, onClose }: { entries: LogEntry[]; you:
         </button>
       </div>
       <div className="log-list" ref={ref}>
-        <AnimatePresence initial={false}>
-          {entries.map((e) => (
-            <motion.div
-              key={e.seq}
-              className={`log-entry ${e.player === undefined ? 'neutral' : e.player === you ? 'mine' : 'theirs'}`}
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-            >
-              <RichText text={e.text} />
-            </motion.div>
-          ))}
-        </AnimatePresence>
+        {opened && (
+          <AnimatePresence initial={false}>
+            {entries.map((e) => (
+              <motion.div
+                key={e.seq}
+                className={`log-entry ${e.player === undefined ? 'neutral' : e.player === you ? 'mine' : 'theirs'}`}
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+              >
+                <LogText text={e.text} />
+              </motion.div>
+            ))}
+          </AnimatePresence>
+        )}
       </div>
     </aside>
   );
-}
+});
+
+/** The text of an entry, parsed once */
+const LogText = memo(function LogText({ text }: { text: string }) {
+  return <RichText text={text} />;
+});
 
 /** One-line ticker with the latest entry (phones) */
 export function LogTicker({ entry, onOpen, unread }: { entry: LogEntry | undefined; onOpen: () => void; unread: number }) {

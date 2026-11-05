@@ -1,14 +1,18 @@
 import { defineConfig } from 'vite';
-import react from '@vitejs/plugin-react';
+import react, { reactCompilerPreset } from '@vitejs/plugin-react';
+import babel from '@rolldown/plugin-babel';
 import { VitePWA } from 'vite-plugin-pwa';
 import { fileURLToPath } from 'node:url';
 
 // Game server the dev server proxies to: ARENA_API=http://localhost:8090 for the Rust server
 const server = process.env.ARENA_API ?? process.env.ARENA_SERVER ?? 'http://localhost:8080';
 
-export default defineConfig({
+// `vite build --mode bench`: profiling build of React, not minified (component names kept), no
+// service worker, for bench/run.mjs
+export default defineConfig(({ mode }) => ({
   resolve: {
     alias: {
+      ...(mode === 'bench' ? { 'react-dom/client': 'react-dom/profiling' } : {}),
       // protocol.ts is the single source of truth for the client/server types
       '@protocol': fileURLToPath(new URL('../protocol/protocol.ts', import.meta.url)),
     },
@@ -30,13 +34,19 @@ export default defineConfig({
     },
   },
   build: {
-    outDir: 'dist',
+    outDir: mode === 'bench' ? 'dist-bench' : 'dist',
     emptyOutDir: true,
     target: 'es2022',
+    minify: mode !== 'bench',
+    // /assets is proxied to the game server (card art): the bench bundle goes elsewhere
+    assetsDir: mode === 'bench' ? 'bundle' : 'assets',
   },
   plugins: [
     react(),
+    // React Compiler: components and hooks memoized at build time
+    babel({ presets: [reactCompilerPreset()] }),
     VitePWA({
+      disable: mode === 'bench',
       registerType: 'autoUpdate',
       includeAssets: ['apple-touch-icon.png', 'fonts/*', 'img/**/*'],
       manifest: {
@@ -77,4 +87,4 @@ export default defineConfig({
       },
     }),
   ],
-});
+}));

@@ -31,7 +31,7 @@ function useHeld(): Held {
 
 /** The Noon decision of Nadir, if it is the current one */
 function useMarkRegion(): (ButtonsDecision['markRegion'] & {}) | null {
-  const { decision, sending } = useGameCtx();
+  const { decision, sending } = useGameCtx('decision', 'sending');
   return decision?.kind === 'buttons' && decision.markRegion && !sending ? decision.markRegion : null;
 }
 
@@ -56,7 +56,7 @@ function regionAt(x: number, y: number, allowed: number[]): number | null {
 
 /** The markers still on a hero card, along its right edge; at Noon they can be dragged onto a region */
 export function HeroMarkers({ player }: { player: PlayerView }) {
-  const { byId, send } = useGameCtx();
+  const { byId, send } = useGameCtx('byId', 'send');
   const mark = useMarkRegion();
   const held = useHeld();
   const hero = player.heroCardId !== null ? byId.get(player.heroCardId) : undefined;
@@ -135,7 +135,7 @@ export function regionBiomes(r: RegionView | undefined): Biome[] | null {
  * marker may go to, lit; the one under the dragged marker previews its new biome.
  */
 export function RegionMarkers({ regions, u }: { regions: RegionView[]; u: number }) {
-  const { send } = useGameCtx();
+  const { send } = useGameCtx('send');
   const mark = useMarkRegion();
   const held = useHeld();
   const span = (i: number): CSSProperties => ({ left: (regionCenter(i) - 0.5) * u, width: u });
@@ -177,7 +177,7 @@ export function MarkerGhost() {
     <MarkerToken
       biome={held.biome}
       className={`marker-ghost ${held.over != null ? 'over' : ''}`}
-      style={{ left: held.x, top: held.y, ['--ghost-size' as string]: `${held.size}px` }}
+      style={{ left: held.x, top: held.y, '--ghost-size': `${held.size}px` }}
     />,
     document.body,
   );

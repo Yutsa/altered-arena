@@ -4,7 +4,7 @@ import { useGameCtx } from '../game/GameContext';
 import './EndScreen.css';
 
 export function EndScreen({ onLeave }: { onLeave: () => void }) {
-  const { view } = useGameCtx();
+  const { view } = useGameCtx('view');
   const [dismissed, setDismissed] = useState(false);
   const ended = view.phase === 'ended';
   const winner = view.players.find((p) => p.id === view.winner);

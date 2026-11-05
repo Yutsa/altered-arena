@@ -1,8 +1,8 @@
 import { memo } from 'react';
 import { motion } from 'motion/react';
-import { useGameCtx } from '../game/GameContext';
+import { useAff, useCard, useGame, useGameCtx } from '../game/GameContext';
 import { useCardPointer } from '../game/useCardPointer';
-import { useDrag } from '../game/drag';
+import { useDragState } from '../game/drag';
 import { hasActions } from '../game/decisions';
 import { Card, CardBack, type CardSize } from './Card';
 import './BoardCard.css';
@@ -11,14 +11,17 @@ export const cardTransition = { type: 'spring', stiffness: 420, damping: 36, mas
 
 /** A card of the game: animated between zones (shared layoutId), interactive. */
 export const BoardCard = memo(function BoardCard({ id, size, className }: { id: number; size: CardSize; className?: string }) {
-  const { byId, def, aff, ui, decision, manaPending, focusSource } = useGameCtx();
-  const { drag } = useDrag();
+  const { def } = useGameCtx('def');
+  const card = useCard(id);
+  const a = useAff(id);
+  const selected = useGame((s) => s.ui.selected === id);
+  const focused = useGame((s) => s.focusSource === id);
+  const toMana = useGame((s) => s.decision?.kind === 'select' && !!s.decision.toMana);
+  const pendingMana = useGame((s) => s.manaPending.has(id));
+  const dragged = useDragState((d) => d?.cardId === id);
   const { draggable, handlers } = useCardPointer(id);
-  const card = byId.get(id);
-  const a = aff.get(id);
   // A card picked for the Mana zone turns face down, as it will be there (and stays so until it gets there)
-  const pendingMana = manaPending.has(id);
-  const faceDown = pendingMana || (!!a?.picked && decision?.kind === 'select' && !!decision.toMana);
+  const faceDown = pendingMana || (!!a?.picked && toMana);
   const cls = [
     'board-card',
     hasActions(a) ? 'is-playable' : '',
@@ -26,9 +29,9 @@ export const BoardCard = memo(function BoardCard({ id, size, className }: { id: 
     a?.picked ? 'is-picked' : '',
     pendingMana ? 'is-mana-pending' : '',
     a?.source ? 'is-source' : '',
-    focusSource === id ? 'is-trigger-focus' : '',
-    ui.selected === id ? 'is-selected' : '',
-    drag?.cardId === id ? 'is-dragged' : '',
+    focused ? 'is-trigger-focus' : '',
+    selected ? 'is-selected' : '',
+    dragged ? 'is-dragged' : '',
     card?.exhausted ? 'is-exhausted' : '',
     className ?? '',
   ].join(' ');

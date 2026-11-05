@@ -10,7 +10,7 @@ import { revealedOnTop } from './reveals';
  * or the card whose effect asks for targets (a character, a permanent, a hero...).
  */
 function useFocus(): { card: CardView; casting: boolean } | null {
-  const { view, decision, byId } = useGameCtx();
+  const { view, decision, byId } = useGameCtx('view', 'decision', 'byId');
   // A card revealed on top of a deck is drawn there (Mat.tsx), not cast
   const onTop = new Set(revealedOnTop(view).values());
   const limbo = view.cards.filter((c) => c.zone === 'limbo' && !onTop.has(c.id));
@@ -28,7 +28,7 @@ function useFocus(): { card: CardView; casting: boolean } | null {
  * of an effect is a copy: the card stays at its place on the mat.
  */
 export function CastFocus() {
-  const { view, def, you } = useGameCtx();
+  const { view, def, you } = useGameCtx('view', 'def', 'you');
   const focus = useFocus();
   if (!focus) return null;
   const { card, casting } = focus;
@@ -45,7 +45,7 @@ export function CastFocus() {
 }
 
 function FocusCard({ id, copy }: { id: number; copy: boolean }) {
-  const { byId, def } = useGameCtx();
+  const { byId, def } = useGameCtx('byId', 'def');
   const { handlers } = useCardPointer(id);
   const card = byId.get(id);
   // A copy does not carry data-card-id: the flights and the arrows find the card on the mat
@@ -111,7 +111,7 @@ function targetEl(target: { card?: number; exp?: string }): HTMLElement | null {
  * whole window and measured every frame, so they follow the cards (hover, flights, resize).
  */
 export function TargetArrows() {
-  const { decision, ui, auto } = useGameCtx();
+  const { decision, ui, auto } = useGameCtx('decision', 'ui', 'auto');
   // Replays: the targets the player chose; live: the only targets, about to be picked for the player
   const a = auto?.answer;
   const shown =
