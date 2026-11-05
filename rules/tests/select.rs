@@ -84,7 +84,7 @@ fn discard_from_deck_all() {
 
 /// Player 2001's hand in the recorded position, by id
 fn hand(g: &Game) -> Vec<i64> {
-    let mut ids: Vec<i64> = g.cards.values().filter(|c| c.location == "hand" && c.pid == 2001).map(|c| c.id as i64).collect();
+    let mut ids: Vec<i64> = g.cards.values().filter(|c| c.location == "hand" && c.pid == 2001).map(|c| c.id).collect();
     ids.sort();
     ids
 }

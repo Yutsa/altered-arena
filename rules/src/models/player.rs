@@ -919,7 +919,7 @@ pub fn advance_storm(g: &mut Game, pid: PId, token: &str, biomes: &Value, n: i64
     let expedition = if token == "hero" { "stormLeft" } else { "stormRight" };
     let ascended = is_ascended(g, pid, expedition)?;
     let delta = if token == "hero" { n } else { -n };
-    let sid = if token == "hero" { (location + delta).max(0).min(7) } else { (location + delta).min(7).max(0) };
+    let sid = (location + delta).clamp(0, 7);
     if sid == location {
         g.notify("message", json!({"log": "${player_name} expedition cannot move", "player_id": pid}));
         return Ok(false);

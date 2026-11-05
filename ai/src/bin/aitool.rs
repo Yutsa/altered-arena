@@ -107,7 +107,7 @@ fn pass(n: u64, agent_name: &str, games: u64, threads: usize, params_dir: &str, 
             }
             write_line(serde_json::json!({"i": i, "p": p, "swap": swap, "r": r}));
             let k = done.fetch_add(1, std::sync::atomic::Ordering::SeqCst) + 1;
-            if k % 500 == 0 {
+            if k.is_multiple_of(500) {
                 eprintln!("{} / {} games, {:.0}s", k, jobs.len(), t.elapsed().as_secs_f64());
             }
             (p, swap, r)

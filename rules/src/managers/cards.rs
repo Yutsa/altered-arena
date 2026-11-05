@@ -64,7 +64,7 @@ fn translit(c: char) -> &'static str {
 
 /// `slugify($text)` (Managers/Cards.php:16)
 pub fn slugify(text: &str) -> String {
-    let t = text.replace('ō', "o").replace('ö', "o").replace('ā', "a").replace('ä', "a");
+    let t = text.replace(['ō', 'ö'], "o").replace(['ā', 'ä'], "a");
     let t: String = t.chars().filter(|c| c.is_alphabetic() || c.is_ascii_digit()).collect();
     let mut out = String::new();
     for c in t.chars() {
@@ -156,7 +156,7 @@ pub fn instantiate_props(db: &Props, id: CardId) -> R<Props> {
         }
     }
     for p in DYNAMIC_PROPERTIES {
-        if let Some(v) = db.get(*p) {
+        if let Some(v) = db.get(p) {
             if !v.is_null() {
                 props.insert(p.to_string(), v.clone());
             }

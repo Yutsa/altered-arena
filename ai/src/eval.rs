@@ -64,7 +64,7 @@ fn i(v: &Value) -> f64 {
 }
 
 /// Biomes of a region (all three while its Tumult card is face down)
-fn region_biomes<'a>(view: &'a Value, pos: i64) -> Vec<&'a str> {
+fn region_biomes(view: &Value, pos: i64) -> Vec<&str> {
     let r = view["regions"].as_array().and_then(|rs| rs.iter().find(|r| r["index"].as_i64() == Some(pos)));
     match r.and_then(|r| r["biomes"].as_array()) {
         Some(b) => b.iter().filter_map(|x| x.as_str()).collect(),

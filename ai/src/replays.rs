@@ -44,8 +44,7 @@ pub fn steps(path: &str) -> Result<Vec<Step>, String> {
     }
     let mut out = vec![];
     let mut node = &data["tree"];
-    loop {
-        let Some(p) = node["player"].as_u64().map(|p| p as u32) else { break };
+    while let Some(p) = node["player"].as_u64().map(|p| p as u32) {
         let Some(next) = node["next"].as_array().and_then(|n| n.first()) else { break };
         let Some(decision) = g.decision(p) else { break };
         let mut answer = next["answer"].clone();

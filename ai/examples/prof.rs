@@ -33,7 +33,7 @@ fn run() {
     let t = Instant::now();
     for _ in 0..n {
         let mut h = g.clone();
-        std::hint::black_box(h.view(Some(p), ""));
+        let _ = std::hint::black_box(h.view(Some(p), ""));
     }
     println!("view {:.2} ms", t.elapsed().as_secs_f64() * 1e3 / n as f64);
     let t = Instant::now();

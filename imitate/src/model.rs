@@ -274,7 +274,7 @@ pub fn pred_of(m: &Matrix, d: usize, s: &[f64]) -> Pred {
     let mut order: Vec<usize> = (0..s.len()).collect();
     order.sort_by(|&x, &y| s[y].partial_cmp(&s[x]).unwrap_or(std::cmp::Ordering::Equal).then(x.cmp(&y)));
     let lab = |c: usize| m.label[a + c];
-    let lz = logsumexp(&s);
+    let lz = logsumexp(s);
     let ls: Vec<f64> = (0..s.len()).filter(|&c| lab(c)).map(|c| s[c]).collect();
     Pred {
         top1: lab(order[0]),

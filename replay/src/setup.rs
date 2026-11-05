@@ -14,7 +14,7 @@ use std::sync::Arc;
 pub fn create(r: &BgaReplay) -> Result<Game, PhpError> {
     let mut decks = vec![];
     for pid in PLAYER_IDS {
-        decks.push(r.api_deck(pid as i64).ok_or_else(|| PhpError::new(&format!("no custom deck for player {}", pid)))?);
+        decks.push(r.api_deck(pid).ok_or_else(|| PhpError::new(format!("no custom deck for player {}", pid)))?);
     }
     let hook = ShuffleHook::Revealed { reveals: Arc::new(r.reveals()), applied: vec![] };
     create_with(r.table, &decks, &r.dice(), &r.storm(), hook)
@@ -59,11 +59,11 @@ pub fn create_with(table: i64, decks: &[Value], dice: &[i64], storm: &BTreeMap<i
 
 /// Sets a player's preference row (Preferences::get reads the first row)
 pub fn set_pref(g: &mut Game, pid: i64, pref: i64, value: i64) {
-    g.prefs.retain(|p| !(p.player_id as i64 == pid && p.pref_id == pref));
+    g.prefs.retain(|p| !(p.player_id == pid && p.pref_id == pref));
     let id = g.prefs.iter().map(|p| p.id).max().unwrap_or(0) + 1;
     g.prefs.push(PrefRow { id, player_id: pid as _, pref_id: pref, value: Some(value.to_string()) });
 }
 
 pub fn get_pref(g: &Game, pid: i64, pref: i64) -> Option<i64> {
-    g.prefs.iter().find(|p| p.player_id as i64 == pid && p.pref_id == pref).and_then(|p| p.value.as_ref()).and_then(|v| v.parse().ok())
+    g.prefs.iter().find(|p| p.player_id == pid && p.pref_id == pref).and_then(|p| p.value.as_ref()).and_then(|v| v.parse().ok())
 }

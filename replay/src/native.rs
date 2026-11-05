@@ -79,7 +79,7 @@ pub fn from_outcome(r: &BgaReplay, o: &Outcome) -> Option<NativeReplay> {
         ShuffleHook::Revealed { applied, .. } => applied.clone(),
         _ => vec![],
     };
-    let decks = altered_rules::arena::PLAYER_IDS.iter().map(|p| r.api_deck(*p as i64).unwrap_or(Value::Null)).collect();
+    let decks = altered_rules::arena::PLAYER_IDS.iter().map(|p| r.api_deck(*p).unwrap_or(Value::Null)).collect();
     Some(NativeReplay {
         format: FORMAT,
         table: r.table,

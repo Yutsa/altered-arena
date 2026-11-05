@@ -336,7 +336,7 @@ async fn main() {
                     let (client, url, game, stats) = (client.clone(), url.clone(), game.clone(), stats.clone());
                     let token = p["token"].as_str().unwrap_or("").to_string();
                     let player = p["id"].as_u64().unwrap_or(0);
-                    let seed = (i as u64) << 20 | round << 4 | player % 16;
+                    let seed = (i as u64) << 20 | round << 4 | (player % 16);
                     seats.push(tokio::spawn(play_seat(client, url, game, player, token, think, until, stats, seed)));
                 }
                 for s in seats {

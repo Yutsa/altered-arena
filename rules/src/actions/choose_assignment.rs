@@ -451,8 +451,7 @@ pub fn play_card(
         return Err(PhpError::new("You do not own this card. Should not happen"));
     }
 
-    let cost: Value;
-    if php::loose_eq(free, &json!(false)) {
+    let cost: Value = if php::loose_eq(free, &json!(false)) {
         // Calculate cost
         let reserve_flip = php::truthy(&get_arg(a, g, ctx, "reserveFlipCost")?);
         let mut c_cost = card::get_cost(g, c, scout, reserve_flip, Some(loc))?;
@@ -623,13 +622,13 @@ pub fn play_card(
 
         // Pay cost
         player::pay_mana(g, p, php::intval(&c_cost))?;
-        cost = c_cost;
+        c_cost
     } else if php::gt(new_cost, &json!(0)) {
         player::pay_mana(g, p, php::intval(new_cost))?;
-        cost = new_cost.clone();
+        new_cost.clone()
     } else {
-        cost = json!(0);
-    }
+        json!(0)
+    };
     // Effect free plays (Wayfarer, Coppelia, ...) use free=true with cost 0 and must not end the
     // Afternoon turn. Cost-reduction PLAY_CARD nodes pass countsAsTurnPlay=true.
     let counts = if counts_as_turn_play.is_null() {

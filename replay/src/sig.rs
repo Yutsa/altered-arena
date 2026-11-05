@@ -53,7 +53,7 @@ pub fn shown(m: &Move) -> BTreeMap<Piece, Vec<String>> {
                 _ => loc,
             };
             let locs = out.entry(piece).or_default();
-            if !locs.iter().any(|l| *l == loc) {
+            if !locs.contains(&loc) {
                 locs.push(loc);
             }
         });
@@ -68,7 +68,7 @@ pub fn positions(g: &Game) -> BTreeMap<Piece, String> {
     for c in g.cards.values() {
         let tapped = c.props.get("tapped").is_some_and(|t| t.as_bool() == Some(true) || int(t) == 1);
         let loc = if tapped { format!("{}!", c.location) } else { c.location.clone() };
-        out.insert(Piece::Card(c.id as i64), at(&loc, c.pid));
+        out.insert(Piece::Card(c.id), at(&loc, c.pid));
     }
     for m in g.meeples.values() {
         let state = m.state.parse::<i64>().unwrap_or(0);

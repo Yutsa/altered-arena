@@ -208,10 +208,13 @@ impl Snapshot {
             // A Mana Orb of the player exhausted (paying)
             if let Some(rest) = k.strip_prefix(".cards[") {
                 let id = rest.split(']').next().unwrap_or("");
-                if rest.ends_with("].exhausted") && zone(self, id) == "mana" && x == Some(&Value::Bool(false)) && y == Some(&Value::Bool(true)) {
-                    if self.view.get(&format!(".cards[{}].owner", id)).and_then(|v| v.as_i64()) == Some(me) {
-                        continue;
-                    }
+                if rest.ends_with("].exhausted")
+                    && zone(self, id) == "mana"
+                    && x == Some(&Value::Bool(false))
+                    && y == Some(&Value::Bool(true))
+                    && self.view.get(&format!(".cards[{}].owner", id)).and_then(|v| v.as_i64()) == Some(me)
+                {
+                    continue;
                 }
             }
             if trace {

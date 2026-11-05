@@ -489,7 +489,7 @@ fn report(args: &[String]) {
         }
     }
     let mut m: Vec<(String, (usize, usize))> = misses.into_iter().collect();
-    m.sort_by(|a, b| b.1 .0.cmp(&a.1 .0));
+    m.sort_by_key(|e| std::cmp::Reverse(e.1 .0));
     o += "\n## Most frequent remaining misses (held-out)\n\n| kind / prompt | missed | of | rate |\n|---|---|---|---|\n";
     for (k, (x, n)) in m.iter().take(15) {
         o += &format!("| {} | {} | {} | {:.0} % |\n", k.replace('|', "/").replacen('/', "|", 0), x, n, 100.0 * *x as f64 / *n as f64);

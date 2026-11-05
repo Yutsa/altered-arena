@@ -10,3 +10,6 @@ serde = { version = "1", features = ["derive", "rc"] }
 serde_json = { version = "1", features = ["preserve_order", "raw_value"] }
 indexmap = { version = "2", features = ["serde"] }
 rustc-hash = "2"
+
+[lints]
+workspace = true

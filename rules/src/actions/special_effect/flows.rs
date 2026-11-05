@@ -632,19 +632,23 @@ fn hunger(g: &mut Game, s: &mut Se) -> R<Out> {
         }
         let loc = card::location(g, d)?;
         let other = if loc == "stormLeft" { "stormRight" } else { "stormLeft" };
-        if STORMS.contains(&loc.as_str()) && card::has_token(g, d, "boost")? && type_in(g, d, &["token", "character"])? {
-            if floral.contains(&("boosted", dp, loc.clone())) || (gigantic(g, d)? && floral.contains(&("boosted", dp, other.to_string()))) {
-                g.notify("message", json!({"msg": "${card_name} is not discarded but loose <BOOST> instead", "cardId": d}));
-                nodes.push(json!({"action": "Loose", "args": {"cardId": d, "type": "boost", "n": 99}}));
-                continue;
-            }
+        if STORMS.contains(&loc.as_str())
+            && card::has_token(g, d, "boost")?
+            && type_in(g, d, &["token", "character"])?
+            && (floral.contains(&("boosted", dp, loc.clone())) || (gigantic(g, d)? && floral.contains(&("boosted", dp, other.to_string()))))
+        {
+            g.notify("message", json!({"msg": "${card_name} is not discarded but loose <BOOST> instead", "cardId": d}));
+            nodes.push(json!({"action": "Loose", "args": {"cardId": d, "type": "boost", "n": 99}}));
+            continue;
         }
-        if STORMS.contains(&loc.as_str()) && card::has_token(g, d, "anchored")? && type_in(g, d, &["token", "character"])? {
-            if floral.contains(&("anchored", dp, loc.clone())) || (gigantic(g, d)? && floral.contains(&("anchored", dp, other.to_string()))) {
-                g.notify("message", json!({"msg": "${card_name} is not discarded but loose <ANCHORED> instead", "cardId": d}));
-                nodes.push(json!({"action": "Loose", "args": {"cardId": d, "type": "anchored"}}));
-                continue;
-            }
+        if STORMS.contains(&loc.as_str())
+            && card::has_token(g, d, "anchored")?
+            && type_in(g, d, &["token", "character"])?
+            && (floral.contains(&("anchored", dp, loc.clone())) || (gigantic(g, d)? && floral.contains(&("anchored", dp, other.to_string()))))
+        {
+            g.notify("message", json!({"msg": "${card_name} is not discarded but loose <ANCHORED> instead", "cardId": d}));
+            nodes.push(json!({"action": "Loose", "args": {"cardId": d, "type": "anchored"}}));
+            continue;
         }
         nodes.push(ft::action("Discard", json!({"cardId": d}), php::arr()));
     }

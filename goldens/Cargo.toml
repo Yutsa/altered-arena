@@ -10,3 +10,6 @@ altered-rules = { path = "../rules" }
 serde_json = { version = "1", features = ["preserve_order", "unbounded_depth"] }
 rayon = "1"
 serde = "1"
+
+[lints]
+workspace = true

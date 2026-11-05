@@ -1315,7 +1315,7 @@ fn search_name_of_uid(uid: &str) -> Option<String> {
     if j == 0 {
         return None;
     }
-    let rest = rest[j + 1..].as_bytes();
+    let rest = &rest.as_bytes()[j + 1..];
     if rest.len() < 4 || !rest[0].is_ascii_uppercase() || !rest[1].is_ascii_uppercase() || rest[2] != b'_' || !rest[3].is_ascii_digit() {
         return None;
     }

@@ -519,7 +519,7 @@ mod tests {
                 ];
                 let mut g = ServerGame::new("a".into(), seats, 5).unwrap();
                 g.run_bots();
-                let mut step = |g: &mut ServerGame, auto: bool| loop {
+                let step = |g: &mut ServerGame, auto: bool| loop {
                     let Some(d) = g.game().try_decision(2001).unwrap() else {
                         g.run_bots();
                         continue;

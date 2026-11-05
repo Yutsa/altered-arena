@@ -116,22 +116,18 @@ pub fn run(r: &BgaReplay) -> Outcome {
     let moves: Vec<&Move> = r.moves[start..].iter().collect();
     let mut undo_default = BTreeMap::new();
     for pid in PLAYER_IDS {
-        let confirms = r.moves.iter().any(|m| m.states.iter().any(|s| s.1 == pid as i64 && (s.0 == ST_CONFIRM_TURN || s.0 == ST_CONFIRM_PARTIAL_TURN)));
-        undo_default.insert(pid as i64, if confirms { 1 } else { 2 });
+        let confirms = r.moves.iter().any(|m| m.states.iter().any(|s| s.1 == pid && (s.0 == ST_CONFIRM_TURN || s.0 == ST_CONFIRM_PARTIAL_TURN)));
+        undo_default.insert(pid, if confirms { 1 } else { 2 });
     }
     let mut ctx = Ctx { r, moves, first_new_ids: r.first_new_ids(), reveals: r.reveals(), undo_default, near: false };
     out.requests = ctx.moves.len();
     let mut st = State { g, after_undo: false };
     for pid in PLAYER_IDS {
-        setup::set_pref(&mut st.g, pid as i64, OPTION_PLAYER_UNDO, ctx.undo_default[&(pid as i64)]);
+        setup::set_pref(&mut st.g, pid, OPTION_PLAYER_UNDO, ctx.undo_default[&{ pid }]);
         // explore.php writes 0 for the preferences the runner cannot infer
-        setup::set_pref(&mut st.g, pid as i64, OPTION_CONFIRM, 0);
-        setup::set_pref(&mut st.g, pid as i64, OPTION_CONFIRM_UNDOABLE, 0);
-        out.prefs0.extend([
-            (pid as i64, OPTION_PLAYER_UNDO, ctx.undo_default[&(pid as i64)]),
-            (pid as i64, OPTION_CONFIRM, 0),
-            (pid as i64, OPTION_CONFIRM_UNDOABLE, 0),
-        ]);
+        setup::set_pref(&mut st.g, pid, OPTION_CONFIRM, 0);
+        setup::set_pref(&mut st.g, pid, OPTION_CONFIRM_UNDOABLE, 0);
+        out.prefs0.extend([(pid, OPTION_PLAYER_UNDO, ctx.undo_default[&{ pid }]), (pid, OPTION_CONFIRM, 0), (pid, OPTION_CONFIRM_UNDOABLE, 0)]);
     }
     // Exact answers only (with backtracking) first; the closest answers only if that fails
     let first = replay_from(&ctx, st.clone());
@@ -311,8 +307,8 @@ fn options(base: &State, prep: &Prep, m: &Move, all: bool) -> (Vec<(usize, State
         matches = erased_sequences(base, m, prep, all).into_iter().map(|(s, st)| (0, s, st)).collect();
     }
     // The answers whose notifications follow the replay's order first
-    matches.sort_by(|a, b| b.0.cmp(&a.0));
-    near.sort_by(|a, b| b.0.cmp(&a.0));
+    matches.sort_by_key(|m| std::cmp::Reverse(m.0));
+    near.sort_by_key(|m| std::cmp::Reverse(m.0));
     (matches, near)
 }
 
@@ -432,7 +428,6 @@ fn prepare(ctx: &Ctx, st: &mut State, m: &Move, variant: usize) -> Prep {
     // in ST_CONFIRM_TURN had the confirmation on, one who went through it had it off, and a partial
     // confirmation needs the undo on. Each state carries the player it is about.
     for pid in PLAYER_IDS {
-        let pid = pid as i64;
         let of: Vec<i64> = m.states.iter().filter(|s| s.1 == pid).map(|s| s.0).collect();
         let undo = if of.contains(&ST_CONFIRM_TURN) {
             let confirm = if m.states.last() == Some(&(ST_CONFIRM_TURN, pid)) { 2 } else { 0 };
@@ -454,7 +449,7 @@ fn prepare(ctx: &Ctx, st: &mut State, m: &Move, variant: usize) -> Prep {
     // the next new id the replay shows tells where its counters were
     {
         if let Some(&(cards, meeples)) = ctx.first_new_ids.get(&m.id) {
-            let max_card = st.g.cards.values().map(|c| c.id as i64).max().unwrap_or(0);
+            let max_card = st.g.cards.values().map(|c| c.id).max().unwrap_or(0);
             let max_meeple = st.g.meeples.values().map(|c| c.id).max().unwrap_or(0);
             let mut ids = json!({});
             if let Some(id) = cards.filter(|&id| id > st.g.next_card_id && id > max_card) {
@@ -477,7 +472,7 @@ fn prepare(ctx: &Ctx, st: &mut State, m: &Move, variant: usize) -> Prep {
     let mut variants = 1;
     for (pid, lists) in deck_lists(ctx, &st.g, m) {
         let loc = format!("deck-{}", pid);
-        let mut deck: Vec<(i64, i64)> = st.g.cards.values().filter(|c| c.location == loc).map(|c| (c.state, c.id as i64)).collect();
+        let mut deck: Vec<(i64, i64)> = st.g.cards.values().filter(|c| c.location == loc).map(|c| (c.state, c.id)).collect();
         deck.sort();
         let ids: Vec<i64> = deck.iter().map(|d| d.1).collect();
         let orders = interleavings(&lists);
@@ -531,7 +526,7 @@ fn deck_lists(ctx: &Ctx, g: &Game, m: &Move) -> Vec<(i64, Vec<Vec<i64>>)> {
         let mut seen = HashSet::new();
         let lists: Vec<Vec<i64>> =
             lists.into_values().map(|l| l.into_iter().filter(|id| seen.insert(*id)).collect::<Vec<_>>()).filter(|l| !l.is_empty()).collect();
-        out.push((pid as i64, lists));
+        out.push((pid, lists));
     }
     out
 }

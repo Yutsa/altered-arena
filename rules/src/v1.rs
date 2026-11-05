@@ -898,11 +898,9 @@ fn card_view(g: &Game, id: i64, tokens: &[String], positions: &mut std::collecti
     if token {
         v["token"] = json!(true);
     }
-    if p.get("type") == Some(&json!("character")) || token {
-        if p.get("forest").is_some_and(|x| !x.is_null()) {
-            let stat = |k: &str| php::intval(p.get(k).unwrap_or(&Value::Null)) + boosts;
-            v["stats"] = json!({"forest": stat("forest"), "mountain": stat("mountain"), "ocean": stat("ocean")});
-        }
+    if (p.get("type") == Some(&json!("character")) || token) && p.get("forest").is_some_and(|x| !x.is_null()) {
+        let stat = |k: &str| php::intval(p.get(k).unwrap_or(&Value::Null)) + boosts;
+        v["stats"] = json!({"forest": stat("forest"), "mountain": stat("mountain"), "ocean": stat("ocean")});
     }
     for k in ["costHand", "costReserve"] {
         if let Some(x) = p.get(k) {
@@ -1148,7 +1146,7 @@ fn build_view(g: &mut Game, you: Option<PId>, game_id: &str, with_decision: bool
     let passed = if globals::is(g, "dayPhase")? { globals::get(g, "skippedPlayers")? } else { php::arr() };
     let mut player_views = vec![];
     for pid in players::get_all(g) {
-        let hero = card_views.iter().filter(|c| c["zone"] == json!("hero") && c["owner"] == json!(pid)).map(|c| c["id"].clone()).last();
+        let hero = card_views.iter().filter(|c| c["zone"] == json!("hero") && c["owner"] == json!(pid)).map(|c| c["id"].clone()).next_back();
         let mut expeditions = Map::new();
         for (side, loc) in [("hero", "stormLeft"), ("companion", "stormRight")] {
             let b = php::get(php::get(&biomes, &pid.to_string()), loc);
