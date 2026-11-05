@@ -12,6 +12,27 @@ interface DragState {
   dropped?: boolean;
   /** dropped elsewhere: the card goes back to its place */
   returning?: boolean;
+  /** dragged by a finger */
+  touch?: boolean;
+  /** a spell held by a finger over the Cancel zone */
+  cancelling?: boolean;
+}
+
+/**
+ * A spell dragged by a finger is not cast anywhere on the board, as it is with a mouse: a finger
+ * cannot easily take it back to the hand. Two large zones show instead, Cancel on the left and Cast
+ * on the right (SpellZones).
+ */
+const touchSpell = (s: DragState | null) => !!s?.touch && s.destinations.includes('spell');
+
+/** The spell zone under a point: 'cast', 'cancel' or null */
+function spellZoneAt(x: number, y: number): 'cast' | 'cancel' | null {
+  // The zones let pointer events through (elementsFromPoint skips them): their boxes are read
+  for (const el of document.querySelectorAll<HTMLElement>('[data-spell-zone]')) {
+    const r = el.getBoundingClientRect();
+    if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) return el.dataset.spellZone as 'cast' | 'cancel';
+  }
+  return null;
 }
 
 interface DragCtxValue {
@@ -32,13 +53,13 @@ export const useDrag = () => useContext(DragCtx);
  * Finds the drop zone under the pointer: the innermost element with data-drop among the allowed
  * destinations. A spell is cast anywhere on the board (data-cast), except back on the hand.
  */
-function dropAt(x: number, y: number, allowed: Destination[]): Destination | null {
+function dropAt(x: number, y: number, allowed: Destination[], board = true): Destination | null {
   for (const el of document.elementsFromPoint(x, y)) {
     const h = el as HTMLElement;
     if (h.closest?.('.arena-hand')) return null;
     const d = h.dataset?.drop as Destination | undefined;
     if (d && allowed.includes(d)) return d;
-    if (h.dataset?.cast !== undefined && allowed.includes('spell')) return 'spell';
+    if (board && h.dataset?.cast !== undefined && allowed.includes('spell')) return 'spell';
   }
   return null;
 }
@@ -46,7 +67,8 @@ function dropAt(x: number, y: number, allowed: Destination[]): Destination | nul
 /** Classes of the body during a drag: a spell is dragged, a spell is over the board */
 function bodyClasses(s: DragState | null) {
   const spell = !!s && !s.dropped && !s.returning && s.destinations.includes('spell');
-  document.body.classList.toggle('drag-spell', spell);
+  // A finger casts on the Cast zone only: the board is not lit as a target
+  document.body.classList.toggle('drag-spell', spell && !s!.touch);
   document.body.classList.toggle('drag-cast', spell && s!.over === 'spell');
 }
 
@@ -203,7 +225,7 @@ export function DragProvider({ children }: { children: ReactNode }) {
       // The ghost starts on the card, as it is drawn on the table
       m.current = { x: home.x, y: home.y, tx: x, ty: y - lift.current, ry: 0, rx: 0, rz: home.rot, scale: 1, frame: 0 };
       setSize(width);
-      set({ cardId, destinations, over: null });
+      set({ cardId, destinations, over: null, touch });
       m.current.frame = requestAnimationFrame(step);
       document.body.classList.add('is-dragging');
       // Follow the pointer on the window until the drag ends
@@ -238,6 +260,14 @@ export function DragProvider({ children }: { children: ReactNode }) {
     const cy = y - lift.current;
     m.current.tx = x;
     m.current.ty = cy;
+    if (touchSpell(s)) {
+      // The Cast and Cancel zones are large: the card or the finger may be on them
+      const zone = spellZoneAt(x, cy) ?? spellZoneAt(x, y);
+      const over = zone === 'cast' ? 'spell' : zone === 'cancel' ? null : dropAt(x, cy, s.destinations, false);
+      const cancelling = zone === 'cancel';
+      if (over !== s.over || cancelling !== !!s.cancelling) set({ ...s, over, cancelling });
+      return;
+    }
     const over = dropAt(x, cy, s.destinations) ?? (cy !== y ? dropAt(x, y, s.destinations) : null);
     if (over !== s.over) set({ ...s, over });
   }, []);
@@ -294,6 +324,28 @@ export function DragProvider({ children }: { children: ReactNode }) {
           </div>,
           document.body,
         )}
+      {drag && touchSpell(drag) && !drag.dropped && !drag.returning && <SpellZones cast={drag.over === 'spell'} cancel={!!drag.cancelling} />}
     </DragCtx.Provider>
+  );
+}
+
+/** A spell held by a finger: let it go on the left to cancel, on the right to cast */
+function SpellZones({ cast, cancel }: { cast: boolean; cancel: boolean }) {
+  return createPortal(
+    <div className="spell-zones" aria-hidden="true">
+      <div className={`spell-zone sz-cancel ${cancel ? 'on' : ''}`} data-spell-zone="cancel">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round">
+          <path d="M6 6l12 12M18 6L6 18" />
+        </svg>
+        <span>Cancel</span>
+      </div>
+      <div className={`spell-zone sz-cast ${cast ? 'on' : ''}`} data-spell-zone="cast">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z" />
+        </svg>
+        <span>Cast</span>
+      </div>
+    </div>,
+    document.body,
   );
 }

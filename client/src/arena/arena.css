@@ -683,11 +683,11 @@ body:has(.marker-ghost) { cursor: grabbing; }
 .chip-opp { left: 12px; top: 10px; }
 .chip-me { left: 12px; bottom: 12px; }
 .layout-phone .chip { padding: 3px 8px; gap: 6px; border-radius: 11px; }
-/* Phones: the chips hang from the top edge, in the strip of sky above the tilted mat, and mine sits
-   in the bottom right corner, clear of my Landmarks */
+/* Phones: the chips at the top sit close to the edge, in the strip of sky above the tilted mat, and
+   mine in the bottom right corner, clear of my Landmarks */
 .layout-phone .chip-me { left: auto; right: 2px; bottom: 2px; padding: 2px 7px; }
 .layout-phone .chip-opp,
-.layout-phone .info-chip { top: 0; border-top: 0; border-radius: 0 0 10px 10px; padding-block: 1px 2px; }
+.layout-phone .info-chip { top: 2px; padding-block: 1px; }
 .layout-phone .chip-opp { left: 8px; }
 .player-chip.mine { border-color: rgb(94 224 176 / 0.7); }
 .player-chip.waiting.theirs { border-color: var(--opp); }

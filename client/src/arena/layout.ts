@@ -129,22 +129,24 @@ function safeInsets(): Insets {
 }
 
 /**
- * The stage fits inside the safe area (a phone in landscape has its notch on one side and the home
- * indicator at the bottom: nothing to play there, and a swipe up from the bottom edge leaves the
- * app). `center`: where the stage's centre is, in window px.
+ * The stage fits inside the safe area, but for its top (a phone in landscape has its notch on one
+ * side and the home indicator at the bottom: nothing to play there, and a swipe up from the bottom
+ * edge leaves the app). `center`: where the stage's centre is, in window px.
  */
 function pick(): { layout: ArenaLayout; scale: number; portrait: boolean; center: { x: number; y: number } } {
   const vw = window.innerWidth;
   const vh = window.innerHeight;
   const portrait = vh > vw;
   const i = safeInsets();
-  // Both sides keep the same margin, so the table stays centred whatever side the notch is on
+  // Both sides keep the same margin, so the table stays centred whatever side the notch is on. The
+  // top inset is not kept: in landscape it is the status bar (Android in full screen reports one),
+  // over the strip of sky above the mat, and keeping it pushed the whole table down
   const side = Math.max(i.left, i.right);
   const w = vw - 2 * side;
-  const h = vh - i.top - i.bottom;
+  const h = vh - i.bottom;
   const layout = (vh < 560 && !portrait) || vw < 760 ? PHONE : WIDE;
   const scale = Math.min(w / layout.W, h / layout.H);
-  return { layout, scale, portrait, center: { x: vw / 2, y: i.top + h / 2 } };
+  return { layout, scale, portrait, center: { x: vw / 2, y: h / 2 } };
 }
 
 export function useArenaLayout() {

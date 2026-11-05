@@ -101,3 +101,32 @@ body.is-dragging { cursor: grabbing; }
   .drag-ghost,
   .drag-ghost.over { filter: none; }
 }
+
+/* A spell held by a finger: the board split in two halves, Cancel on the left, Cast on the right. Only opacity and transform
+   change (no blur, no repaint of the table behind). */
+.spell-zones { position: fixed; inset: 0; z-index: 250; pointer-events: none; }
+.spell-zone {
+  position: absolute;
+  top: 6px;
+  bottom: 24%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border-radius: 18px;
+  border: 2px dashed currentColor;
+  font: 700 clamp(14px, 4.2vh, 20px) / 1 var(--font-title);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.7;
+  transition: opacity 0.12s, transform 0.12s;
+  animation: spell-zone-in 0.15s ease-out;
+}
+.spell-zone svg { width: clamp(28px, 10vh, 48px); height: clamp(28px, 10vh, 48px); }
+.spell-zone.on { opacity: 1; border-style: solid; }
+.sz-cancel { left: max(8px, env(safe-area-inset-left)); right: calc(50% + 4px); color: #ffb0a8; background: rgb(150 30 30 / 0.55); }
+.sz-cancel.on { background: rgb(200 40 40 / 0.8); color: #fff; }
+.sz-cast { right: max(8px, env(safe-area-inset-right)); left: calc(50% + 4px); color: #b8f5c8; background: rgb(25 120 60 / 0.55); }
+.sz-cast.on { background: rgb(30 160 80 / 0.8); color: #fff; }
+@keyframes spell-zone-in { from { opacity: 0; } }
