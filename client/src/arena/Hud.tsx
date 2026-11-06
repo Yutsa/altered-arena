@@ -7,6 +7,7 @@ import { CardListModal } from '../components/Picker';
 import { DecisionBar } from '../components/DecisionBar';
 import { useDragState } from '../game/drag';
 import { Card } from '../components/Card';
+import { CardNotes } from '../components/CardNotes';
 import { useHandTouch } from './useHandTouch';
 
 const PHASES: { phase: Phase; label: string; icon: string }[] = [
@@ -234,7 +235,10 @@ function HandPeek({ id }: { id: number }) {
     const cx = r ? r.left + r.width / 2 : Number(slot.dataset.cx);
     const top = r ? r.top : Number(slot.dataset.top);
     const w = box.offsetWidth;
-    box.style.left = `${Math.max(8 + w / 2, Math.min(window.innerWidth - 8 - w / 2, cx))}px`;
+    const left = Math.max(8 + w / 2, Math.min(window.innerWidth - 8 - w / 2, cx));
+    box.style.left = `${left}px`;
+    // Its notes (boosts...) on the side with more room
+    box.classList.toggle('notes-left', left > window.innerWidth / 2);
     box.style.bottom = `${Math.max(8, window.innerHeight - top + 6)}px`;
     box.style.visibility = '';
   }, [id]);
@@ -243,6 +247,7 @@ function HandPeek({ id }: { id: number }) {
   return createPortal(
     <div className="hand-peek" ref={ref} style={{ visibility: 'hidden' }} aria-hidden="true">
       <Card def={d} card={card} size="zoom" />
+      <CardNotes card={card} className="peek-notes" />
     </div>,
     document.body,
   );

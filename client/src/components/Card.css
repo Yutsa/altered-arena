@@ -142,6 +142,23 @@
 .fc-ocean { top: calc(150 * var(--u)); background: #6386bc; border-top-right-radius: calc(4 * var(--u)); line-height: calc(29 * var(--u)); }
 .fc-stat.up { color: #b6ffbf; text-shadow: 0 0 calc(4 * var(--u)) #0a5d1a, 0 0 calc(8 * var(--u)) #000; }
 .fc-stat.down { color: #ffb3b3; text-shadow: 0 0 calc(4 * var(--u)) #7a0000, 0 0 calc(8 * var(--u)) #000; }
+/* Zoomed cards: the change of a statistic beside its pill (as on BGA), green up, red down; in one
+   column past the widest pill (pills are as wide as their number), whatever the pill's own width */
+.fc-delta {
+  position: absolute;
+  left: calc(46 * var(--u));
+  top: 50%;
+  translate: 0 -50%;
+  padding: 0 calc(5 * var(--u));
+  border-radius: calc(5 * var(--u));
+  font-size: calc(18 * var(--u));
+  line-height: calc(24 * var(--u));
+  text-shadow: none;
+  white-space: nowrap;
+}
+.fc:has(.fc-stat[data-size='3']) .fc-delta { left: calc(58 * var(--u)); }
+.fc-delta.up { background: #1d1d1d; color: #7dff3c; }
+.fc-delta.down { background: #1d1d1d; color: #ff6b6b; }
 
 /* Rules text, the QR code square of the frame at its bottom right */
 .fc-text {

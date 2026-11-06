@@ -147,7 +147,11 @@ function useAutofit(root: RefObject<HTMLDivElement | null>, key: string, canGrow
   return fit?.key === key ? fit : null;
 }
 
-function Printed({ def, card, token }: { def: CardDef; card?: CardView; token: boolean }) {
+/**
+ * `deltas` (zoomed cards): the printed statistics stay as printed, their change (boosts...) shown
+ * beside them, as on BGA; on smaller cards the statistic itself changes, coloured.
+ */
+function Printed({ def, card, token, deltas }: { def: CardDef; card?: CardView; token: boolean; deltas: boolean }) {
   const ref = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState(1);
   const key = `${def.ref}:${def.name}`;
@@ -193,6 +197,13 @@ function Printed({ def, card, token }: { def: CardDef; card?: CardView; token: b
         BIOMES.map((b) => {
           const base = def[b] ?? 0;
           const cur = card?.stats?.[b] ?? base;
+          if (deltas)
+            return (
+              <span key={b} className={`fc-stat fc-${b}`} data-size={sizes[b]}>
+                {base}
+                {cur !== base && <span className={`fc-delta ${cmp(cur, base)}`}>{cur > base ? `+${cur - base}` : `−${base - cur}`}</span>}
+              </span>
+            );
           return (
             <span key={b} className={`fc-stat fc-${b} ${cmp(cur, base)}`} data-size={sizes[b]}>
               {cur}
@@ -239,6 +250,8 @@ export const Card = memo(function Card({ def, card, size, extraCost, className }
   const token = def.type === 'token' || !!card?.token;
   const statuses = card?.statuses ?? [];
   const counters = Object.entries(card?.counters ?? {}).filter(([, n]) => n > 0);
+  // Zoomed: the boosts are told beside the statistics (+1) and in the notes next to the card
+  const boostBadge = (card?.boosts ?? 0) > 0 && size !== 'zoom';
   return (
     <div
       className={['card', `card-${size}`, `t-${def.type}`, token ? 'is-token' : '', card?.exhausted ? 'is-exhausted' : '', className ?? ''].join(' ')}
@@ -257,10 +270,10 @@ export const Card = memo(function Card({ def, card, size, extraCost, className }
           onError={() => setArtFailed(true)}
         />
       )}
-      <Printed def={def} card={card} token={token} />
-      {(statuses.length > 0 || (card?.boosts ?? 0) > 0 || counters.length > 0) && (
+      <Printed def={def} card={card} token={token} deltas={size === 'zoom'} />
+      {(statuses.length > 0 || boostBadge || counters.length > 0) && (
         <div className="card-badges">
-          {(card?.boosts ?? 0) > 0 && (
+          {boostBadge && (
             <span className="badge badge-boost">
               <img src="/img/icons/boost.png" alt="" />
               {card!.boosts}

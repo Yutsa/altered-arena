@@ -14,6 +14,7 @@ import { TrackButton } from './TrackButton';
 import { EffectQueue, EffectQueueBadge } from './EffectQueue';
 import { effectQueue } from '../game/decisions';
 import { MarkerGhost } from './TerrainMarkers';
+import { TouchPeek } from '../game/touchPeek';
 import './arena.css';
 
 const coarse = typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches;
@@ -193,6 +194,7 @@ export function Arena({
         {extraTop && <div className="arena-extra">{extraTop}</div>}
       </div>
       <CastFocus />
+      <TouchPeek />
       <CardActions />
       <TargetArrows />
       <MarkerGhost />

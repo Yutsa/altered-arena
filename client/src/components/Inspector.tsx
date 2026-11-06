@@ -1,9 +1,11 @@
+import { useLayoutEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'motion/react';
 import { useInspect, useInspectTarget, type InspectTarget } from '../game/inspect';
 import { Card, BIOMES } from './Card';
 import { STATUS_INFO } from '../game/keywords';
 import { RichText } from './RichText';
+import { CardNotes } from './CardNotes';
 import { BiomeGlyph } from './Glyph';
 import { FACTION_NAMES } from '../api/catalog';
 import './Inspector.css';
@@ -15,10 +17,18 @@ function hasDetails(t: InspectTarget): boolean {
   return !!changed || c.boosts > 0 || c.exhausted || c.statuses.length > 0 || Object.keys(c.counters).length > 0;
 }
 
+/** Clicks this soon after it opens come from the tap that opened it (ms) */
+const OPEN_GRACE_MS = 350;
+
 /** Large readable version of a card: hover preview on desktop, modal on tap / long press. */
 export function Inspector() {
   const { hide } = useInspect();
   const target = useInspectTarget();
+  // A tap opens it on pointerup; the click the browser sends right after lands on it: not a close
+  const openedAt = useRef(0);
+  useLayoutEffect(() => {
+    if (target) openedAt.current = performance.now();
+  }, [target]);
   return createPortal(
     <AnimatePresence>
       {target && (
@@ -29,7 +39,7 @@ export function Inspector() {
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.12 }}
-          onClick={() => hide()}
+          onClick={() => performance.now() - openedAt.current > OPEN_GRACE_MS && hide()}
         >
           <motion.div
             className="inspector-content"
@@ -68,7 +78,7 @@ export function Inspector() {
                   })}
                 </div>
               )}
-              {(target.card?.boosts ?? 0) > 0 && <div className="ii-line">Boosts: {target.card!.boosts}</div>}
+              <CardNotes card={target.card} />
               {Object.entries(target.card?.counters ?? {}).map(([k, n]) => (
                 <div key={k} className="ii-line">
                   {k}: {n}

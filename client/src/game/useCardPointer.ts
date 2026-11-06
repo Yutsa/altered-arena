@@ -2,6 +2,7 @@ import { useRef, type MouseEvent, type PointerEvent } from 'react';
 import { useGame, useGameCtx } from './GameContext';
 import { holdTouch, useDragActions } from './drag';
 import { useInspect } from './inspect';
+import { hideTouchPeek, showTouchPeek } from './touchPeek';
 
 const DRAG_THRESHOLD = 8;
 const LONG_PRESS_MS = 450;
@@ -11,7 +12,8 @@ const HOVER_MS = 280;
  * Pointer behaviour of a card on the table:
  * - click / tap: the decision action (select, pick...) or inspect
  * - drag (playable cards): drag and drop onto a destination
- * - long press (touch) or hover (mouse): large readable version
+ * - long press (touch): the card shown large above it while the finger stays (touchPeek.tsx);
+ *   hover (mouse): large readable version
  *
  * `touchElsewhere`: touches are handled by a parent (the hand, which follows the finger across its
  * cards): only the mouse is handled here.
@@ -38,6 +40,7 @@ export function useCardPointer(cardId: number, { touchElsewhere = false }: { tou
 
   const clear = () => {
     if (st.current?.timer) clearTimeout(st.current.timer);
+    if (st.current?.longPressed) hideTouchPeek();
     st.current?.release?.();
     st.current = null;
   };
@@ -55,11 +58,15 @@ export function useCardPointer(cardId: number, { touchElsewhere = false }: { tou
         // A finger on a card that can be dragged: the page must not scroll under it
         if (touch && draggable) s.release = holdTouch();
         if (touch) {
+          const el = e.currentTarget as HTMLElement;
           s.timer = window.setTimeout(() => {
-            if (st.current && !st.current.dragging) {
-              st.current.longPressed = true;
+            const cur = st.current;
+            if (cur && !cur.dragging) {
+              cur.longPressed = true;
               navigator.vibrate?.(15);
-              inspectCard(cardId, 'modal');
+              // Shown while the finger stays: the page must not scroll under it (a pan would cancel it)
+              cur.release ??= holdTouch();
+              showTouchPeek(cardId, el);
             }
           }, LONG_PRESS_MS);
         }
