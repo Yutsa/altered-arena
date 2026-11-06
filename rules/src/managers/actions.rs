@@ -157,11 +157,21 @@ pub fn take_action(g: &mut Game, action_id: &Value, action_name: &str, args: &Va
         framework::check_possible_action(g, action_name)?;
     }
     let a = get(action_id)?;
-    let result = a.act(g, Some(ctx), action_name, args)?;
+    let result = with_source(g, ctx, |g| a.act(g, Some(ctx), action_name, args))?;
     let _automatic = node::is_automatic(g, ctx, player)?;
     let checkpoint = if result.is_null() { json!(false) } else { result };
     engine::resolve_action(g, json!({"actionName": action_name, "args": args}), &checkpoint, Some(ctx))?;
     engine::proceed(g, false, false)
+}
+
+/// Not in PHP: runs `f` with the node's `sourceId` as the source of the notifications it sends
+/// (the card whose effect this is), then puts back the previous one (actions run inside others)
+fn with_source<T>(g: &mut Game, ctx: NodeId, f: impl FnOnce(&mut Game) -> R<T>) -> R<T> {
+    let source = node::get_source_id(g, ctx);
+    let prev = std::mem::replace(&mut g.effect_source, if php::is_numeric(&source) { Some(source) } else { None });
+    let r = f(g);
+    g.effect_source = prev;
+    r
 }
 
 /// `Actions::stAction($actionId, $ctx)`: auto-pass when not doable, else `st<Class>()`, whose
@@ -174,7 +184,7 @@ pub fn st_action(g: &mut Game, action_id: &Value, ctx: NodeId) -> R<()> {
         return Ok(());
     }
     let a = get(action_id)?;
-    if let Some(result) = a.st(g, Some(ctx))? {
+    if let Some(result) = with_source(g, ctx, |g| a.st(g, Some(ctx)))? {
         let name = format!("act{}", a.name());
         take_action(g, action_id, &name, &result, ctx, true)?;
     }
@@ -187,7 +197,7 @@ pub fn st_action(g: &mut Game, action_id: &Value, ctx: NodeId) -> R<()> {
 pub fn st_pre_action(g: &mut Game, action_id: &Value, ctx: NodeId) -> R<Value> {
     let a = get(action_id)?;
     if a.has_st_pre() {
-        let interrupt = a.st_pre(g, Some(ctx))?;
+        let interrupt = with_source(g, ctx, |g| a.st_pre(g, Some(ctx)))?;
         let p = node::get_pid(g, ctx)?;
         let pp = if p.is_null() { players::get_active(g) } else { node::player_of(g, &p) };
         if node::is_irreversible(g, ctx, pp)? {

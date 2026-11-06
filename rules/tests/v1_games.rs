@@ -21,6 +21,7 @@ fn strip(v: &Value) -> Value {
         // Made from the log lines, as the log
         m.remove("reveals");
         m.remove("casts");
+        m.remove("effects");
         m.remove("seq");
         if let Some(d) = m.get_mut("decision").and_then(Value::as_object_mut) {
             d.remove("id");

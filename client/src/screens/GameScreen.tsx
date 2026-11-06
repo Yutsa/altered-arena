@@ -6,7 +6,7 @@ import { InspectProvider } from '../game/inspect';
 import { GameProvider } from '../game/GameContext';
 import { DragProvider } from '../game/drag';
 import { Arena } from '../arena/Arena';
-import { ShownTargets } from '../arena/Cast';
+import { ShownEffect, ShownTargets } from '../arena/Cast';
 import { useCastStage } from '../game/useCastStage';
 import { useDuskStage } from '../game/useDuskStage';
 import { useDiceStage } from '../game/useDiceStage';
@@ -98,7 +98,9 @@ export function GameScreen({
       <GameProvider view={view} catalog={catalog} log={game.log} sending={game.sending} send={game.send} undoneTo={game.undoneTo}>
         <DragProvider>
           <ShownTargets.Provider value={stage.targets}>
-            <Arena onLeave={onLeave} connected={game.connected} extraTop={extra} oppAction={switcher} undo={undo} />
+            <ShownEffect.Provider value={stage.effect}>
+              <Arena onLeave={onLeave} connected={game.connected} extraTop={extra} oppAction={switcher} undo={undo} />
+            </ShownEffect.Provider>
           </ShownTargets.Provider>
         </DragProvider>
       </GameProvider>

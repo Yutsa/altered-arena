@@ -11,6 +11,9 @@ import { revealedOnTop } from './reveals';
  */
 function useFocus(): { card: CardView; casting: boolean } | null {
   const { view, decision, byId } = useGameCtx('view', 'decision', 'byId');
+  // An effect staged before its result (useCastStage)
+  const effect = useContext(ShownEffect);
+  if (effect) return { card: effect, casting: false };
   // A card revealed on top of a deck is drawn there (Mat.tsx), not cast
   const onTop = new Set(revealedOnTop(view).values());
   const limbo = view.cards.filter((c) => c.zone === 'limbo' && !onTop.has(c.id));
@@ -38,16 +41,17 @@ export function CastFocus() {
   return (
     <div className={`cast-focus ${casting ? '' : 'is-effect'}`} key={card.id}>
       <span className="cast-who">{who}</span>
-      <FocusCard id={card.id} copy={!casting} />
+      <FocusCard id={card.id} copy={!casting} shown={casting ? undefined : card} />
       <span className="cast-name">{def(card)?.name}</span>
     </div>
   );
 }
 
-function FocusCard({ id, copy }: { id: number; copy: boolean }) {
+function FocusCard({ id, copy, shown }: { id: number; copy: boolean; shown?: CardView }) {
   const { byId, def } = useGameCtx('byId', 'def');
   const { handlers } = useCardPointer(id);
-  const card = byId.get(id);
+  // A staged effect's source is drawn from its own view (it may be face down or gone on the table)
+  const card = (copy ? shown : undefined) ?? byId.get(id);
   // A copy does not carry data-card-id: the flights and the arrows find the card on the mat
   return (
     <div className="cast-card" data-card-id={copy ? undefined : id} {...handlers}>
@@ -55,6 +59,9 @@ function FocusCard({ id, copy }: { id: number; copy: boolean }) {
     </div>
   );
 }
+
+/** The card whose effect is staged before its result (useCastStage), shown beside the mat */
+export const ShownEffect = createContext<CardView | null>(null);
 
 /**
  * Targets known in advance, drawn as picked: in a replay, the answer that follows the view (the

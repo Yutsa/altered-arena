@@ -209,6 +209,18 @@ export interface CastView {
   resolved: boolean;
 }
 
+/** The effect of a card that is not a spell being cast (a character's, a permanent's, a hero's, a
+ * reaction...), not sent by the PHP oracle: its source card and the cards it targeted. Lets a
+ * client show the card whose effect it is before its result. */
+export interface EffectView {
+  seq: number; // the first log entry of the effect
+  player: PlayerId; // the source card's controller
+  cardId: number;
+  ref: string | null;
+  unique?: CardDef;
+  targets: number[];
+}
+
 export interface GameView {
   gameId: string;
   you: PlayerId | null; // null for a spectator
@@ -232,6 +244,8 @@ export interface GameView {
   reveals?: RevealView[];
   /** The latest spells cast (not sent by the PHP oracle) */
   casts?: CastView[];
+  /** The latest effects of other cards (not sent by the PHP oracle) */
+  effects?: EffectView[];
 }
 
 // ---------------------------------------------------------------------------

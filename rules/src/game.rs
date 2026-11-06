@@ -403,6 +403,10 @@ pub struct Game {
     pub notifications: Vec<Value>,
     /// Number of notifications sent since the game was loaded (decision ids)
     pub notif_seq: u64,
+    /// Not in PHP: the `sourceId` of the action running now (the card whose effect it is), added
+    /// to the notifications it sends so that a client can show which card an effect comes from
+    #[serde(skip)]
+    pub effect_source: Option<Value>,
     /// Die results to use in order (the arena's per-game list) and how many were used
     pub dice: Arc<Vec<i64>>,
     pub dice_used: usize,
@@ -457,6 +461,9 @@ pub struct LogLine {
     /// Not in PHP: the cards targeted (`targetCards`)
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub targets: Vec<CardId>,
+    /// Not in PHP: the card whose effect sent this line (the `sourceId` of the running action)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source: Option<CardId>,
 }
 
 impl Game {
@@ -478,6 +485,7 @@ impl Game {
             next_log_id: 1,
             notifications: vec![],
             notif_seq: 0,
+            effect_source: None,
             dice: Arc::default(),
             dice_used: 0,
             rng_game: 0,
@@ -559,13 +567,21 @@ impl Game {
 
     pub fn notify(&mut self, name: &str, args: Value) {
         self.notif_seq += 1;
-        self.notifications.push(serde_json::json!({ "seq": self.notif_seq, "name": name, "args": args }));
+        let mut n = serde_json::json!({ "seq": self.notif_seq, "name": name, "args": args });
+        if let Some(s) = &self.effect_source {
+            n["source"] = s.clone();
+        }
+        self.notifications.push(n);
     }
 
     /// `notifyAllPlayers` (no target) / `notifyPlayer` with the log message
     pub fn notify_to(&mut self, target: Option<PId>, name: &str, msg: &str, args: Value) {
         self.notif_seq += 1;
-        self.notifications.push(serde_json::json!({ "seq": self.notif_seq, "name": name, "msg": msg, "target": target, "args": args }));
+        let mut n = serde_json::json!({ "seq": self.notif_seq, "name": name, "msg": msg, "target": target, "args": args });
+        if let Some(s) = &self.effect_source {
+            n["source"] = s.clone();
+        }
+        self.notifications.push(n);
     }
 
     // -----------------------------------------------------------------------

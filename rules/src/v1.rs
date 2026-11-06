@@ -1239,6 +1239,7 @@ fn build_view(g: &mut Game, you: Option<PId>, game_id: &str, with_decision: bool
         .collect();
     let reveals = reveals(g, you)?;
     let casts = casts(g, you)?;
+    let effects = effects(g, you)?;
     Ok(json!({
         "gameId": game_id,
         "you": you,
@@ -1256,6 +1257,7 @@ fn build_view(g: &mut Game, you: Option<PId>, game_id: &str, with_decision: bool
         "log": log,
         "reveals": reveals,
         "casts": casts,
+        "effects": effects,
     }))
 }
 
@@ -1284,6 +1286,50 @@ fn casts(g: &Game, you: Option<PId>) -> R<Vec<Value>> {
             "ref": card_ref(g, id)?,
             "targets": targets,
             "resolved": c.location != "limbo",
+        });
+        if php::loose_eq(c.db_props.get("rarity").unwrap_or(&Value::Null), &json!(2)) {
+            e["unique"] = unique_def(&c.db_props);
+        }
+        out.push(e);
+    }
+    Ok(out)
+}
+
+/// Not in PHP: the latest effects of cards that are not spells being cast (a character's, a
+/// permanent's, a hero's, a reaction...): the runs of log lines sent by the actions of one source
+/// card, with the cards they targeted. Lets a client show the card whose effect it is before its
+/// result, as it does for a spell. The lines of a spell being cast are its cast (`casts`).
+fn effects(g: &Game, you: Option<PId>) -> R<Vec<Value>> {
+    let lines = crate::arena::log_for(g, you);
+    // (first line, source, targets)
+    let mut runs: Vec<(&LogLine, i64, Vec<i64>)> = vec![];
+    let mut casting: Option<i64> = None;
+    let mut open = false;
+    for l in lines {
+        if l.cast.is_some() {
+            casting = l.cast;
+            open = false;
+            continue;
+        }
+        let Some(src) = l.source.filter(|&s| Some(s) != casting) else {
+            open = false;
+            continue;
+        };
+        match runs.last_mut() {
+            Some(r) if open && r.1 == src => r.2.extend(l.targets.iter().filter(|&&x| x != src)),
+            _ => runs.push((l, src, l.targets.iter().copied().filter(|&x| x != src).collect())),
+        }
+        open = true;
+    }
+    let mut out = vec![];
+    for (l, src, targets) in runs.into_iter().rev().take(8).rev() {
+        let Ok(c) = g.card(src) else { continue };
+        let mut e = json!({
+            "seq": l.seq,
+            "player": c.pid,
+            "cardId": src,
+            "ref": card_ref(g, src)?,
+            "targets": targets,
         });
         if php::loose_eq(c.db_props.get("rarity").unwrap_or(&Value::Null), &json!(2)) {
             e["unique"] = unique_def(&c.db_props);
@@ -1504,5 +1550,6 @@ pub fn log_line(g: &Game, n: &Value) -> Option<LogLine> {
     } else {
         vec![]
     };
-    Some(LogLine { seq: php::intval(php::get(n, "seq")).max(0) as u64, text, player, target, reveal, cast, targets })
+    let source = Some(php::get(n, "source")).filter(|v| php::is_numeric(v)).map(php::intval);
+    Some(LogLine { seq: php::intval(php::get(n, "seq")).max(0) as u64, text, player, target, reveal, cast, targets, source })
 }
