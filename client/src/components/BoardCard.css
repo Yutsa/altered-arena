@@ -72,6 +72,10 @@
   transition: transform 0.38s cubic-bezier(0.3, 0.9, 0.3, 1.15), translate 0.2s;
 }
 .flip.flipped { transform: rotateY(180deg); }
+/* The front face must be a stacking context: otherwise its z-indexed parts (frame, name, costs,
+   stats) paint in the .flip context, outside the face, and Safari and Firefox draw them mirrored
+   over the back since backface-visibility only hides the face itself. */
+.flip-front { isolation: isolate; }
 .flip-back { display: none; position: absolute; inset: 0; transform: rotateY(180deg); }
 .board-card:is(.is-selectable, .is-picked, .is-mana-pending) .flip,
 .flip.flipped { transform-style: preserve-3d; }
