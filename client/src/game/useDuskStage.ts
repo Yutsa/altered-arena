@@ -3,13 +3,21 @@ import type { GameView, PlayerView, Side } from '@protocol';
 
 /** "Dusk" alone on the board, before anything moves */
 const DUSK_MS = 1300;
-/** After each line of expedition tokens has moved */
-const MOVE_MS = 250;
+/** After each line of expedition tokens has moved (the tokens slide for 0.45 s, most of it in the
+ * first quarter second) */
+const MOVE_MS = 325;
 /** Night: the expeditions sent to the Reserve or discarded, before the next morning */
 const NIGHT_MS = 1300;
 
 const DAYTIME = new Set(['morning', 'noon', 'afternoon', 'dusk']);
 const EXPEDITIONS = new Set(['heroExpedition', 'companionExpedition']);
+
+/** A step of the end of the day: its view, and how long it stays before the next one. The steps
+ * keep the phase `dusk` until the Night, so the time is the step's own, not the phase's. */
+export interface DuskStep {
+  view: GameView;
+  ms: number;
+}
 
 /** The view `next` reached from `prev` went through Dusk (a new day, the Night, or the game's end) */
 export function crossesDusk(prev: GameView, next: GameView): boolean {
@@ -40,20 +48,20 @@ function moved(base: PlayerView[], next: GameView, side: Side): PlayerView[] {
  * characters and gear of the expeditions go to the Reserve or the discard). A step that changes
  * nothing is left out. `next` itself is not in the list.
  */
-export function duskSteps(prev: GameView, next: GameView): GameView[] {
-  const steps: GameView[] = [];
+export function duskSteps(prev: GameView, next: GameView): DuskStep[] {
+  const steps: DuskStep[] = [];
   let seq = prev.seq;
-  const push = (v: Omit<GameView, 'seq'>) => steps.push({ ...v, seq: (seq += 0.01) } as GameView);
+  const push = (v: Omit<GameView, 'seq'>, ms: number) => steps.push({ view: { ...v, seq: (seq += 0.01) } as GameView, ms });
   const dusk: GameView = { ...prev, phase: 'dusk', decision: null, waitingFor: [], canUndo: false };
-  push(dusk);
+  push(dusk, DUSK_MS);
 
   const hero = moved(dusk.players, next, 'hero');
   const heroMoves = hero.some((p, i) => p.expeditions.hero.position !== dusk.players[i].expeditions.hero.position);
   // The regions reached are revealed (a Tumult card turned face up)
-  if (heroMoves) push({ ...dusk, players: hero, regions: next.regions });
+  if (heroMoves) push({ ...dusk, players: hero, regions: next.regions }, MOVE_MS);
   const companion = moved(hero, next, 'companion');
   const companionMoves = companion.some((p, i) => p.expeditions.companion.position !== hero[i].expeditions.companion.position);
-  if (companionMoves) push({ ...dusk, players: companion, regions: next.regions });
+  if (companionMoves) push({ ...dusk, players: companion, regions: next.regions }, MOVE_MS);
 
   // The Night, when `next` is already the next day: the cards of the expeditions go where they
   // are in `next` (tokens vanish); the rest stays as it was (the morning draws come after)
@@ -65,12 +73,11 @@ export function duskSteps(prev: GameView, next: GameView): GameView[] {
       return n ? [n] : [];
     });
     const players = companion.map((p) => ({ ...p, discardCount: next.players.find((x) => x.id === p.id)?.discardCount ?? p.discardCount }));
-    push({ ...dusk, phase: 'night', players, regions: next.regions, cards });
+    push({ ...dusk, phase: 'night', players, regions: next.regions, cards }, NIGHT_MS);
   }
   return steps;
 }
 
-const DELAY: Record<string, number> = { dusk: DUSK_MS, night: NIGHT_MS };
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /**
@@ -119,8 +126,8 @@ export function useDuskStage(latest: GameView | null): GameView | null {
         if (crossesDusk(prev, v)) {
           const steps = duskSteps(prev, v);
           for (let i = 0; i < steps.length; i++) {
-            show(steps[i]);
-            await sleep(DELAY[steps[i].phase] ?? MOVE_MS);
+            show(steps[i].view);
+            await sleep(steps[i].ms);
             if (!alive.current || run.current !== id) return;
           }
         }
