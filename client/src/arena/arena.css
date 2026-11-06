@@ -493,10 +493,19 @@
 .storm-tile {
   position: absolute;
   top: 0;
+  perspective: 900px;
+}
+/* The two faces of a Tumult card: its back shows while the card turns (StormTile in Mat.tsx) */
+.storm-card { position: absolute; inset: 0; transform-style: preserve-3d; }
+.storm-face {
+  position: absolute;
+  inset: 0;
   background-image: url('/img/arena/storm.jpg');
   background-repeat: no-repeat;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
 }
-.storm-tile.reveal { animation: arena-reveal 0.45s ease-out; }
+.storm-back { transform: rotateY(180deg); }
 /* Biomes of each revealed region, in a pill at the bottom of the region, under the tokens */
 .region-chips {
   --tot-icon: calc(var(--marker-size) * 0.42);
@@ -1179,7 +1188,6 @@ body.drag-spell .arena .track-drop .drop-label { display: none; }
 @keyframes arena-num { from { transform: scale(1.5); color: #ffd98a; } }
 @keyframes arena-pop { from { transform: scale(0.6); opacity: 0; } }
 @keyframes arena-land { 50% { transform: scale(1.08); } }
-@keyframes arena-reveal { from { transform: rotateY(90deg); filter: brightness(2); } }
 @keyframes arena-fx-up { 30% { box-shadow: 0 0 0 4px #7dff8c, 0 0 30px #7dff8c; } }
 @keyframes arena-fx-down { 30% { box-shadow: 0 0 0 4px #ff6b6b, 0 0 30px #ff6b6b; } }
 @keyframes arena-rise {

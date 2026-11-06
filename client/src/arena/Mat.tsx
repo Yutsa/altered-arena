@@ -1,4 +1,4 @@
-import { useState, type CSSProperties } from 'react';
+import { useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
 import type { Biome, GameView, PlayerView, Side, Zone } from '@protocol';
 import { useCard, useGame, useGameCtx, useZone } from '../game/GameContext';
 import { toggleKey } from '../game/decisions';
@@ -293,27 +293,40 @@ function MatBand({ l, row, player, mine }: { l: ArenaLayout; row: 1 | 3; player:
 // The Tumult track
 // ---------------------------------------------------------------------------
 
-/** One Tumult card drawn from the storm.jpg sprite, cropped to the track height. */
-function stormStyle(t: StormTile, u: number, h: number): CSSProperties {
+/** One face of a Tumult card, drawn from the storm.jpg sprite and cropped to the track height */
+function stormFace(id: number, u: number, h: number): CSSProperties {
   const tileH = (2 * u * 372) / 520;
-  const y = -(t.id * tileH + (tileH - h) / 2);
-  return {
-    width: 2 * u,
-    height: h,
-    backgroundSize: `${2 * u}px auto`,
-    backgroundPosition: `0 ${y}px`,
-    transform: t.flipped ? 'rotate(180deg)' : undefined,
-  };
+  const y = -(id * tileH + (tileH - h) / 2);
+  return { backgroundSize: `${2 * u}px auto`, backgroundPosition: `0 ${y}px` };
 }
 
-/** Keyed by its card id at the call site: a card turned face up mounts again and plays its flip. */
+/** A Tumult card turning face up: a turn around its vertical axis, as a card picked for Mana */
+const STORM_FLIP_MS = 550;
+
+/**
+ * One Tumult card of the track, with its two faces. When it turns face up (a region revealed),
+ * it flips from its back to its face; the cards already face up when the game opens do not.
+ */
 function Tile({ t, u, h, at }: { t: StormTile; u: number; h: number; at: number }) {
+  const card = useRef<HTMLSpanElement>(null);
+  const prev = useRef(t.id);
+  useLayoutEffect(() => {
+    const was = prev.current;
+    prev.current = t.id;
+    if (was !== STORM_BACK || t.id === STORM_BACK || !card.current) return;
+    card.current.animate([{ transform: 'rotateY(180deg)' }, { transform: 'rotateY(0deg)' }], {
+      duration: STORM_FLIP_MS,
+      easing: 'cubic-bezier(0.3, 0.9, 0.3, 1.15)',
+    });
+  }, [t.id]);
   return (
-    <span
-      className={`storm-tile ${t.id !== STORM_BACK ? 'reveal' : ''}`}
-      style={{ ...stormStyle(t, u, h), left: at * u }}
-      aria-hidden="true"
-    />
+    <span className="storm-tile" style={{ width: 2 * u, height: h, left: at * u }} aria-hidden="true">
+      <span className="storm-card" ref={card}>
+        {/* A card turned by 180° (its two regions swapped) turns its face only, not the flip */}
+        <span className="storm-face" style={{ ...stormFace(t.id, u, h), transform: t.flipped ? 'rotate(180deg)' : undefined }} />
+        {t.id !== 0 && t.id !== 4 && <span className="storm-face storm-back" style={stormFace(STORM_BACK, u, h)} />}
+      </span>
+    </span>
   );
 }
 
@@ -443,11 +456,11 @@ function MatTrack({ l }: { l: ArenaLayout }) {
     <div className="mat-row mat-trackrow" style={rowBackground(l, 2)}>
       <div className={`track ${l.twoLanes ? 'two-lanes' : ''}`} style={{ width: trackW, height: h, left: HERO_X * l.plane.w - (TRACK_UNITS / 2) * u }}>
         <DropZone destination="spell" className="track-drop">
-          <Tile key={`0-${t[0].id}`} t={t[0]} u={u} h={h} at={0} />
-          <Tile key={`1-${t[1].id}`} t={t[1]} u={u} h={h} at={2} />
-          <Tile key={`2-${t[2].id}`} t={t[2]} u={u} h={h} at={4} />
-          <Tile key={`3-${t[3].id}`} t={t[3]} u={u} h={h} at={6} />
-          <Tile key={`4-${t[4].id}`} t={t[4]} u={u} h={h} at={8} />
+          <Tile key={0} t={t[0]} u={u} h={h} at={0} />
+          <Tile key={1} t={t[1]} u={u} h={h} at={2} />
+          <Tile key={2} t={t[2]} u={u} h={h} at={4} />
+          <Tile key={3} t={t[3]} u={u} h={h} at={6} />
+          <Tile key={4} t={t[4]} u={u} h={h} at={8} />
           <RegionMarkers regions={regions} u={u} />
           {players.map((p) => {
             const mine = p.id === (you ?? me?.id);
