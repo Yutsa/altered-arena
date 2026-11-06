@@ -60,6 +60,10 @@ export function Play({
   const [busy, setBusy] = useState(false);
   const [ticket, setTicket] = useState<string | null>(null);
   const ticketRef = useRef<string | null>(null);
+  // The pending long poll of the queue, cut short when the search is cancelled
+  const pollRef = useRef<AbortController | null>(null);
+  // Number of the current search: a cancelled search that ends late leaves the next one alone
+  const searchRef = useRef(0);
   const [ais, setAis] = useState<AiSummary[] | null>(aisCache);
   const [aiKind, setAiKind] = useState<AiSummary['kind']>('imitation');
   const [aiId, setAiId] = useState<string | null>(null);
@@ -74,6 +78,7 @@ export function Play({
   // Leave the queue when the screen closes
   useEffect(
     () => () => {
+      pollRef.current?.abort();
       if (ticketRef.current) void api.leaveQueue(ticketRef.current);
     },
     [],
@@ -87,15 +92,25 @@ export function Play({
   async function findOpponent() {
     if (!chosen) return pickDeck();
     remember();
+    const search = ++searchRef.current;
     setBusy(true);
     try {
       let t = await api.matchmake(name, chosen);
+      if (search !== searchRef.current) {
+        // Cancelled while joining the queue: leave it at once
+        void api.leaveQueue(t.ticket);
+        return;
+      }
       ticketRef.current = t.ticket;
       setTicket(t.ticket);
       while (t.status !== 'matched' && ticketRef.current === t.ticket) {
+        const ctrl = new AbortController();
+        pollRef.current = ctrl;
         try {
-          t = await api.ticket(t.ticket);
+          t = await api.ticket(t.ticket, ctrl.signal);
         } catch (e) {
+          // Cancelled: the search ends here, without an error
+          if (ticketRef.current !== t.ticket) break;
           if (e instanceof ApiError && e.user) throw e;
           await new Promise((r) => setTimeout(r, 2000)); // network hiccup: retry
         }
@@ -105,16 +120,23 @@ export function Play({
         onJoin(t.gameId, t.player, t.token);
       }
     } catch (e) {
-      fail(e);
+      if (search === searchRef.current) fail(e);
     } finally {
-      setBusy(false);
-      setTicket(null);
+      if (search === searchRef.current) {
+        pollRef.current = null;
+        setBusy(false);
+        setTicket(null);
+      }
     }
   }
   function leaveQueue() {
+    searchRef.current++;
     const t = ticketRef.current;
     ticketRef.current = null;
+    pollRef.current?.abort();
+    pollRef.current = null;
     setTicket(null);
+    setBusy(false);
     if (t) void api.leaveQueue(t);
   }
 

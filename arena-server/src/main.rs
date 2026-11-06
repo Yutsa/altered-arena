@@ -766,6 +766,8 @@ async fn poll_queue(State(s): State<Shared>, Path(ticket): Path<String>) -> Resp
 
 async fn leave_queue(State(s): State<Shared>, Path(ticket): Path<String>) -> Response {
     s.queue.lock().await.remove(&ticket);
+    // The ticket's pending long poll answers now (Unknown ticket) instead of waiting its 20 s
+    s.queue_changed.notify_waiters();
     Json(json!({"ok": true})).into_response()
 }
 
