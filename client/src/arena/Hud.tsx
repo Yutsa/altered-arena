@@ -160,12 +160,16 @@ export function Prompt() {
 /**
  * A prompt with nothing to click in it (discard down to 2 in Reserve, pick cards on the board...):
  * on the middle of the Tumult track, clear of the hand and of the zones where the cards are picked.
- * `at`: centre of the track on the stage.
+ * `at`: centre of the track on the stage; `aboveAt`: centre of the opponent's hero, used when the
+ * track itself is clicked (Noon of Nadir's terrain markers).
  */
-export function TrackNotice({ at }: { at: { x: number; y: number } | null }) {
-  if (!at) return null;
+export function TrackNotice({ at, aboveAt }: { at: { x: number; y: number } | null; aboveAt: { x: number; y: number } | null }) {
+  const { decision } = useGameCtx('decision');
+  // Noon of Nadir: the regions of the track are the targets, the notice goes over the opponent's hero
+  const pos = decision?.kind === 'buttons' && decision.markRegion && aboveAt ? aboveAt : at;
+  if (!pos) return null;
   return (
-    <div className="track-notice" style={{ left: at.x, top: at.y }}>
+    <div className="track-notice" style={{ left: pos.x, top: pos.y }}>
       <DecisionBar primaryOnTrack only="info" />
     </div>
   );

@@ -117,6 +117,21 @@ body {
   touch-action: manipulation;
 }
 #root { height: 100%; }
+/* Touch screens: no text selection anywhere (a long press on a card shows it large, and selected
+   text around it as well), but in the fields where text is typed */
+@media (pointer: coarse) {
+  body {
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+  }
+  input,
+  textarea,
+  [contenteditable] {
+    user-select: text;
+    -webkit-user-select: text;
+  }
+}
 button { font: inherit; color: inherit; cursor: pointer; }
 input, select { font: inherit; }
 .muted { color: var(--muted); }

@@ -13,7 +13,7 @@ import { forecast, regionCenter, STORM_BACK, stormTiles, TRACK_UNITS, type Storm
 import { revealedOnTop } from './reveals';
 import { useCardPointer } from '../game/useCardPointer';
 import { ManaBar } from './Hud';
-import { HeroMarkers, MARKED_SHIFT, RegionMarkers, regionBiomes } from './TerrainMarkers';
+import { HeroMarkers, RegionMarkers, regionBiomes } from './TerrainMarkers';
 
 /** A location option of the current decision that designates this zone of this player, if any */
 function useLocation(player: PlayerView | undefined, zone: Zone) {
@@ -344,14 +344,14 @@ function Tile({ t, u, h, at }: { t: StormTile; u: number; h: number; at: number 
 const SHARED_SHIFT = 0.2;
 
 /**
- * A token in a marked region moves right of the marker. On one line (phones), a token whose region
- * also holds the other player's moves aside too; on two lines each player has a line of their own.
+ * On one line (phones), a token whose region also holds the other player's moves aside; on two lines
+ * each player has a line of their own. A terrain marker never moves the tokens (RegionMarkers places
+ * it clear of them): moved, the tokens of region 0 or 7 went under the totals post.
  */
 function shiftAt(view: GameView, player: PlayerView, region: number, mine: boolean, twoLanes: boolean) {
   const o = view.players.find((p) => p.id !== player.id);
   const shared = !twoLanes && !!o && (o.expeditions.hero.position === region || o.expeditions.companion.position === region);
-  const marked = view.regions.some((r) => r.index === region && r.marker);
-  return (shared ? (mine ? SHARED_SHIFT : -SHARED_SHIFT) : 0) + (marked ? MARKED_SHIFT : 0);
+  return shared ? (mine ? SHARED_SHIFT : -SHARED_SHIFT) : 0;
 }
 
 function Marker({ player, side, mine, other, twoLanes }: { player: PlayerView; side: Side; mine: boolean; other: boolean; twoLanes: boolean }) {
@@ -471,7 +471,7 @@ function MatTrack({ l }: { l: ArenaLayout }) {
           <Tile key={2} t={t[2]} u={u} h={h} at={4} />
           <Tile key={3} t={t[3]} u={u} h={h} at={6} />
           <Tile key={4} t={t[4]} u={u} h={h} at={8} />
-          <RegionMarkers regions={regions} u={u} />
+          <RegionMarkers regions={regions} u={u} twoLanes={l.twoLanes} />
           {players.map((p) => {
             const mine = p.id === (you ?? me?.id);
             const same = p.expeditions.hero.position === p.expeditions.companion.position;
@@ -487,8 +487,8 @@ function MatTrack({ l }: { l: ArenaLayout }) {
         </DropZone>
         {regions.flatMap((r) => {
           const biomes = regionBiomes(r);
-          // Face down: no biomes to show
-          if (!biomes?.length) return [];
+          // Face down: no biomes to show. Marked, on one line: the terrain marker is where the chips go
+          if (!biomes?.length || (r.marker && !l.twoLanes)) return [];
           // On two lines, at both edges of the track (by each player's line); on one, at the bottom
           return (l.twoLanes ? ['top', 'bottom'] : ['bottom']).map((edge) => (
             <span key={`${r.index}-${edge}`} className={`region-chips chips-${edge}`} style={{ left: regionCenter(r.index) * u }}>

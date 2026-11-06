@@ -31,9 +31,10 @@ const triggeredBy = (c: ChoiceOption) => (c.resolvesTo ? (/\[\[([^\]]+)\]\]/.exe
  * comes up to be looked at.
  */
 export function EffectQueue({ collapsed, onCollapse }: { collapsed: boolean; onCollapse: () => void }) {
-  const { decision, byId, def, send, sending, setFocusSource, inspectCard, setResolveIntent } = useGameCtx('decision', 'byId', 'def', 'send', 'sending', 'setFocusSource', 'inspectCard', 'setResolveIntent');
+  const { decision, byId, def, send, sending, setFocusSource, inspectCard, setResolveIntent, auto } = useGameCtx('decision', 'byId', 'def', 'send', 'sending', 'setFocusSource', 'inspectCard', 'setResolveIntent', 'auto');
   const d = decision;
-  const q = effectQueue(decision);
+  // Resolved for the player (no real choice): nothing to show, it would only flash before the answer
+  const q = auto && !auto.countdown ? null : effectQueue(decision);
   const [hovered, setHovered] = useState<number | null>(null);
   const [picked, setPicked] = useState<number | null>(null);
   const decisionId = decision?.id;

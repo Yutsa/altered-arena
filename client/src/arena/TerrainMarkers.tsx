@@ -3,7 +3,8 @@ import { createPortal } from 'react-dom';
 import type { Biome, ButtonsDecision, PlayerView, RegionView } from '@protocol';
 import { useGameCtx } from '../game/GameContext';
 import { BiomeGlyph } from '../components/Glyph';
-import { regionCenter } from './model';
+import { regionCenter, TRACK_UNITS } from './model';
+import { holdTouch } from '../game/drag';
 
 /**
  * Terrain markers (Nadir & Bubbles): round biome tokens, as on BGA. They lie on the hero card until
@@ -69,6 +70,8 @@ export function HeroMarkers({ player }: { player: PlayerView }) {
     e.stopPropagation();
     const start = { x: e.clientX, y: e.clientY };
     const size = (e.currentTarget as HTMLElement).getBoundingClientRect().width;
+    // A finger: the browser must not take the move for a pan (it cancels the pointer events)
+    const release = e.pointerType === 'touch' ? holdTouch() : null;
     let moved = false;
     const move = (ev: PointerEvent) => {
       if (!moved && Math.hypot(ev.clientX - start.x, ev.clientY - start.y) < 6) return;
@@ -80,6 +83,7 @@ export function HeroMarkers({ player }: { player: PlayerView }) {
       window.removeEventListener('pointerup', up);
       window.removeEventListener('pointercancel', cancel);
       window.removeEventListener('keydown', key);
+      release?.();
       const h = store.held;
       if (!moved) {
         // A tap: the marker is held until a region is tapped (or tapped again to put it back)
@@ -121,8 +125,16 @@ export function HeroMarkers({ player }: { player: PlayerView }) {
   );
 }
 
-/** How far (in track units) the expedition tokens move right in a marked region, clear of the marker */
-export const MARKED_SHIFT = 0.14;
+/**
+ * Where the terrain marker of a region goes, in track units from the region's centre. On two lines,
+ * between the two players' tokens is no room: it sits beside them, on the side of the track's middle,
+ * away from the totals post at that end. On one line it sits at the bottom, under the tokens (CSS).
+ */
+function markerOffset(index: number, twoLanes: boolean): number {
+  if (!twoLanes) return 0;
+  return regionCenter(index) < TRACK_UNITS / 2 ? MARKER_BESIDE : -MARKER_BESIDE;
+}
+const MARKER_BESIDE = 0.3;
 
 /** The biomes a region has now: the marker's only, when it is marked */
 export function regionBiomes(r: RegionView | undefined): Biome[] | null {
@@ -134,7 +146,7 @@ export function regionBiomes(r: RegionView | undefined): Biome[] | null {
  * On the track: the marked regions (greyed, the marker in the middle), and at Noon the regions a
  * marker may go to, lit; the one under the dragged marker previews its new biome.
  */
-export function RegionMarkers({ regions, u }: { regions: RegionView[]; u: number }) {
+export function RegionMarkers({ regions, u, twoLanes }: { regions: RegionView[]; u: number; twoLanes: boolean }) {
   const { send } = useGameCtx('send');
   const mark = useMarkRegion();
   const held = useHeld();
@@ -145,8 +157,7 @@ export function RegionMarkers({ regions, u }: { regions: RegionView[]; u: number
         .filter((r) => r.marker)
         .flatMap((r) => [
           <span key={`m${r.index}`} className="region-marked" style={span(r.index)} />,
-          // On the left of the region: the expedition tokens there move to the right (MARKED_SHIFT)
-          <MarkerToken key={`t${r.index}`} biome={r.marker!.biome} className="region-marker" style={{ left: (regionCenter(r.index) - 0.24) * u }} />,
+          <MarkerToken key={`t${r.index}`} biome={r.marker!.biome} className="region-marker" style={{ left: (regionCenter(r.index) + markerOffset(r.index, twoLanes)) * u }} />,
         ])}
       {mark &&
         mark.regions.map((i) => {
