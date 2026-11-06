@@ -4,7 +4,7 @@ import type { GameView, PlayerView, Side } from '@protocol';
 /** "Dusk" alone on the board, before anything moves */
 const DUSK_MS = 1300;
 /** After each line of expedition tokens has moved */
-const MOVE_MS = 1000;
+const MOVE_MS = 500;
 /** Night: the expeditions sent to the Reserve or discarded, before the next morning */
 const NIGHT_MS = 1300;
 
