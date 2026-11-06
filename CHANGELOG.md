@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.6.0](https://github.com/Yutsa/altered-arena/compare/v0.5.0...v0.6.0) (2026-11-06)
+
+
+### Features
+
+* stage die rolls and card effects, faster Dusk moves, Tumult card flip, printed card text ([#19](https://github.com/Yutsa/altered-arena/issues/19)) ([ad23f12](https://github.com/Yutsa/altered-arena/commit/ad23f125fce885748235532b21baef85a04bec7c))
+
+
+### Bug Fixes
+
+* hide the front of cards turned face down for the Mana zone on Safari and Firefox ([#17](https://github.com/Yutsa/altered-arena/issues/17)) ([1cf5bb0](https://github.com/Yutsa/altered-arena/commit/1cf5bb0a888fcbc0ba07716f52264b15d2cefef7))
+
 ## [0.5.0](https://github.com/Yutsa/altered-arena/compare/v0.4.0...v0.5.0) (2026-11-05)
 
 
