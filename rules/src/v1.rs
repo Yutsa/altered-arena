@@ -85,6 +85,41 @@ fn ints(v: &Value) -> Value {
     Value::Array(php::vals(v).into_iter().map(|x| json!(php::intval(x))).collect())
 }
 
+/// Not in V1.php, for the arena's GameView only (the decisions compared with PHP's keep V1's
+/// output): an option of a choice without a source gets the card it activates. The reactions
+/// queued for the end of the Night (Landmarks sacrificed by the cleanup...) carry no sourceId, only
+/// the card they activate (`ActivateCard`); without a source the client cannot show them as
+/// triggered effects, only as buttons.
+pub fn fill_choice_sources(g: &mut Game, decision: &mut Value) -> R<()> {
+    if decision["kind"] != json!("choice") {
+        return Ok(());
+    }
+    let Some(choices) = decision["choices"].as_array_mut() else { return Ok(()) };
+    for c in choices {
+        if c.get("sourceCardId").is_some() {
+            continue;
+        }
+        if let Some(id) = c["id"].as_i64() {
+            if let Some(cid) = activated_card(g, id)? {
+                c["sourceCardId"] = json!(cid);
+            }
+        }
+    }
+    Ok(())
+}
+
+/// The card an option of the current choice activates (`ActivateCard`), when the option is one
+/// of the choice node's children (its id is the child's index)
+fn activated_card(g: &mut Game, option: i64) -> R<Option<i64>> {
+    use crate::core::{engine, node};
+    let Some(n) = engine::get_next_unresolved(g)? else { return Ok(None) };
+    let Some(child) = usize::try_from(option).ok().and_then(|i| node::childs(g, n).get(i).copied()) else { return Ok(None) };
+    if node::get_action(g, child) != json!("ActivateCard") {
+        return Ok(None);
+    }
+    Ok(php::get(&node::get_args(g, child), "cardId").as_i64())
+}
+
 /// `V1::decision($state, $g, $you, $seq)`
 // PHP: server/src/V1.php:265
 pub fn decision(g: &mut Game, raw: &RawState, you: PId) -> R<Option<Value>> {

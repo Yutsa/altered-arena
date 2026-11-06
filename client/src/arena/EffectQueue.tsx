@@ -4,6 +4,7 @@ import { artUrl } from '../api/catalog';
 import { useGameCtx } from '../game/GameContext';
 import { effectQueue } from '../game/decisions';
 import { RichText } from '../components/RichText';
+import { useInspect } from '../game/inspect';
 
 const WHERE: Partial<Record<string, string>> = {
   hero: 'Hero',
@@ -20,6 +21,12 @@ const where = (c: CardView | undefined) => (c && typeof c.zone === 'string' ? (W
 /** What the effect does: the effect it leads to (after its checks), else its label without the source's name */
 const effectText = (c: ChoiceOption) => c.resolvesTo ?? c.label.replace(/\s*\(\[\[[^\]]+\]\]\)\s*$/, '');
 
+/** The source of an effect by the card name its label ends with ("Resupply 1 ([[Aerolith]])") */
+const sourceName = <D,>(c: ChoiceOption, resolve: (name: string) => D | null) => {
+  const m = /\(\[\[([^\]]+)\]\]\)\s*$/.exec(c.label);
+  return m ? (resolve(m[1]) ?? undefined) : undefined;
+};
+
 /** The card that set the effect off, when its label names it ("Check reaction to [[Winter Nova]]...") */
 const triggeredBy = (c: ChoiceOption) => (c.resolvesTo ? (/\[\[([^\]]+)\]\]/.exec(c.label)?.[1] ?? null) : null);
 
@@ -33,6 +40,7 @@ const triggeredBy = (c: ChoiceOption) => (c.resolvesTo ? (/\[\[([^\]]+)\]\]/.exe
 export function EffectQueue({ collapsed, onCollapse }: { collapsed: boolean; onCollapse: () => void }) {
   const { decision, byId, def, send, sending, setFocusSource, inspectCard, setResolveIntent, auto } = useGameCtx('decision', 'byId', 'def', 'send', 'sending', 'setFocusSource', 'inspectCard', 'setResolveIntent', 'auto');
   const d = decision;
+  const { resolveName } = useInspect();
   // Resolved for the player (no real choice): nothing to show, it would only flash before the answer
   const q = auto && !auto.countdown ? null : effectQueue(decision);
   const [hovered, setHovered] = useState<number | null>(null);
@@ -52,7 +60,9 @@ export function EffectQueue({ collapsed, onCollapse }: { collapsed: boolean; onC
 
   if (!q || !focus) return null;
   const card = (c: ChoiceOption) => byId.get(c.sourceCardId!);
-  const focusDef = def(card(focus));
+  // A source no longer on the table (a token destroyed when sacrificed): found by the name its label cites
+  const cardDef = (c: ChoiceOption) => def(card(c)) ?? sourceName(c, resolveName);
+  const focusDef = cardDef(focus);
   const n = q.effects.length;
   // An effect with steps after it: they are answered for the player, its "you may" as they chose
   const resolve = (c: ChoiceOption, accept = true) => {
@@ -102,7 +112,7 @@ export function EffectQueue({ collapsed, onCollapse }: { collapsed: boolean; onC
           </div>
           <div className="eq-items">
             {q.effects.map((c) => {
-              const cd = def(card(c));
+              const cd = cardDef(c);
               return (
                 <button
                   key={c.id}
