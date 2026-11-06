@@ -257,7 +257,7 @@
   color: #fff;
   overflow: hidden;
 }
-.fc-support .rt-rare { color: #e1c24e; }
+.fc .fc-support .rt-rare { color: #e1c24e; }
 .fc[data-faction='LY'] .fc-support .rt-rare { color: #f2d261; }
 
 .fc-footer {
@@ -279,9 +279,19 @@
 .fc-set { width: calc(12 * var(--u)); height: calc(12 * var(--u)); background: center / contain no-repeat; }
 
 /* Rules text markup on the card */
+/* As printed: keywords are words in bold, without the status icons of the board */
 .fc .rt-keyword { font-weight: bold; }
+.fc .rt-keyword-icon { display: inline; }
+.fc .rt-icon { display: none; }
 .fc .rt-paren { font-style: italic; opacity: 1; }
-.fc .rt-rare { color: inherit; font-weight: inherit; }
+/* Each ability a paragraph, spaced */
+.fc .rt-para { display: block; }
+.fc .rt-para + .rt-para { margin-top: 0.3em; }
+/* The ability of the rare version (#...# in the catalog): gold, its keywords underlined */
+.fc .rt-rare { color: #855a16; font-weight: inherit; }
+.fc[data-rarity='2'] .fc-text .rt-rare,
+.fc[data-rarity='3'] .fc-text .rt-rare { color: #e1c24e; }
+.fc .rt-rare .rt-keyword { text-decoration: underline; text-underline-offset: 0.12em; }
 .fc .rt-name { color: inherit; }
 .fc .mana-icon { background: #1d1d1d; }
 .fc[data-rarity='2'] .mana-icon,

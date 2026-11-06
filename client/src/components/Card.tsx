@@ -211,7 +211,7 @@ function Printed({ def, card, token }: { def: CardDef; card?: CardView; token: b
           <span />
         </span>
         <div className="fc-effect">
-          <RichText text={def.effect} />
+          <RichText text={def.effect} paragraphs />
           {flavor && (
             <>
               {def.effect && <hr />}
@@ -222,7 +222,7 @@ function Printed({ def, card, token }: { def: CardDef; card?: CardView; token: b
       </div>
       {support && (
         <div className="fc-support" style={{ fontSize: px(fit?.support), lineHeight: fit?.tight ? 1 : undefined }}>
-          <RichText text={def.support} />
+          <RichText text={def.support} paragraphs />
         </div>
       )}
       <div className="fc-footer">

@@ -178,18 +178,25 @@ export function parseRich(s: string, keyPrefix = ''): ReactNode[] {
   return out;
 }
 
-export function RichText({ text, className }: { text: string | undefined | null; className?: string }) {
+export function RichText({ text, className, paragraphs }: { text: string | undefined | null; className?: string; paragraphs?: boolean }) {
   if (!text) return null;
   // Paragraphs: the catalog separates abilities with two spaces
   const parts = text.split(/ {2,}/);
   return (
     <span className={`rich-text ${className ?? ''}`}>
-      {parts.map((p, i) => (
-        <Fragment key={i}>
-          {i > 0 && <br />}
-          {parseRich(p, `p${i}-`)}
-        </Fragment>
-      ))}
+      {parts.map((p, i) =>
+        // On a card, each ability is a paragraph of its own, spaced as printed
+        paragraphs ? (
+          <span key={i} className="rt-para">
+            {parseRich(p, `p${i}-`)}
+          </span>
+        ) : (
+          <Fragment key={i}>
+            {i > 0 && <br />}
+            {parseRich(p, `p${i}-`)}
+          </Fragment>
+        ),
+      )}
     </span>
   );
 }

@@ -29,17 +29,18 @@
   font-weight: 700;
   font-display: swap;
 }
-/* Rules text of the printed cards */
+/* Rules text of the printed cards. The files do not vary with the weight: declared at 400, so that
+   the browser draws the bold of the keywords itself (a 100-900 range left them regular) */
 @font-face {
   font-family: 'Jali Greek';
   src: url('/fonts/JaliGreekVariable-Regular.woff2') format('woff2');
-  font-weight: 100 900;
+  font-weight: 400;
   font-display: swap;
 }
 @font-face {
   font-family: 'Jali Greek';
   src: url('/fonts/JaliGreekVariable-Italic.woff2') format('woff2');
-  font-weight: 100 900;
+  font-weight: 400;
   font-style: italic;
   font-display: swap;
 }
