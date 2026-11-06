@@ -295,9 +295,12 @@ function MatBand({ l, row, player, mine }: { l: ArenaLayout; row: 1 | 3; player:
 
 /** One face of a Tumult card, drawn from the storm.jpg sprite and cropped to the track height */
 function stormFace(id: number, u: number, h: number): CSSProperties {
-  const tileH = (2 * u * 372) / 520;
+  // 1 px wider than its place: the next card covers its edge, which the scaling leaves half
+  // transparent (the widths are fractional): without it a thin line of the mat shows between them
+  const w = 2 * u + 1;
+  const tileH = (w * 372) / 520;
   const y = -(id * tileH + (tileH - h) / 2);
-  return { backgroundSize: `${2 * u}px auto`, backgroundPosition: `0 ${y}px` };
+  return { backgroundSize: `${w}px auto`, backgroundPosition: `0 ${y}px` };
 }
 
 /** A Tumult card turning face up: it flips as a card picked for Mana, on its side */
@@ -310,23 +313,28 @@ const STORM_FLIP_MS = 550;
 function Tile({ t, u, h, at }: { t: StormTile; u: number; h: number; at: number }) {
   const card = useRef<HTMLSpanElement>(null);
   const prev = useRef(t.id);
+  // In 3D only while it turns: two 3D faces at rest are drawn on layers of their own, whose
+  // rounding leaves a thin gap between the cards of the track
+  const [turning, setTurning] = useState(false);
   useLayoutEffect(() => {
     const was = prev.current;
     prev.current = t.id;
     if (was !== STORM_BACK || t.id === STORM_BACK || !card.current) return;
+    setTurning(true);
     // The card lies on its side on the track: it turns around the track's axis, its far edge
     // coming over towards the player
-    card.current.animate([{ transform: 'rotateX(-180deg)' }, { transform: 'rotateX(0deg)' }], {
+    const anim = card.current.animate([{ transform: 'rotateX(-180deg)' }, { transform: 'rotateX(0deg)' }], {
       duration: STORM_FLIP_MS,
       easing: 'cubic-bezier(0.3, 0.9, 0.3, 1.15)',
     });
+    anim.onfinish = anim.oncancel = () => setTurning(false);
   }, [t.id]);
   return (
-    <span className="storm-tile" style={{ width: 2 * u, height: h, left: at * u }} aria-hidden="true">
+    <span className={`storm-tile ${turning ? 'turning' : ''}`} style={{ width: 2 * u + 1, height: h, left: at * u }} aria-hidden="true">
       <span className="storm-card" ref={card}>
         {/* A card turned by 180° (its two regions swapped) turns its face only, not the flip */}
         <span className="storm-face" style={{ ...stormFace(t.id, u, h), transform: t.flipped ? 'rotate(180deg)' : undefined }} />
-        {t.id !== 0 && t.id !== 4 && <span className="storm-face storm-back" style={stormFace(STORM_BACK, u, h)} />}
+        {turning && <span className="storm-face storm-back" style={stormFace(STORM_BACK, u, h)} />}
       </span>
     </span>
   );

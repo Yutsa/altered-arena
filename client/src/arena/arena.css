@@ -493,18 +493,19 @@
 .storm-tile {
   position: absolute;
   top: 0;
-  perspective: 900px;
 }
-/* The two faces of a Tumult card: its back shows while the card turns (StormTile in Mat.tsx) */
-.storm-card { position: absolute; inset: 0; transform-style: preserve-3d; }
+.storm-card { position: absolute; inset: 0; }
 .storm-face {
   position: absolute;
   inset: 0;
   background-image: url('/img/arena/storm.jpg');
   background-repeat: no-repeat;
-  backface-visibility: hidden;
-  -webkit-backface-visibility: hidden;
 }
+/* While a Tumult card turns face up, its two faces in 3D: its back, then its face (Tile in Mat.tsx).
+   Only then: at rest, 3D layers leave a thin gap between the cards of the track. */
+.storm-tile.turning { perspective: 900px; }
+.storm-tile.turning .storm-card { transform-style: preserve-3d; }
+.storm-tile.turning .storm-face { backface-visibility: hidden; -webkit-backface-visibility: hidden; }
 .storm-back { transform: rotateX(180deg); }
 /* Biomes of each revealed region, in a pill at the bottom of the region, under the tokens */
 .region-chips {
