@@ -63,7 +63,6 @@ export function useCardPointer(cardId: number, { touchElsewhere = false }: { tou
             const cur = st.current;
             if (cur && !cur.dragging) {
               cur.longPressed = true;
-              navigator.vibrate?.(15);
               // Shown while the finger stays: the page must not scroll under it (a pan would cancel it)
               cur.release ??= holdTouch();
               showTouchPeek(cardId, el);

@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useSyncExternalStore } from 'react';
+import { useEffect, useLayoutEffect, useRef, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
 import { Card } from '../components/Card';
 import { CardNotes } from '../components/CardNotes';
@@ -42,6 +42,18 @@ const GAP = 8;
 /** The large version of the held card: above it if it fits there, else below it, inside the window */
 export function TouchPeek() {
   const p = useSyncExternalStore(subscribe, () => peek);
+  // Android's browser takes a finger held on a card for a long press of its own: it vibrates and
+  // opens its context menu (cancelled by the cards, but the vibration comes first). Cancelling the
+  // touch start on a card stops that gesture; the cards work on pointer events, not on the touch
+  // events nor the click this also cancels. Not on the buttons inside a card (their click).
+  useEffect(() => {
+    const onTouchStart = (e: TouchEvent) => {
+      const t = e.target as Element | null;
+      if (e.cancelable && t?.closest?.('[data-card-id]') && !t.closest('button')) e.preventDefault();
+    };
+    document.addEventListener('touchstart', onTouchStart, { passive: false });
+    return () => document.removeEventListener('touchstart', onTouchStart);
+  }, []);
   if (!p) return null;
   return <PeekCard key={p.id} p={p} />;
 }
