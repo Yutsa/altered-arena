@@ -9,6 +9,8 @@ import { Arena } from '../arena/Arena';
 import { ShownTargets } from '../arena/Cast';
 import { useCastStage } from '../game/useCastStage';
 import { useDuskStage } from '../game/useDuskStage';
+import { useDiceStage } from '../game/useDiceStage';
+import { DiceRollOverlay } from '../arena/DiceRoll';
 import { Inspector } from '../components/Inspector';
 import { forgetGame, isSoloGame, rememberGame, tokenOf } from './storage';
 
@@ -31,7 +33,9 @@ export function GameScreen({
   // The opponents' spells are shown beside the mat, then their targets, before their result
   const stage = useCastStage(game.view, player);
   // The end of the day in steps: Dusk, the hero expeditions, the companion ones, the Night
-  const view = useDuskStage(stage.view);
+  // Die rolls: the dice tumble and show their result before the effect plays out
+  const dice = useDiceStage(stage.view);
+  const view = useDuskStage(dice.view);
   const refs = useMemo(() => (view ? view.cards.map((c) => c.ref).filter((r): r is string => !!r) : []), [view]);
 
   useEffect(() => {
@@ -98,6 +102,7 @@ export function GameScreen({
           </ShownTargets.Provider>
         </DragProvider>
       </GameProvider>
+      <DiceRollOverlay roll={dice.roll} view={dice.view} />
       <Inspector />
     </InspectProvider>
   );
