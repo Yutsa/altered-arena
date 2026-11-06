@@ -505,7 +505,7 @@
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
 }
-.storm-back { transform: rotateY(180deg); }
+.storm-back { transform: rotateX(180deg); }
 /* Biomes of each revealed region, in a pill at the bottom of the region, under the tokens */
 .region-chips {
   --tot-icon: calc(var(--marker-size) * 0.42);

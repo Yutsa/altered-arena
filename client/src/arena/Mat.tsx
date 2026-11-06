@@ -300,7 +300,7 @@ function stormFace(id: number, u: number, h: number): CSSProperties {
   return { backgroundSize: `${2 * u}px auto`, backgroundPosition: `0 ${y}px` };
 }
 
-/** A Tumult card turning face up: a turn around its vertical axis, as a card picked for Mana */
+/** A Tumult card turning face up: it flips as a card picked for Mana, on its side */
 const STORM_FLIP_MS = 550;
 
 /**
@@ -314,7 +314,9 @@ function Tile({ t, u, h, at }: { t: StormTile; u: number; h: number; at: number 
     const was = prev.current;
     prev.current = t.id;
     if (was !== STORM_BACK || t.id === STORM_BACK || !card.current) return;
-    card.current.animate([{ transform: 'rotateY(180deg)' }, { transform: 'rotateY(0deg)' }], {
+    // The card lies on its side on the track: it turns around the track's axis, its far edge
+    // coming over towards the player
+    card.current.animate([{ transform: 'rotateX(-180deg)' }, { transform: 'rotateX(0deg)' }], {
       duration: STORM_FLIP_MS,
       easing: 'cubic-bezier(0.3, 0.9, 0.3, 1.15)',
     });
