@@ -87,6 +87,11 @@
 .zone-bottom .zone-piles { top: 6%; }
 /* My Reserve and Landmarks: larger cards, raised so the screen's bottom edge cuts less of them */
 .zone-bottom .zone-group { top: -3%; --zone-card-w: var(--my-zone-card-w); }
+/* Phones: the screen's bottom edge cut the cards in half (their Reserve support out of reach). Right
+   under my expedition band, without reaching it, the label beside the cards rather than above them
+   (and the cards smaller: layout.ts) */
+.layout-phone .zone-bottom .zone-group { top: calc(-4% + 5px); flex-direction: row; align-items: flex-start; gap: 4px; }
+.layout-phone .zone-bottom .zone-label { writing-mode: vertical-rl; transform: rotate(180deg); font-size: calc(var(--chip-font) * 0.75); white-space: nowrap; }
 .zone-piles { left: 10.5%; }
 .zone-group { flex-direction: column; align-items: flex-start; padding: 4px; border-radius: 10px; }
 .zone-label {

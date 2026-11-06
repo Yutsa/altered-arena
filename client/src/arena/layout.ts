@@ -65,7 +65,7 @@ const PHONE: ArenaLayout = {
     '--mat-card-w': '62px',
     '--hero-w': '68px',
     '--zone-card-w': '38px',
-    '--my-zone-card-w': '52px',
+    '--my-zone-card-w': '40px',
     '--hand-shift': '28px',
     '--end-dock-top': '256px',
     '--card-hand-w': '74px',
