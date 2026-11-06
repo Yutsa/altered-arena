@@ -1,12 +1,5 @@
 # Changelog
 
-## [0.7.0](https://github.com/Yutsa/altered-arena/compare/v0.6.0...v0.7.0) (2026-11-06)
-
-
-### Features
-
-* **client:** phone table with two token rows, long-press card peek, BGA-style boosts, Nadir fixes ([#20](https://github.com/Yutsa/altered-arena/issues/20)) ([6f1ce52](https://github.com/Yutsa/altered-arena/commit/6f1ce5285d0ed7d335008ef8a4dd51de36606085))
-
 ## [0.6.0](https://github.com/Yutsa/altered-arena/compare/v0.5.0...v0.6.0) (2026-11-06)
 
 

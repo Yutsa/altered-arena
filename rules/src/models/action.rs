@@ -213,13 +213,29 @@ pub fn get_event_recursive(g: &Game, ctx: Ctx) -> R<Value> {
     }
 }
 
-/// `getSourceId()`
+/// `resolveSourceId($ctx)`: the node's `sourceId`, else the closest parent's
+// PHP: Models/Action.php:139
+pub fn resolve_source_id(g: &Game, ctx: Ctx) -> R<Value> {
+    let mut cur = ctx;
+    while let Some(n) = cur {
+        let sid = node::get_source_id(g, n);
+        if !sid.is_null() {
+            return Ok(sid);
+        }
+        cur = node::parent(g, n);
+    }
+    Ok(Value::Null)
+}
+
+/// `getSourceId()`: `resolveSourceId()` (walks parents)
+// PHP: Models/Action.php:134
 pub fn get_source_id(g: &Game, ctx: Ctx) -> R<Value> {
-    Ok(node::get_source_id(g, ctx_node(ctx, "getSourceId")?))
+    let _ = ctx_node(ctx, "getSourceId")?;
+    resolve_source_id(g, ctx)
 }
 
 /// `getSource()`: the source card, or null
-// PHP: Models/Action.php:139
+// PHP: Models/Action.php:158
 pub fn get_source(g: &mut Game, ctx: Ctx) -> R<Option<CardId>> {
     let sid = get_source_id(g, ctx)?;
     if sid.is_null() {

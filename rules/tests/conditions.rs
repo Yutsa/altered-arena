@@ -123,3 +123,16 @@ fn card_predicates_on_a_recorded_position() {
     // the card is required when the predicate calls a method on it
     assert!(conditions::check(&mut g, &json!({"condition": "isMe"}), None, &json!({})).is_err());
 }
+
+#[test]
+fn hero_signature_token_predicates() {
+    let Some(mut g) = tiktok() else { return };
+    let hero = *g.cards.iter().find(|(_, c)| c.location.starts_with("board-hero-")).unwrap().0;
+    assert!(!check(&mut g, "hasHeroSignatureToken", Some(hero), json!({})));
+    assert!(!check(&mut g, "isHeroSignatureToken", Some(hero), json!({"invoked": "BR_Common_BlazingBooda"})));
+    card::set_property(&mut g, hero, "signatureToken", json!("BR_Common_BlazingBooda"), false).unwrap();
+    assert!(check(&mut g, "hasHeroSignatureToken", Some(hero), json!({})));
+    assert!(check(&mut g, "isHeroSignatureToken", Some(hero), json!({"invoked": "BR_Common_BlazingBooda"})));
+    assert!(!check(&mut g, "isHeroSignatureToken", Some(hero), json!({"invoked": "HERO_SIGNATURE"})));
+    assert!(!check(&mut g, "isHeroSignatureToken", Some(hero), json!({})));
+}

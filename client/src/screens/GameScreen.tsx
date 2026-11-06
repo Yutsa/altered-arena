@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { PlayerId } from '@protocol';
 import { useCatalog } from '../api/catalog';
 import { useGame } from '../game/useGame';
@@ -12,6 +12,7 @@ import { useDuskStage } from '../game/useDuskStage';
 import { useDiceStage } from '../game/useDiceStage';
 import { DiceRollOverlay } from '../arena/DiceRoll';
 import { Inspector } from '../components/Inspector';
+import { DebugDialog } from '../components/DebugDialog';
 import { forgetGame, isSoloGame, rememberGame, tokenOf } from './storage';
 
 export function GameScreen({
@@ -30,6 +31,16 @@ export function GameScreen({
 }) {
   const { catalog, error } = useCatalog();
   const game = useGame(gameId, player, token);
+  const [debug, setDebug] = useState(false);
+  useEffect(() => {
+    const k = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey && e.altKey && e.shiftKey && e.code === 'KeyD')) return;
+      e.preventDefault();
+      setDebug((o) => !o);
+    };
+    window.addEventListener('keydown', k);
+    return () => window.removeEventListener('keydown', k);
+  }, []);
   // The opponents' spells are shown beside the mat, then their targets, before their result
   const stage = useCastStage(game.view, player);
   // The end of the day in steps: Dusk, the hero expeditions, the companion ones, the Night
@@ -106,6 +117,15 @@ export function GameScreen({
       </GameProvider>
       <DiceRollOverlay roll={dice.roll} view={dice.view} />
       <Inspector />
+      {debug && (
+        <DebugDialog
+          catalog={catalog}
+          busy={game.sending}
+          disabled={player === null || !token ? 'A player seat is required to add cards.' : undefined}
+          onClose={() => setDebug(false)}
+          onAdd={game.debugAddCards}
+        />
+      )}
     </InspectProvider>
   );
 }

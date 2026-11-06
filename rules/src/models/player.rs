@@ -58,6 +58,16 @@ pub fn get_hero(g: &Game, pid: PId) -> R<Option<CardId>> {
     Ok(cards::get_in_location(g, &format!("board-hero-{}", pid), None)?.first().copied())
 }
 
+/// `getHeroSignatureTokenType()`: the hero's `signatureToken`, or null when missing/empty
+// PHP: Models/Player.php:78
+pub fn get_hero_signature_token_type(g: &mut Game, pid: PId) -> R<Option<String>> {
+    let Some(hero) = get_hero(g, pid)? else {
+        return Ok(None);
+    };
+    let token_type = card::get_str(g, hero, "signatureToken")?;
+    Ok(if token_type.is_empty() { None } else { Some(token_type) })
+}
+
 /// `getHeroCollection()`
 pub fn get_hero_collection(g: &Game, pid: PId) -> R<Vec<CardId>> {
     cards::get_in_location(g, &format!("board-hero-{}", pid), None)
@@ -200,6 +210,36 @@ pub fn count_cards_in_location(g: &mut Game, pid: PId, location: &str, types: &V
 /// `hasPlayedCard($id)`
 pub fn has_played_card(g: &mut Game, pid: PId, id: &Value) -> R<bool> {
     cards::has_played_card(g, pid, id)
+}
+
+/// `hasPlayedConstructionThisDay()`
+// PHP: Models/Player.php:236
+pub fn has_played_construction_this_day(g: &mut Game, pid: PId) -> R<bool> {
+    let played = globals::get(g, "constructionPlayedThisDay")?;
+    Ok(php::loose_eq(php::get(&played, &pid.to_string()), &json!(true)))
+}
+
+/// `markConstructionPlayedThisDay()`
+// PHP: Models/Player.php:242
+pub fn mark_construction_played_this_day(g: &mut Game, pid: PId) -> R<()> {
+    let mut played = globals::get(g, "constructionPlayedThisDay")?;
+    php::set(&mut played, &pid.to_string(), json!(true));
+    globals::set(g, "constructionPlayedThisDay", played)
+}
+
+/// `hasRolledDieThisDay()`
+// PHP: Models/Player.php:860
+pub fn has_rolled_die_this_day(g: &mut Game, pid: PId) -> R<bool> {
+    let die_rolled = globals::get(g, "dieRolledThisDay")?;
+    Ok(!php::empty(php::get(&die_rolled, &pid.to_string())))
+}
+
+/// `markDieRolledThisDay()`
+// PHP: Models/Player.php:866
+pub fn mark_die_rolled_this_day(g: &mut Game, pid: PId) -> R<()> {
+    let mut die_rolled = globals::get(g, "dieRolledThisDay")?;
+    php::set(&mut die_rolled, &pid.to_string(), json!(true));
+    globals::set(g, "dieRolledThisDay", die_rolled)
 }
 
 /// `getReserveCards()`

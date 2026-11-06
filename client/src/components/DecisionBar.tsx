@@ -155,17 +155,19 @@ function Controls({ d, hide }: { d: Decision; hide?: PrimaryAction['kind'] }) {
           <CommonButtons d={d} hidePass={hidePass} />
         </div>
       );
-    case 'number':
+    case 'number': {
+      const die = /die/i.test(d.prompt);
       return (
-        <div className="db-buttons wrap">
+        <div className={`db-buttons wrap ${die ? 'db-dice' : ''}`}>
           {d.values.map((v) => (
-            <Btn key={v} kind="primary" onClick={() => void send({ type: 'number', value: v })}>
+            <Btn key={v} kind={die ? 'primary die-pick' : 'primary'} onClick={() => void send({ type: 'number', value: v })}>
               {v}
             </Btn>
           ))}
           <CommonButtons d={d} hidePass={hidePass} />
         </div>
       );
+    }
     case 'location':
       return (
         <div className="db-buttons wrap">

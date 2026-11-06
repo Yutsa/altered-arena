@@ -2,6 +2,9 @@
     "AX_Common_AbySapCourier": [
         "effectPlayed/args/effect/args/cardId"
     ],
+    "AX_Common_FaneofAeolus": [
+        "effectTap/args/effect/childs/0/sourceId"
+    ],
     "AX_Common_KelonCylinder": [
         "effectTap/childs/1/childs/0/sourceId"
     ],
@@ -14,8 +17,14 @@
     "AX_Common_TheRefinery": [
         "effectTap/sourceId"
     ],
+    "AX_Common_TheShipwreck": [
+        "effectPassive/Noon/output/childs/0/sourceId"
+    ],
     "AX_Rare_AbySapCourier": [
         "effectPlayed/args/effect/args/cardId"
+    ],
+    "AX_Rare_FaneofAeolus": [
+        "effectTap/args/effect/childs/0/sourceId"
     ],
     "AX_Rare_KelonCylinder": [
         "effectTap/childs/1/childs/0/sourceId"
@@ -28,6 +37,9 @@
     ],
     "AX_Rare_TheRefinery": [
         "effectTap/sourceId"
+    ],
+    "AX_Rare_TheShipwreck": [
+        "effectPassive/Noon/output/childs/0/sourceId"
     ],
     "BR_Common_HuaMulan": [
         "effectReserve/args/cardId"
@@ -64,6 +76,9 @@
     "LY_Rare_TheRefinery": [
         "effectTap/sourceId"
     ],
+    "LY_Rare_TheShipwreck": [
+        "effectPassive/Noon/output/childs/0/sourceId"
+    ],
     "LY_Rare_TheStage": [
         "effectTap/sourceId"
     ],
@@ -83,6 +98,9 @@
         "effectPlayed/args/effect/args/cardId"
     ],
     "OD_Rare_CableCarStation": [
+        "effectTap/args/effect/childs/0/sourceId"
+    ],
+    "OD_Rare_FaneofAeolus": [
         "effectTap/args/effect/childs/0/sourceId"
     ],
     "OD_Rare_TheFarm": [

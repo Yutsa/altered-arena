@@ -54,9 +54,39 @@ pub(super) fn case_of(effect: &str) -> Option<Case> {
         "nextCharactInExpeditionBoost" => next_charact_in_expedition_boost,
         "nextCharacterBaseCost3Anchored" => |g, _| set_flag(g, "nextCharacterBaseCost3Anchored"),
         "addToCurrentRolls" => add_to_current_rolls,
+        "blockOpponentsCardNameThisDay" => block_opponents_card_name_this_day,
         _ => return None,
     };
     Some(f)
+}
+
+/// `blockOpponentsCardNameThisDay` (Ship Security Officer)
+// PHP: Actions/SpecialEffect.php:2664
+fn block_opponents_card_name_this_day(g: &mut Game, s: &mut Se) -> R<Out> {
+    let mut target_card_id = s.ctx_arg(g, "cardId");
+    if php::is_arr(&target_card_id) {
+        target_card_id = php::coalesce(php::geti(&target_card_id, 0), &Value::Null).clone();
+    }
+    if !target_card_id.is_null() {
+        let target = cards::get(g, &target_card_id)?;
+        let card_name = card::get(g, target, "name")?;
+        let source = s.card()?;
+        let source_pid = card::pid(g, source)?;
+        let mut blocked = globals::get(g, "blockedCardNamesThisDay")?;
+        for pid in players::get_all(g) {
+            if pid == source_pid {
+                continue;
+            }
+            let key = pid.to_string();
+            let mut list = php::coalesce(php::get(&blocked, &key), &php::arr()).clone();
+            if !php::in_array_strict(&card_name, &list) {
+                php::push(&mut list, card_name.clone());
+            }
+            php::set(&mut blocked, &key, list);
+        }
+        globals::set(g, "blockedCardNamesThisDay", blocked)?;
+    }
+    Ok(Out::Break)
 }
 
 /// `Globals::set<Name>(true)`

@@ -33,8 +33,9 @@ export function CardBack({ size, className }: { size: CardSize; className?: stri
 
 // ---------------------------------------------------------------------------
 // The printed card, drawn as on BGA: the art, the faction frame of its type and rarity
-// (img/card/frames/<faction>.png, 6 x 8 frames), costs, statistics, name and texts on a
-// 324 x 450 card. Every length is a multiple of --u, 1/324 of the card width.
+// (img/card/frames/<faction>.png, 6 x 9 frames — background-size 600% 900%), costs,
+// statistics, name and texts on a 324 x 450 card. Every length is a multiple of --u,
+// 1/324 of the card width. Positions match bga-altered modules/css/cards.scss.
 // ---------------------------------------------------------------------------
 
 type FrameType = 'hero' | 'token' | 'character' | 'spell' | 'permanent' | 'gear';
@@ -42,25 +43,28 @@ const RARITY: Record<CardDef['rarity'], number> = { common: 0, rare: 1, unique: 
 
 /** Position of each frame in the sprite, by frame type, rarity, "support" (has a support ability) and size (2: bigger text box) */
 const FRAMES: Record<string, string> = {
-  hero: '0% 28.57%',
-  token: '20% 28.57%',
+  hero: '0% 25%',
+  token: '20% 25%',
+  'token-cost-1': '40% 0%',
+  'token-cost-2': '60% 0%',
   'character-0-0-1': '40% 0%', 'character-0-0-2': '60% 0%', 'character-0-1-1': '0% 0%', 'character-0-1-2': '20% 0%',
-  'character-1-0-1': '80% 28.57%', 'character-1-0-2': '100% 28.57%', 'character-1-1-1': '40% 28.57%', 'character-1-1-2': '60% 28.57%',
-  'character-2-0-1': '80% 57.14%', 'character-2-0-2': '100% 57.14%', 'character-2-1-1': '40% 57.14%', 'character-2-1-2': '60% 57.14%',
-  'character-3-0-1': '80% 85.71%', 'character-3-0-2': '100% 85.71%', 'character-3-1-1': '40% 85.71%', 'character-3-1-2': '60% 85.71%',
-  'spell-0-0-1': '80% 14.28%', 'spell-0-0-2': '100% 14.28%', 'spell-0-1-1': '40% 14.28%', 'spell-0-1-2': '60% 14.28%',
-  'spell-1-0-1': '0% 57.14%', 'spell-1-0-2': '20% 57.14%', 'spell-1-1-1': '80% 42.85%', 'spell-1-1-2': '100% 42.85%',
-  'permanent-0-0-1': '0% 14.28%', 'permanent-0-0-2': '20% 14.28%', 'permanent-0-1-1': '80% 0%', 'permanent-0-1-2': '100% 0%',
-  'permanent-1-0-1': '40% 42.85%', 'permanent-1-0-2': '60% 42.85%', 'permanent-1-1-1': '0% 42.85%', 'permanent-1-1-2': '20% 42.85%',
-  'permanent-3-1-1': '80% 100%', 'permanent-3-1-2': '100% 100%',
-  'feat-0-1-1': '0% 100%', 'feat-0-1-2': '20% 100%', 'feat-1-1-1': '40% 100%', 'feat-1-1-2': '60% 100%',
-  'feat-3-1-1': '80% 100%', 'feat-3-1-2': '100% 100%',
-  'gear-0-0-1': '40% 71.43%', 'gear-0-0-2': '60% 71.43%', 'gear-0-1-1': '0% 71.43%', 'gear-0-1-2': '20% 71.43%',
-  'gear-1-0-1': '0% 85.71%', 'gear-1-0-2': '20% 85.71%', 'gear-1-1-1': '80% 71.43%', 'gear-1-1-2': '100% 71.43%',
+  'character-1-0-1': '80% 25%', 'character-1-0-2': '100% 25%', 'character-1-1-1': '40% 25%', 'character-1-1-2': '60% 0%',
+  'character-2-0-1': '80% 50%', 'character-2-0-2': '100% 50%', 'character-2-1-1': '40% 50%', 'character-2-1-2': '60% 50%',
+  'character-3-0-1': '80% 75%', 'character-3-0-2': '100% 75%', 'character-3-1-1': '40% 75%', 'character-3-1-2': '60% 75%',
+  'spell-0-0-1': '80% 12.5%', 'spell-0-0-2': '100% 12.5%', 'spell-0-1-1': '40% 12.5%', 'spell-0-1-2': '60% 12.5%',
+  'spell-1-0-1': '0% 50%', 'spell-1-0-2': '20% 50%', 'spell-1-1-1': '80% 37.5%', 'spell-1-1-2': '100% 37.5%',
+  'permanent-0-0-1': '0% 12.5%', 'permanent-0-0-2': '20% 12.5%', 'permanent-0-1-1': '80% 0%', 'permanent-0-1-2': '100% 0%',
+  'permanent-1-0-1': '40% 37.5%', 'permanent-1-0-2': '60% 37.5%', 'permanent-1-1-1': '0% 37.5%', 'permanent-1-1-2': '20% 37.5%',
+  'permanent-3-0-1': '0% 100%', 'permanent-3-0-2': '20% 100%', 'permanent-3-1-1': '0% 100%', 'permanent-3-1-2': '20% 100%',
+  'feat-0-1-1': '0% 87.5%', 'feat-0-1-2': '20% 87.5%', 'feat-1-1-1': '40% 87.5%', 'feat-1-1-2': '60% 87.5%',
+  'feat-3-1-1': '80% 87.5%', 'feat-3-1-2': '100% 87.5%',
+  'gear-0-0-1': '40% 62.5%', 'gear-0-0-2': '60% 62.5%', 'gear-0-1-1': '0% 62.5%', 'gear-0-1-2': '20% 62.5%',
+  'gear-1-0-1': '0% 75%', 'gear-1-0-2': '20% 75%', 'gear-1-1-1': '80% 62.5%', 'gear-1-1-2': '100% 62.5%',
 };
 
-function framePosition(type: FrameType, feat: boolean, rarity: number, support: boolean, size: number): string {
-  if (type === 'hero' || type === 'token') return FRAMES[type];
+function framePosition(type: FrameType, feat: boolean, rarity: number, support: boolean, size: number, tokenHasCost = false): string {
+  if (type === 'hero') return FRAMES.hero;
+  if (type === 'token') return tokenHasCost ? (FRAMES[`token-cost-${size}`] ?? FRAMES.token) : FRAMES.token;
   const kind = feat ? 'feat' : type;
   // Rarities without a frame of their own (unique spells...) use the rare one, then the common one
   for (const r of [rarity, 1, 0]) {
@@ -79,7 +83,7 @@ function frameType(def: CardDef, token: boolean): FrameType {
 }
 
 /** Set icon of the footer, from the set of the art */
-const SETS: Record<string, string> = { CORE: 'core', COREKS: 'ks2', ALIZE: 'tbf', BISE: 'wfm', CYCLONE: 'so', EOLE: 'roc' };
+const SETS: Record<string, string> = { CORE: 'core', COREKS: 'ks2', ALIZE: 'tbf', BISE: 'wfm', CYCLONE: 'so', EOLE: 'roc', FUGUE: 'nej' };
 const setIcon = (asset: string) => SETS[/^ALT_([A-Z]+)_/.exec(asset)?.[1] ?? ''] ?? 'core';
 
 /** The flavor text, only when there is room for it (BGA getFlavorTextIfFitting) */
@@ -147,11 +151,7 @@ function useAutofit(root: RefObject<HTMLDivElement | null>, key: string, canGrow
   return fit?.key === key ? fit : null;
 }
 
-/**
- * `deltas` (zoomed cards): the printed statistics stay as printed, their change (boosts...) shown
- * beside them, as on BGA; on smaller cards the statistic itself changes, coloured.
- */
-function Printed({ def, card, token, deltas }: { def: CardDef; card?: CardView; token: boolean; deltas: boolean }) {
+function Printed({ def, card, token }: { def: CardDef; card?: CardView; token: boolean }) {
   const ref = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState(1);
   const key = `${def.ref}:${def.name}`;
@@ -165,7 +165,10 @@ function Printed({ def, card, token, deltas }: { def: CardDef; card?: CardView; 
   const rarity = RARITY[def.rarity] ?? 0;
   const support = !!def.support;
   const feat = def.subtypes.includes('feat');
-  const hasCosts = type !== 'hero' && type !== 'token' && !token && def.costHand !== undefined;
+  // NEJ signature companions are tokens with a Reserve cost; still show cost chrome for those.
+  const hasCosts =
+    type !== 'hero' &&
+    ((type !== 'token' && !token && def.costHand !== undefined) || ((type === 'token' || token) && def.costReserve !== undefined));
   const hasStats = type === 'character' || type === 'token';
   const sizes = statSizes(def);
   const flavor = flavorIfFitting(def, token);
@@ -183,7 +186,7 @@ function Printed({ def, card, token, deltas }: { def: CardDef; card?: CardView; 
     >
       <div
         className="fc-frame"
-        style={{ backgroundImage: `url(/img/card/frames/${def.faction}.png)`, backgroundPosition: framePosition(type, feat, rarity, support, size) }}
+        style={{ backgroundImage: `url(/img/card/frames/${def.faction}.png)`, backgroundPosition: framePosition(type, feat, rarity, support, size, (type === 'token' || token) && def.costReserve !== undefined) }}
       />
       {hasCosts && (
         <>
@@ -197,13 +200,6 @@ function Printed({ def, card, token, deltas }: { def: CardDef; card?: CardView; 
         BIOMES.map((b) => {
           const base = def[b] ?? 0;
           const cur = card?.stats?.[b] ?? base;
-          if (deltas)
-            return (
-              <span key={b} className={`fc-stat fc-${b}`} data-size={sizes[b]}>
-                {base}
-                {cur !== base && <span className={`fc-delta ${cmp(cur, base)}`}>{cur > base ? `+${cur - base}` : `−${base - cur}`}</span>}
-              </span>
-            );
           return (
             <span key={b} className={`fc-stat fc-${b} ${cmp(cur, base)}`} data-size={sizes[b]}>
               {cur}
@@ -250,8 +246,6 @@ export const Card = memo(function Card({ def, card, size, extraCost, className }
   const token = def.type === 'token' || !!card?.token;
   const statuses = card?.statuses ?? [];
   const counters = Object.entries(card?.counters ?? {}).filter(([, n]) => n > 0);
-  // Zoomed: the boosts are told beside the statistics (+1) and in the notes next to the card
-  const boostBadge = (card?.boosts ?? 0) > 0 && size !== 'zoom';
   return (
     <div
       className={['card', `card-${size}`, `t-${def.type}`, token ? 'is-token' : '', card?.exhausted ? 'is-exhausted' : '', className ?? ''].join(' ')}
@@ -270,10 +264,10 @@ export const Card = memo(function Card({ def, card, size, extraCost, className }
           onError={() => setArtFailed(true)}
         />
       )}
-      <Printed def={def} card={card} token={token} deltas={size === 'zoom'} />
-      {(statuses.length > 0 || boostBadge || counters.length > 0) && (
+      <Printed def={def} card={card} token={token} />
+      {(statuses.length > 0 || (card?.boosts ?? 0) > 0 || counters.length > 0) && (
         <div className="card-badges">
-          {boostBadge && (
+          {(card?.boosts ?? 0) > 0 && (
             <span className="badge badge-boost">
               <img src="/img/icons/boost.png" alt="" />
               {card!.boosts}

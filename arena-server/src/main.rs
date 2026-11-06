@@ -195,6 +195,7 @@ async fn main() {
         .route("/api/v1/matchmaking/{ticket}", get(poll_queue).delete(leave_queue))
         .route("/api/v1/replays", get(list_replays))
         .route("/api/v1/replays/{table}", get(view_replay))
+        .route("/api/debug/games/{id}/cards", post(debug_add_cards))
         .nest_service("/assets/cards", ServeDir::new(art_dir))
         .fallback_service(ServeDir::new(&client_dir).fallback(ServeFile::new(index)))
         // Views are small (a few KB): the fastest level keeps most of the gain for a fraction of the CPU
@@ -772,8 +773,51 @@ async fn leave_queue(State(s): State<Shared>, Path(ticket): Path<String>) -> Res
 }
 
 // ---------------------------------------------------------------------------
-// Debug: full hidden state (ARENA_DEBUG)
+// Debug: full hidden state (ARENA_DEBUG) and spawn cards (hidden client dialog)
 // ---------------------------------------------------------------------------
+
+#[derive(Deserialize)]
+struct DebugAddCard {
+    #[serde(rename = "ref")]
+    class: String,
+    location: String,
+}
+
+#[derive(Deserialize)]
+struct DebugAddCards {
+    cards: Vec<DebugAddCard>,
+}
+
+async fn debug_add_cards(
+    State(s): State<Shared>,
+    Path(id): Path<String>,
+    Query(q): Query<ViewQuery>,
+    headers: axum::http::HeaderMap,
+    Json(body): Json<DebugAddCards>,
+) -> Response {
+    let Some(e) = entry(&s, &id).await else { return error(StatusCode::NOT_FOUND, "Unknown game", false) };
+    let seat = match seat_of(&*e.game.lock().await, &q, &headers) {
+        Ok(Some(seat)) => seat,
+        Ok(None) => return error(StatusCode::UNAUTHORIZED, "A player token is required", false),
+        Err(r) => return r,
+    };
+    let cards: Vec<(String, String)> = body.cards.into_iter().map(|c| (c.class, c.location)).collect();
+    let res = with_game(&s, &e, true, move |g| {
+        let pid = g.seats()[seat].0;
+        g.debug_add_cards(pid, &cards)?;
+        Ok::<_, String>(g.view_json(Some(seat)))
+    })
+    .await;
+    match res {
+        Ok(Ok(Ok(view))) => {
+            e.changed.notify_waiters();
+            s.dirty.lock().await.insert(id);
+            json_bytes(view)
+        }
+        Ok(Ok(Err(err))) | Err(err) => error(StatusCode::INTERNAL_SERVER_ERROR, err, false),
+        Ok(Err(msg)) => error(StatusCode::BAD_REQUEST, msg, true),
+    }
+}
 
 async fn debug_state(State(s): State<Shared>, Path(id): Path<String>) -> Response {
     let Some(e) = entry(&s, &id).await else { return error(StatusCode::NOT_FOUND, "Unknown game", false) };

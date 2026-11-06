@@ -96,13 +96,13 @@ pub fn num_op(a: &Value, b: &Value, op: &str) -> R<Value> {
     Ok(json!(if op == "+" { i + j } else { i - j }))
 }
 
-/// `getCard()`: `cardId` (ME = the source, EFFECT = the card of the closest event)
-// PHP: Actions/Gain.php:162
+/// `getCard()`: `cardId` (ME = the source via `resolveSourceId`, EFFECT = the closest event's card)
+// PHP: Actions/Gain.php:161
 fn get_card(g: &mut Game, ctx: Ctx) -> R<Option<CardId>> {
     let mut card_id = get_ctx_arg(g, ctx, "cardId");
     if php::loose_eq(&card_id, &json!("me")) {
-        let n = ctx.ok_or_else(|| PhpError::new("Error: Call to a member function getSourceId() on null"))?;
-        card_id = node::get_source_id(g, n);
+        let _ = ctx.ok_or_else(|| PhpError::new("Error: Call to a member function getSourceId() on null"))?;
+        card_id = action::resolve_source_id(g, ctx)?;
     } else if php::loose_eq(&card_id, &json!("EFFECT")) {
         let event = action::get_event_recursive(g, ctx)?;
         card_id = Value::Null;

@@ -14,7 +14,6 @@ import { TrackButton } from './TrackButton';
 import { EffectQueue, EffectQueueBadge } from './EffectQueue';
 import { effectQueue } from '../game/decisions';
 import { MarkerGhost } from './TerrainMarkers';
-import { TouchPeek } from '../game/touchPeek';
 import './arena.css';
 
 const coarse = typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches;
@@ -38,14 +37,13 @@ export function Arena({
   /** Against bots: takes back the player's last move (a round button beside the main one) */
   undo?: { onUndo: () => void; disabled: boolean };
 }) {
-  const { view, me, opp, log, you, catalog, decision, auto } = useGameCtx('view', 'me', 'opp', 'log', 'you', 'catalog', 'decision', 'auto');
+  const { view, me, opp, log, you, catalog, decision } = useGameCtx('view', 'me', 'opp', 'log', 'you', 'catalog', 'decision');
   // Undo: against bots, the server takes back my last move (the engine's undo is not offered)
   const undoBtn = undo;
   // Effects to resolve: the hand is not playable, it retracts. The queue's minimize button shrinks
   // it into a badge under the main button and brings the hand up; the badge brings the queue
-  // back. Minimized, it stays so through the next effects, until there are none left. Effects
-  // resolved for the player (one effect, Nadir's at Noon...) show no queue: it only flashed
-  const queueOn = !!effectQueue(decision) && !(auto && !auto.countdown);
+  // back. Minimized, it stays so through the next effects, until there are none left.
+  const queueOn = !!effectQueue(decision);
   const [minimized, setMinimized] = useState(false);
   useEffect(() => {
     if (!queueOn) setMinimized(false);
@@ -112,24 +110,17 @@ export function Arena({
     return () => cancelAnimationFrame(id);
   }, [l, scale]);
 
-  // Centres of the Tumult track and of the opponent's hero on the stage (the mat is tilted:
-  // measured), for the information prompts
+  // Centre of the Tumult track on the stage (the mat is tilted: measured), for the information prompts
   const stageRef = useRef<HTMLDivElement>(null);
   const [trackAt, setTrackAt] = useState<{ x: number; y: number } | null>(null);
-  const [oppHeroAt, setOppHeroAt] = useState<{ x: number; y: number } | null>(null);
-  const hasOpp = !!opp;
   useLayoutEffect(() => {
     const stage = stageRef.current;
-    if (!stage) return;
+    const track = stage?.querySelector('.track');
+    if (!stage || !track) return;
     const s = stage.getBoundingClientRect();
-    const centre = (el: Element | null) => {
-      if (!el) return null;
-      const r = el.getBoundingClientRect();
-      return { x: (r.left + r.width / 2 - s.left) / scale, y: (r.top + r.height / 2 - s.top) / scale };
-    };
-    setTrackAt(centre(stage.querySelector('.track')));
-    setOppHeroAt(centre(stage.querySelector('.band-theirs .hero-cell')));
-  }, [l, scale, hasOpp]);
+    const t = track.getBoundingClientRect();
+    setTrackAt({ x: (t.left + t.width / 2 - s.left) / scale, y: (t.top + t.height / 2 - s.top) / scale });
+  }, [l, scale]);
 
   const [logOpen, setLogOpen] = useState(false);
   const [seen, setSeen] = useState(0);
@@ -189,12 +180,11 @@ export function Arena({
             </div>
           )}
         </div>
-        <TrackNotice at={trackAt} aboveAt={oppHeroAt} />
+        <TrackNotice at={trackAt} />
         <PhaseBanner />
         {extraTop && <div className="arena-extra">{extraTop}</div>}
       </div>
       <CastFocus />
-      <TouchPeek />
       <CardActions />
       <TargetArrows />
       <MarkerGhost />

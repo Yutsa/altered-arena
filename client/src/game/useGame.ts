@@ -18,6 +18,8 @@ export interface GameState {
   undo: () => Promise<boolean>;
   /** The decision the last undo led back to (`n` counts the undos): not answered for the player */
   undoneTo: { id: string; n: number } | null;
+  /** Hidden debug dialog: create cards in a zone of this seat */
+  debugAddCards: (cards: { ref: string; location: string }[]) => Promise<boolean>;
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -139,5 +141,23 @@ export function useGame(gameId: string, player: PlayerId | null, token: string |
     }
   }, [gameId, player, token, accept]);
 
-  return { view, log, sending, connected, fatal, send, undo, undoneTo };
+  const debugAddCards = useCallback(
+    async (cards: { ref: string; location: string }[]) => {
+      setSending(true);
+      try {
+        const v = await api.debugAddCards(gameId, player, token, cards);
+        accept(v);
+        return true;
+      } catch (e) {
+        const err = e as ApiError;
+        toast(err.user ? err.message : `Server error: ${err.message}`);
+        return false;
+      } finally {
+        setSending(false);
+      }
+    },
+    [gameId, player, token, accept],
+  );
+
+  return { view, log, sending, connected, fatal, send, undo, undoneTo, debugAddCards };
 }

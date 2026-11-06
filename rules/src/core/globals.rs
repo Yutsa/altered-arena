@@ -79,6 +79,10 @@ pub const VARIABLES: &[(&str, &str)] = &[
     ("testingOption", "bool"),
     ("beginner", "int"),
     ("firstPass", "int"),
+    // Fugue / NEJ
+    ("constructionPlayedThisDay", "obj"),
+    ("blockedCardNamesThisDay", "obj"),
+    ("dieRolledThisDay", "obj"),
 ];
 
 /// Index in VARIABLES and type of each variable

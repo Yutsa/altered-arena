@@ -162,7 +162,28 @@ pub fn instantiate_props(db: &Props, id: CardId) -> R<Props> {
             }
         }
     }
+    // Class data is reapplied on every load. A temple play only persists `extraDatas`
+    // (and other dynamic fields); the landmark type and emptied effects are runtime.
+    apply_temple_runtime(&mut props);
     Ok(Arc::new(props))
+}
+
+/// `Card::restoreTemplePlayState` after `getCardInstance` (Cards.php:84). A card played as a
+/// Temple is a Landmark permanent: it is not a character, so it cannot be boosted.
+fn apply_temple_runtime(props: &mut PropMap) {
+    let extra = props.get("extraDatas").cloned().unwrap_or_else(php::arr);
+    if !php::loose_eq(php::get(&extra, "playedAsTemple"), &json!(true)) {
+        return;
+    }
+    props.insert("type".into(), json!("permanent"));
+    props.insert("subtypes".into(), json!(["construction", "landmark"]));
+    let tl = php::get(php::get(&extra, "templeOriginal"), "typeline").clone();
+    if !tl.is_null() {
+        props.insert("typeline".into(), tl);
+    }
+    props.insert("effectPlayed".into(), json!([]));
+    props.insert("effectHand".into(), json!([]));
+    props.insert("effectReserve".into(), json!([]));
 }
 
 /// A card row from the DB columns
@@ -708,6 +729,7 @@ pub fn get_icon_set(uid: &str) -> Option<&'static str> {
         Some("CYCLONE") => Some("so"),
         Some("DUSTER") => Some("sdu"),
         Some("EOLE") => Some("roc"),
+        Some("FUGUE") => Some("nej"),
         _ => None,
     }
 }
@@ -1037,6 +1059,27 @@ pub fn single_create(g: &mut Game, token: &Value) -> R<Option<CardId>> {
     Ok(create(g, &json!([token]), None)?.first().copied())
 }
 
+/// Create one card of this class at `location` for `pid` (tests and the debug route)
+pub fn create_from_class(g: &mut Game, class: &str, location: &str, pid: PId) -> R<CardId> {
+    let classes = classes();
+    let props = classes
+        .get(class)
+        .or_else(|| classes.iter().find(|(k, _)| k.eq_ignore_ascii_case(class)).map(|(_, v)| v))
+        .cloned()
+        .ok_or_else(|| PhpError::new(format!("Unknown card class {class}")))?;
+    let ids = create(
+        g,
+        &json!([{
+            "location": location,
+            "player_id": pid,
+            "nbr": 1,
+            "properties": props,
+        }]),
+        Some(location),
+    )?;
+    ids.first().copied().ok_or_else(|| PhpError::new(format!("Failed to create {class}")))
+}
+
 /// `Cards::untapAll()` (morning)
 // PHP: Managers/Cards.php:865
 pub fn untap_all(g: &mut Game) -> R<()> {
@@ -1117,6 +1160,12 @@ pub fn get_reaction(g: &mut Game, event: &Value, return_null_if_empty: bool, own
         // The forceListening branch tests in_array($listenCard, STORMS): a Card object against
         // strings, always false (dead code)
         php::set(&mut ev, "sourceLocation", json!(loc));
+        // Leave events already carry the moving card's boosts. On other events, keep this
+        // listener's boosts as they were when it triggered ("If I have no boosts" of Kikimora:
+        // Hold the Line boosting her first must not un-trigger her).
+        if !php::isset(&ev, "boost") {
+            php::set(&mut ev, "boost", json!(card::count_token(g, cid, "boost")?));
+        }
         let pid = if owner_pid { json!(g.card(cid)?.pid) } else { php::get(&ev, "pId").clone() };
         let mut child = json!({
             "action": "ActivateCard",
@@ -1177,31 +1226,37 @@ pub const STARTER_DECKS: &[(&str, &str)] = &[
     ("ax_3_subhash", "AX"),
     ("ax_65_isaree", "AX"),
     ("ax_85_della", "AX"),
+    ("ax_130_wayfinder_sierra", "AX"),
     ("br_1_kojo", "BR"),
     ("br_2_atsadi", "BR"),
     ("br_3_basira", "BR"),
     ("br_65_sol", "BR"),
     ("br_105_gretel", "BR"),
+    ("br_130_squire_kojo", "BR"),
     ("ly_1_nevenka", "LY"),
     ("ly_2_auraq", "LY"),
     ("ly_3_fen", "LY"),
     ("ly_65_nadir", "LY"),
     ("ly_105_yeonggi", "LY"),
+    ("ly_130_zoe", "LY"),
     ("mu_1_teija", "MU"),
     ("mu_2_arjun", "MU"),
     ("mu_3_rin", "MU"),
     ("mu_65_kauri", "MU"),
     ("mu_85_turuun", "MU"),
+    ("mu_130_osric", "MU"),
     ("or_1_sigismar", "OD"),
     ("or_2_waru", "OD"),
     ("or_3_gulrang", "OD"),
     ("or_65_zhen", "OD"),
     ("or_85_matz", "OD"),
+    ("or_130_eyota", "OD"),
     ("yz_1_akesha", "YZ"),
     ("yz_2_lindiwe", "YZ"),
     ("yz_3_afanas", "YZ"),
     ("yz_65_moyo", "YZ"),
     ("yz_105_sam", "YZ"),
+    ("yz_130_gray", "YZ"),
 ];
 
 type StarterList = Vec<(String, i64)>;

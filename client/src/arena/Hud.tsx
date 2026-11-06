@@ -7,7 +7,6 @@ import { CardListModal } from '../components/Picker';
 import { DecisionBar } from '../components/DecisionBar';
 import { useDragState } from '../game/drag';
 import { Card } from '../components/Card';
-import { CardNotes } from '../components/CardNotes';
 import { useHandTouch } from './useHandTouch';
 
 const PHASES: { phase: Phase; label: string; icon: string }[] = [
@@ -161,16 +160,12 @@ export function Prompt() {
 /**
  * A prompt with nothing to click in it (discard down to 2 in Reserve, pick cards on the board...):
  * on the middle of the Tumult track, clear of the hand and of the zones where the cards are picked.
- * `at`: centre of the track on the stage; `aboveAt`: centre of the opponent's hero, used when the
- * track itself is clicked (Noon of Nadir's terrain markers).
+ * `at`: centre of the track on the stage.
  */
-export function TrackNotice({ at, aboveAt }: { at: { x: number; y: number } | null; aboveAt: { x: number; y: number } | null }) {
-  const { decision } = useGameCtx('decision');
-  // Noon of Nadir: the regions of the track are the targets, the notice goes over the opponent's hero
-  const pos = decision?.kind === 'buttons' && decision.markRegion && aboveAt ? aboveAt : at;
-  if (!pos) return null;
+export function TrackNotice({ at }: { at: { x: number; y: number } | null }) {
+  if (!at) return null;
   return (
-    <div className="track-notice" style={{ left: pos.x, top: pos.y }}>
+    <div className="track-notice" style={{ left: at.x, top: at.y }}>
       <DecisionBar primaryOnTrack only="info" />
     </div>
   );
@@ -235,10 +230,7 @@ function HandPeek({ id }: { id: number }) {
     const cx = r ? r.left + r.width / 2 : Number(slot.dataset.cx);
     const top = r ? r.top : Number(slot.dataset.top);
     const w = box.offsetWidth;
-    const left = Math.max(8 + w / 2, Math.min(window.innerWidth - 8 - w / 2, cx));
-    box.style.left = `${left}px`;
-    // Its notes (boosts...) on the side with more room
-    box.classList.toggle('notes-left', left > window.innerWidth / 2);
+    box.style.left = `${Math.max(8 + w / 2, Math.min(window.innerWidth - 8 - w / 2, cx))}px`;
     box.style.bottom = `${Math.max(8, window.innerHeight - top + 6)}px`;
     box.style.visibility = '';
   }, [id]);
@@ -247,7 +239,6 @@ function HandPeek({ id }: { id: number }) {
   return createPortal(
     <div className="hand-peek" ref={ref} style={{ visibility: 'hidden' }} aria-hidden="true">
       <Card def={d} card={card} size="zoom" />
-      <CardNotes card={card} className="peek-notes" />
     </div>,
     document.body,
   );

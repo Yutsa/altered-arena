@@ -41,12 +41,12 @@ fn ctx_node(ctx: Ctx, method: &str) -> R<node::NodeId> {
     ctx.ok_or_else(|| PhpError::new(format!("Error: Call to a member function {}() on null", method)))
 }
 
-/// `getSource()`
+/// `getSource()`: node's `source`, else the card of `resolveSourceId()`
 // PHP: Actions/RollDie.php:66
 fn get_source(g: &Game, ctx: Ctx) -> R<Source> {
     let n = ctx_node(ctx, "getSource")?;
     let source = node::get_source(g, n);
-    let source_id = node::get_source_id(g, n);
+    let source_id = crate::models::action::resolve_source_id(g, ctx)?;
     if source.is_null() && !source_id.is_null() {
         return Ok(match cards::get_single(g, &source_id, true)? {
             Some(c) => Source::Card(c),
@@ -332,7 +332,15 @@ fn act_roll_die(a: &RollDie, g: &mut Game, ctx: Ctx, die_value: &Value) -> R<()>
         let mut effect = utils::update_tree(&effect, &json!("die"), &json!(die_value), &[]);
         let sid = source.card("getId")?;
         php::set(&mut effect, "sourceId", json!(sid));
-        let mut effect = utils::tag_tree(&effect, &json!({"sourceId": sid}), false);
+        // Tag sourceId and the roll event (Gain(ME) / EFFECT, Zoe-style passives that read selectedRoll)
+        let mut effect = utils::tag_tree(
+            &effect,
+            &json!({
+                "sourceId": sid,
+                "event": {"cardId": sid, "sourceId": sid, "pId": p, "selectedRoll": die_value},
+            }),
+            false,
+        );
         let card_id = get_ctx_arg(g, ctx, "cardId");
         if !card_id.is_null() && php::isset(php::get(&effect, "args"), "cardId") && php::loose_ne(php::get(php::get(&effect, "args"), "cardId"), &json!("me")) {
             php::set(php::get_mut(&mut effect, "args"), "cardId", card_id);
@@ -353,7 +361,14 @@ fn act_roll_die(a: &RollDie, g: &mut Game, ctx: Ctx, die_value: &Value) -> R<()>
 
     let dr = globals::get(g, "diceRolls")?;
     let sid = source.card("getId")?;
-    check_after_listeners(a, g, ctx, p, &json!({"rolls": dr, "selectedRoll": die_value, "sourceId": sid}), true, None)?;
+    // Deferred RollDie passives run after this call; flag the first roll so
+    // hasNotRolledDieThisDay still passes when those reactions execute.
+    let mut listener_args = json!({"rolls": dr, "selectedRoll": die_value, "sourceId": sid});
+    if !player::has_rolled_die_this_day(g, p)? {
+        php::set(&mut listener_args, "firstRollThisDay", json!(true));
+    }
+    check_after_listeners(a, g, ctx, p, &listener_args, true, None)?;
+    player::mark_die_rolled_this_day(g, p)?;
 
     globals::set(g, "diceRolls", json!([]))?;
     resolve_action(a, g, ctx, json!([die_value]), json!(false))

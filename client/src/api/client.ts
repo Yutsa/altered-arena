@@ -36,13 +36,17 @@ function seat(player: PlayerId | null): string {
 }
 
 async function request<T>(path: string, init?: RequestInit, token?: string | null): Promise<T> {
+  return requestUrl(BASE + path, init, token);
+}
+
+async function requestUrl<T>(url: string, init?: RequestInit, token?: string | null): Promise<T> {
   let res: Response;
   const headers: Record<string, string> = {};
   if (init?.body) headers['Content-Type'] = 'application/json';
   // Without a token, a game view is a spectator view
   if (token) headers.Authorization = `Bearer ${token}`;
   try {
-    res = await fetch(BASE + path, { ...init, headers });
+    res = await fetch(url, { ...init, headers });
   } catch (e) {
     if ((e as Error).name === 'AbortError') throw e;
     throw new ApiError('Network error: the game server is unreachable', 0, false);
@@ -100,4 +104,11 @@ export const api = {
   updateSeat: (roomId: string, player: PlayerId, token: string | null, update: SeatUpdate) =>
     request<RoomView>(`/rooms/${encodeURIComponent(roomId)}/seat?${seat(player)}`, { method: 'POST', body: JSON.stringify(update) }, token),
   leaveQueue: (ticket: string) => request<unknown>(`/matchmaking/${encodeURIComponent(ticket)}`, { method: 'DELETE' }).catch(() => null),
+  /** Hidden debug dialog: create cards in a zone of this seat */
+  debugAddCards: (gameId: string, player: PlayerId | null, token: string | null | undefined, cards: { ref: string; location: string }[]) =>
+    requestUrl<GameView>(
+      `/api/debug/games/${encodeURIComponent(gameId)}/cards?${seat(player)}`,
+      { method: 'POST', body: JSON.stringify({ cards }) },
+      token,
+    ),
 };

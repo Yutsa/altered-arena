@@ -100,11 +100,7 @@ impl Game {
     /// The protocol v1 GameView of a player (None: a spectator). As in PHP, a view may create the
     /// missing user preferences and global rows (with their default values).
     pub fn view(&mut self, player: Option<u32>, game_id: &str) -> Result<Value, PhpError> {
-        let mut v = v1::build(self, player.map(|p| p as PId), game_id)?;
-        if v["decision"].is_object() {
-            v1::fill_choice_sources(self, &mut v["decision"])?;
-        }
-        Ok(v)
+        v1::build(self, player.map(|p| p as PId), game_id)
     }
 
     /// The GameView without its decision (null), cheaper: what the board looks like to `player`

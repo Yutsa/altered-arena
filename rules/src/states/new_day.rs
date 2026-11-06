@@ -128,6 +128,9 @@ pub fn st_new_day_init(g: &mut Game) -> R<()> {
     globals::set(g, "globalTough", json!([]))?;
     globals::set(g, "firstPass", json!(-1))?;
     globals::set(g, "turnCards", json!([]))?;
+    globals::set(g, "constructionPlayedThisDay", json!([]))?;
+    globals::set(g, "blockedCardNamesThisDay", json!([]))?;
+    globals::set(g, "dieRolledThisDay", json!([]))?;
     globals::set(g, "nextCharacterInExpeditionBoost", json!([]))?;
     cards::untap_all(g)?;
     globals::set(g, "phase", json!(0))?;

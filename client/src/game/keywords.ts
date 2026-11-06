@@ -89,6 +89,14 @@ export const KEYWORDS: Record<string, Keyword> = {
   IN_CONTACT: { text: 'In contact', reminder: "I'm In Contact if another player's Expedition is in my region." },
   GIFT: { text: 'Gift' },
   COMPLETED_LOW: { text: 'Completed' },
+  // Fugue / Neverending Journey
+  TEMPLE: {
+    text: 'Temple',
+    reminder: 'You may play me for my Temple cost as a Landmark Permanent - Construction with: "At Noon — You may send me to Reserve."',
+  },
+  CONSTRUCTION: { text: 'Construction' },
+  COMPANION: { text: 'Companion' },
+  BLAZING_BOODA: { text: 'Blazing Booda 2/2/2' },
 };
 
 /** URL of an icon under /img/icons: a bare name is a .png, otherwise the file name as given. */
@@ -101,6 +109,7 @@ export const STATUS_INFO: Record<string, { label: string; icon?: string; reminde
   fleeting: { label: 'Fleeting', icon: 'fleeting', reminder: KEYWORDS.FLEETING_CHAR.reminder },
   anchored: { label: 'Anchored', icon: 'anchored', reminder: ANCHORED },
   asleep: { label: 'Asleep', icon: 'sleep', reminder: ASLEEP },
+  featCompleted: { label: 'Completed', icon: 'completed', reminder: 'This Feat has been completed.' },
   tough: { label: 'Tough', icon: 'tough', reminder: tough('X') },
   defender: { label: 'Defender', reminder: DEFENDER },
   gigantic: { label: 'Gigantic', icon: 'gigantic.svg', reminder: KEYWORDS.GIGANTIC.reminder },

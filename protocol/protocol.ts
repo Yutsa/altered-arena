@@ -132,7 +132,7 @@ export interface CardView {
   boosts: number;
   /** Other counters on the card, by name */
   counters: Record<string, number>;
-  /** Status keywords currently applying: fleeting, anchored, asleep, tough, defender, gigantic... */
+  /** Status keywords currently applying: fleeting, anchored, asleep, featCompleted, tough, defender, gigantic... */
   statuses: string[];
   /** Terrain markers lying on the card (Nadir's, not placed yet) */
   markers?: Biome[];

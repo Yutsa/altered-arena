@@ -40,12 +40,19 @@ fn args_play_card(a: &PlayCard, g: &mut Game, ctx: Ctx) -> R<Value> {
     let c = get_card_req(g, ctx, "getId")?;
     let p = players::get_active(g).ok_or_else(|| PhpError::new("Error: Call to a member function getId() on null"))?;
     let free = php::truthy(&get_arg(a, g, ctx, "free")?);
-    if !free && !card::can_be_played(g, c, p, false, false)? {
+    if !free && !card::can_be_played(g, c, p, false, false, false)? {
         return Err(PhpError::new("Card cannot be played. Should not happen"));
     }
 
     let mut locations = php::arr();
-    let locs = card::get_playable_location(g, c, p, &Value::Null, free)?;
+    let mut locs = card::get_playable_location(g, c, p, &Value::Null, free)?;
+    if card::has_temple(g, c)? && card::can_be_played(g, c, p, false, false, true)? {
+        for loc in php::vals(&card::get_temple_playable_locations(g, c, p)?) {
+            if !php::in_array(loc, &locs) {
+                php::push(&mut locs, loc.clone());
+            }
+        }
+    }
     php::set(&mut locations, &c.to_string(), locs);
 
     let c2 = get_card_req(g, ctx, "getName")?;
@@ -184,11 +191,19 @@ fn act_play_card(a: &PlayCard, g: &mut Game, ctx: Ctx, card_id: &Value, location
         card::set_pid(g, c, &json!(active))?;
     }
 
+    let mut temple = false;
+    if php::loose_eq(location, &json!("landmark")) {
+        let playable = card::get_playable_location(g, c, active, &Value::Null, false)?;
+        if card::has_temple(g, c)? && !php::in_array(&json!("landmark"), &playable) {
+            temple = true;
+        }
+    }
+
     let free = get_arg(a, g, ctx, "free")?;
     let effect_hand = get_arg(a, g, ctx, "effectHand")?;
     let cost = get_arg(a, g, ctx, "cost")?;
     let really_played = get_arg(a, g, ctx, "reallyPlayed")?;
     let steal = get_arg(a, g, ctx, "stealOwnership")?;
     let counts = get_arg(a, g, ctx, "countsAsTurnPlay")?;
-    choose_assignment::play_card(g, ctx, card_id, location, &free, &effect_hand, &cost, &really_played, false, &steal, &counts)
+    choose_assignment::play_card(g, ctx, card_id, location, &free, &effect_hand, &cost, &really_played, false, &steal, &counts, temple)
 }

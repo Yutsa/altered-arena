@@ -1,5 +1,12 @@
 [
  {
+  "id": "ax_130_wayfinder_sierra",
+  "name": "Wayfinder Sierra",
+  "faction": "AX",
+  "heroRef": "AX_Common_WayfinderSierra",
+  "size": 65
+ },
+ {
   "id": "ax_1_sierra",
   "name": "Sierra & Oddball",
   "faction": "AX",
@@ -42,6 +49,13 @@
   "size": 39
  },
  {
+  "id": "br_130_squire_kojo",
+  "name": "Squire Kojo",
+  "faction": "BR",
+  "heroRef": "BR_Common_SquireKojo",
+  "size": 65
+ },
+ {
   "id": "br_1_kojo",
   "name": "Kojo & Booda",
   "faction": "BR",
@@ -77,6 +91,13 @@
   "size": 39
  },
  {
+  "id": "ly_130_zoe",
+  "name": "Zoe",
+  "faction": "LY",
+  "heroRef": "LY_Common_Zoe",
+  "size": 65
+ },
+ {
   "id": "ly_1_nevenka",
   "name": "Nevenka & Blotch",
   "faction": "LY",
@@ -103,6 +124,13 @@
   "faction": "LY",
   "heroRef": "LY_Common_NadirBubbles",
   "size": 39
+ },
+ {
+  "id": "mu_130_osric",
+  "name": "Osric",
+  "faction": "MU",
+  "heroRef": "MU_Common_Osric",
+  "size": 65
  },
  {
   "id": "mu_1_teija",
@@ -138,6 +166,13 @@
   "faction": "MU",
   "heroRef": "MU_Common_TuruunBenih",
   "size": 39
+ },
+ {
+  "id": "or_130_eyota",
+  "name": "Eyota",
+  "faction": "OD",
+  "heroRef": "OD_Common_Eyota",
+  "size": 64
  },
  {
   "id": "or_1_sigismar",
@@ -180,6 +215,13 @@
   "faction": "YZ",
   "heroRef": "YZ_Common_SamSpook",
   "size": 39
+ },
+ {
+  "id": "yz_130_gray",
+  "name": "Gray",
+  "faction": "YZ",
+  "heroRef": "YZ_Common_Gray",
+  "size": 65
  },
  {
   "id": "yz_1_akesha",

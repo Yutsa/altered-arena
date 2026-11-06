@@ -187,6 +187,30 @@ pub fn get_reduce_reserve_cost(g: &mut Game, ty: &Value, subtypes: &Value, owner
     Ok(cost)
 }
 
+/// `Players::getIncreaseHandCost($type, $playerId)`
+// PHP: Managers/Players.php:431
+pub fn get_increase_hand_cost(g: &mut Game, ty: &Value, player_id: Option<PId>) -> R<i64> {
+    let mut cost = 0;
+    for c in cards::get_played_cards(g, &Value::Null, &Value::Null)? {
+        if let Some(pid) = player_id {
+            if card::pid(g, c)? != pid {
+                continue;
+            }
+        }
+        cost += php::intval(&card::get_increase_hand_cost(g, c, ty)?);
+    }
+    Ok(cost)
+}
+
+/// `Players::isCardNameBlockedThisDay($pId, $cardName)`
+// PHP: Managers/Players.php:471
+pub fn is_card_name_blocked_this_day(g: &mut Game, pid: PId, card_name: &Value) -> R<bool> {
+    let blocked = globals::get(g, "blockedCardNamesThisDay")?;
+    let empty = php::arr();
+    let list = php::coalesce(php::get(&blocked, &pid.to_string()), &empty).clone();
+    Ok(php::in_array_strict(card_name, &list))
+}
+
 /// `Players::isExhaustedCharactersMorning()`
 pub fn is_exhausted_characters_morning(g: &mut Game) -> R<bool> {
     for c in cards::get_played_cards(g, &Value::Null, &Value::Null)? {

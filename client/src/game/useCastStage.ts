@@ -65,6 +65,14 @@ export function useCastStage(latest: GameView | null, you: PlayerId | null): Cas
   const running = useRef(false);
   const shown = useRef<GameView | null>(null);
   const seen = useRef<Set<number> | null>(null);
+  const alive = useRef(true);
+
+  useEffect(() => {
+    alive.current = true;
+    return () => {
+      alive.current = false;
+    };
+  }, []);
 
   // Another game or another seat: the spells already cast are not shown again
   useEffect(() => {
@@ -91,23 +99,8 @@ export function useCastStage(latest: GameView | null, you: PlayerId | null): Cas
       shown.current = view;
       setStage({ view, targets, effect });
     };
-    // The run always goes to the end and always lets the next one start: a run that stopped half
-    // way (its component remounted by a hot reload, an error in a step) left `running` set, and
-    // every later view waited behind it, the table frozen on the spell beside the mat
     void (async () => {
-      try {
-        await play();
-      } catch (err) {
-        console.error('cast stage', err);
-        const last = queue.current.pop() ?? latest;
-        queue.current = [];
-        show(last, null);
-      } finally {
-        running.current = false;
-      }
-    })();
-    async function play() {
-      while (queue.current.length) {
+      while (queue.current.length && alive.current) {
         const v = queue.current.shift()!;
         const casts = (v.casts ?? []).filter((c) => c.resolved && !seen.current!.has(c.seq) && c.player !== you);
         const effects = (v.effects ?? []).filter((e) => !seen.current!.has(e.seq));
@@ -129,11 +122,12 @@ export function useCastStage(latest: GameView | null, you: PlayerId | null): Cas
             } else {
               show(still, null, card);
               await sleep(arrows ? CAST_MS : ALONE_MS);
-              if (arrows) {
+              if (arrows && alive.current) {
                 show({ ...still, seq: still.seq + 0.1 }, arrows, card);
                 await sleep(TARGET_MS);
               }
             }
+            if (!alive.current) return;
             continue;
           }
           const c = step.cast!;
@@ -146,14 +140,16 @@ export function useCastStage(latest: GameView | null, you: PlayerId | null): Cas
             await sleep(targets.length ? CAST_MS : ALONE_MS);
             seq += 0.1;
           }
-          if (targets.length) {
+          if (targets.length && alive.current) {
             show({ ...spell, seq }, { cards: targets, keys: [] });
             await sleep(TARGET_MS);
           }
+          if (!alive.current) return;
         }
-        show(v, null);
+        if (alive.current) show(v, null);
       }
-    }
+      running.current = false;
+    })();
   }, [latest, you]);
 
   return stage;

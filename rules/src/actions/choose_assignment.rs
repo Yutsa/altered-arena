@@ -108,7 +108,7 @@ pub fn args_choose_assignment(a: &dyn ActionClass, g: &mut Game, ctx: Ctx) -> R<
                 continue;
             }
             let ok = if !free {
-                card::can_be_played(g, c, p, false, reserve_flip)?
+                card::can_be_played(g, c, p, false, reserve_flip, false)?
             } else {
                 let orbs = card::get(g, c, "minManaOrbs")?;
                 let total = player::get_total_mana(g, p)? as i64;
@@ -125,15 +125,15 @@ pub fn args_choose_assignment(a: &dyn ActionClass, g: &mut Game, ctx: Ctx) -> R<
             }
         }
         let mut scouts = php::arr();
-        for c in hand {
-            let meets_free = free && card_meets_explicit_free_cost_limits(g, c, &limits)?;
-            let scout = card::get(g, c, "scout")?;
+        for c in &hand {
+            let meets_free = free && card_meets_explicit_free_cost_limits(g, *c, &limits)?;
+            let scout = card::get(g, *c, "scout")?;
             let ok = php::gt(&scout, &json!(0))
-                && php::in_array(&card::get(g, c, "type")?, &types)
-                && matches_sub_type(g, c, &sub_type)?
-                && ((!free && card::can_be_played(g, c, p, true, false)?) || meets_free);
+                && php::in_array(&card::get(g, *c, "type")?, &types)
+                && matches_sub_type(g, *c, &sub_type)?
+                && ((!free && card::can_be_played(g, *c, p, true, false, false)?) || meets_free);
             if ok {
-                let locs = card::get_scoutable_locations(g, c, p, &forced)?;
+                let locs = card::get_scoutable_locations(g, *c, p, &forced)?;
                 php::set(&mut scouts, &c.to_string(), locs);
             }
         }
@@ -142,6 +142,29 @@ pub fn args_choose_assignment(a: &dyn ActionClass, g: &mut Game, ctx: Ctx) -> R<
             php::set(&mut play, &k, php::array_merge(&[&cur, locs]));
         }
         toto = scouts;
+        // Temple alternate plays (Landmark Construction)
+        let mut temple_src = hand.clone();
+        for c in &reserve {
+            if !temple_src.contains(c) {
+                temple_src.push(*c);
+            }
+        }
+        for c in temple_src {
+            let ty = card::get(g, c, "type")?;
+            let meets_free_temple = free && !card::is_name_blocked_this_day(g, c, p)? && card_meets_explicit_free_cost_limits(g, c, &limits)?;
+            let ok = card::has_temple(g, c)?
+                && php::in_array(&ty, &types)
+                && matches_sub_type(g, c, &sub_type)?
+                && !card::is_tapped(g, c)?
+                && ((!free && card::can_be_played(g, c, p, false, false, true)?) || meets_free_temple);
+            if ok {
+                let locs = card::get_temple_playable_locations(g, c, p)?;
+                if !php::empty(&locs) {
+                    let cur = php::coalesce(php::get(&play, &c.to_string()), &php::arr()).clone();
+                    php::set(&mut play, &c.to_string(), php::array_merge(&[&cur, &locs]));
+                }
+            }
+        }
     }
 
     if php::in_array(&json!("support"), &actions) {
@@ -341,8 +364,18 @@ fn act_play(a: &ChooseAssignment, g: &mut Game, ctx: Ctx, card_id: &Value, locat
     // `$locExploded[1] ?? '' == 'scout'` is `$locExploded[1] ?? ('' == 'scout')`
     let exploded = php::explode("_", &php::strval(location));
     let scout = exploded.get(1).is_some_and(|x| php::truthy(&json!(x)));
+    let mut temple = false;
+    if exploded.first().map(String::as_str) == Some("landmark") {
+        let c = cards::get(g, card_id)?;
+        let p = active_player(g, "getId")?;
+        let forced = get_arg(a, g, ctx, "forcedLocation")?;
+        let free_v = php::truthy(&get_arg(a, g, ctx, "free")?);
+        if card::has_temple(g, c)? && !php::in_array(&json!("landmark"), &card::get_playable_location(g, c, p, &forced, free_v)?) {
+            temple = true;
+        }
+    }
     let free = get_arg(a, g, ctx, "free")?;
-    play_card(g, ctx, card_id, location, &free, &json!(true), &json!(0), &json!(true), scout, &json!(false), &Value::Null)
+    play_card(g, ctx, card_id, location, &free, &json!(true), &json!(0), &json!(true), scout, &json!(false), &Value::Null, temple)
 }
 
 /// Appends a {J}/{H}/{R} effect to `$effects`, its siblings one by one when it is a PARALLEL
@@ -439,6 +472,7 @@ pub fn play_card(
     scout: bool,
     steal_ownership: &Value,
     counts_as_turn_play: &Value,
+    temple: bool,
 ) -> R<()> {
     let a = &ChooseAssignment;
     let p = active_player(g, "getId")?;
@@ -451,10 +485,14 @@ pub fn play_card(
         return Err(PhpError::new("You do not own this card. Should not happen"));
     }
 
+    if card::is_name_blocked_this_day(g, c, p)? {
+        return Err(PhpError::new("You cannot play cards with that name this Day"));
+    }
+
     let cost: Value = if php::loose_eq(free, &json!(false)) {
         // Calculate cost
         let reserve_flip = php::truthy(&get_arg(a, g, ctx, "reserveFlipCost")?);
-        let mut c_cost = card::get_cost(g, c, scout, reserve_flip, Some(loc))?;
+        let mut c_cost = card::get_cost(g, c, scout, reserve_flip, temple)?;
         // Diocles Chariot racer Rare
         let limitation = card::get(g, c, "playLimitation")?;
         if php::loose_eq(&limitation, &json!("+3StartingRegion")) {
@@ -533,6 +571,64 @@ pub fn play_card(
                             json!({}),
                         ),
                     ]),
+                ]);
+                return insert_cost_reduction(g, ctx, flow);
+            }
+        } else if card::get_int(g, c, "costReductionSacrificeCharacter")? > 0 {
+            let mut nb_characters = 0;
+            for c2 in player::get_played_cards(g, p, &Value::Null)? {
+                let t2 = card::get(g, c2, "type")?;
+                let at2 = card::get(g, c2, "additionalType")?;
+                if php::in_array(&t2, &json!(["character", "token"])) || php::count(&php::array_intersect(&json!(["character", "token"]), &at2)) > 0 {
+                    nb_characters += 1;
+                }
+            }
+            if nb_characters > 0 {
+                let crsc = card::get_int(g, c, "costReductionSacrificeCharacter")?;
+                let flow = ft::xor(vec![
+                    ft::action("PlayCard", json!({"cardId": card_id, "free": true, "location": loc, "cost": c_cost}), json!({})),
+                    ft::seq(vec![
+                        ft::action(
+                            "Target",
+                            json!({
+                                "targetType": ["character", "token"],
+                                "targetPlayer": "me",
+                                "effect": ft::action("Discard", json!({"desc": "sacrifice"}), json!({})),
+                            }),
+                            json!({"sourceId": card_id}),
+                        ),
+                        ft::action("PlayCard", json!({"cardId": card_id, "free": true, "cost": php::intval(&c_cost) - crsc, "location": loc}), json!({})),
+                    ]),
+                ]);
+                return insert_cost_reduction(g, ctx, flow);
+            }
+        } else if !php::empty(&card::get(g, c, "costReductionSpendBoost")?) {
+            let spend_boost = card::get(g, c, "costReductionSpendBoost")?;
+            let boost_cost = php::intval(php::coalesce(php::get(&spend_boost, "boostCost"), &json!(2)));
+            let reduction = php::intval(php::coalesce(php::get(&spend_boost, "reduction"), &json!(1)));
+            if card::count_expedition_character_boosts(g, p)? >= boost_cost {
+                let mut spend_nodes = vec![];
+                for _ in 0..boost_cost {
+                    spend_nodes.push(ft::action(
+                        "Target",
+                        json!({
+                            "targetType": ["character", "token"],
+                            "targetLocation": ["stormLeft", "stormRight"],
+                            "targetPlayer": "me",
+                            "augmentOnly": true,
+                            "effect": ft::action("Spend", json!({"n": 1}), json!({})),
+                        }),
+                        json!({"sourceId": card_id}),
+                    ));
+                }
+                spend_nodes.push(ft::action(
+                    "PlayCard",
+                    json!({"cardId": card_id, "free": true, "cost": php::intval(&c_cost) - reduction, "location": loc}),
+                    json!({}),
+                ));
+                let flow = ft::xor(vec![
+                    ft::action("PlayCard", json!({"cardId": card_id, "free": true, "location": loc, "cost": c_cost}), json!({})),
+                    ft::seq(spend_nodes),
                 ]);
                 return insert_cost_reduction(g, ctx, flow);
             }
@@ -620,6 +716,11 @@ pub fn play_card(
             c_cost = json!(php::intval(&c_cost) - crie);
         }
 
+        let cric = card::get_int(g, c, "costReductionIfConstructionPlayed")?;
+        if cric > 0 && player::has_played_construction_this_day(g, p)? {
+            c_cost = json!(php::intval(&c_cost) - cric);
+        }
+
         // Pay cost
         player::pay_mana(g, p, php::intval(&c_cost))?;
         c_cost
@@ -658,6 +759,9 @@ pub fn play_card(
     }
     // Move card
     let from_location = card::location(g, c)?;
+    if temple {
+        card::apply_temple_play(g, c)?;
+    }
     card::set_location(g, c, loc)?;
     card::set_property(g, c, "tapped", json!(false), true)?;
     card::set_property(g, c, "revealed", json!(false), true)?;
@@ -666,6 +770,10 @@ pub fn play_card(
     let n = php::intval(php::coalesce(php::get(&turn_cards, &pkey), &json!(0))) + 1;
     php::set(&mut turn_cards, &pkey, json!(n));
     globals::set(g, "turnCards", turn_cards)?;
+
+    if php::truthy(really_played) && php::in_array(&json!("construction"), &card::get(g, c, "subtypes")?) {
+        player::mark_construction_played_this_day(g, p)?;
+    }
 
     // if card has boosts (from incorrect passive effect), we remove them
     let meeple_ids: Vec<i64> = if from_location == "hand" {
@@ -692,8 +800,8 @@ pub fn play_card(
         let deleted = card::discard(g, c, &php::arr(), &php::arr())?;
         g.notify("silentKill", json!({"tokens": deleted}));
     }
-    // if played from reserve, it gains fleeting
-    else if from_location == "reserve" && !php::in_array(&json!("landmark"), &card::get(g, c, "subtypes")?) {
+    // if played from reserve, it gains fleeting (except native Landmarks and temple plays).
+    else if from_location == "reserve" && !temple && !php::in_array(&json!("landmark"), &card::get(g, c, "subtypes")?) {
         gain_gain(g, p, c, "fleeting", 1, Value::Null, json!({"type": "fleeting"}))?;
     } else {
         let hero = player::get_hero(g, p)?.ok_or_else(|| PhpError::new("Error: Call to a member function isAllSpell1Fleeting() on null"))?;
@@ -709,7 +817,7 @@ pub fn play_card(
 
     // should we boost the card
     let ty = card::get(g, c, "type")?;
-    if type_in(&ty, &["character", "token"]) && globals::get_int(g, "nextCharacterBoost")? > 0 {
+    if !temple && type_in(&ty, &["character", "token"]) && globals::get_int(g, "nextCharacterBoost")? > 0 {
         let to_boost = globals::get_int(g, "nextCharacterBoost")?;
         let occur = globals::get_int(g, "nextCharacterBoostOccurence")?;
         push_next_boosts(g, ctx, c, to_boost, occur)?;
@@ -719,7 +827,11 @@ pub fn play_card(
 
     // Sound the Howl
     let ty = card::get(g, c, "type")?;
-    if type_in(&ty, &["character", "token"]) && php::in_array(&json!("animal"), &card::get(g, c, "subtypes")?) && globals::get_int(g, "nextAnimalBoost")? > 0 {
+    if !temple
+        && type_in(&ty, &["character", "token"])
+        && php::in_array(&json!("animal"), &card::get(g, c, "subtypes")?)
+        && globals::get_int(g, "nextAnimalBoost")? > 0
+    {
         let to_boost = globals::get_int(g, "nextAnimalBoost")?;
         let occur = globals::get_int(g, "nextAnimalBoostOccurence")?;
         push_next_boosts(g, ctx, c, to_boost, occur)?;
@@ -727,7 +839,11 @@ pub fn play_card(
         globals::set(g, "nextAnimalBoostOccurence", json!(0))?;
     }
 
-    if from_location == "reserve" && php::loose_eq(&card::get(g, c, "type")?, &json!("character")) && globals::get_int(g, "nextReserveCharacterBoost")? != 0 {
+    if !temple
+        && from_location == "reserve"
+        && php::loose_eq(&card::get(g, c, "type")?, &json!("character"))
+        && globals::get_int(g, "nextReserveCharacterBoost")? != 0
+    {
         let n = globals::get_int(g, "nextReserveCharacterBoost")?;
         push_parallel_child(g, ctx, &ft::gain(json!(c), "boost", json!(n), json!(99)))?;
         globals::set(g, "nextReserveCharacterBoost", json!(0))?;
@@ -740,7 +856,8 @@ pub fn play_card(
     } else {
         "none"
     };
-    let undergrowth = globals::get_int(g, "nextCharacterBoostV")? > 0
+    let undergrowth = !temple
+        && globals::get_int(g, "nextCharacterBoostV")? > 0
         && php::loose_eq(&card::get(g, c, "type")?, &json!("character"))
         && (player::is_in_biome(g, p, loc, "forest", true)?
             || (php::truthy(&card::is_gigantic(g, c, false)?) && player::is_in_biome(g, p, other_location, "forest", true)?));
@@ -753,7 +870,8 @@ pub fn play_card(
     }
 
     // should we anchor the character?
-    if php::loose_eq(&globals::get(g, "nextCharacterCost3Anchored")?, &json!(true))
+    if !temple
+        && php::loose_eq(&globals::get(g, "nextCharacterCost3Anchored")?, &json!(true))
         && type_in(&card::get(g, c, "type")?, &["character", "token"])
         && card::get_int(g, c, "costHand")? <= 3
     {
@@ -776,12 +894,13 @@ pub fn play_card(
         globals::set(g, "nextCharacterAsleep", json!(false))?;
     }
 
-    if php::loose_eq(&globals::get(g, "nextCharacterAnchored")?, &json!(true)) && type_in(&card::get(g, c, "type")?, &["character", "token"]) {
+    if !temple && php::loose_eq(&globals::get(g, "nextCharacterAnchored")?, &json!(true)) && type_in(&card::get(g, c, "type")?, &["character", "token"]) {
         push_parallel_child(g, ctx, &ft::gain(json!(c), "anchored", json!(1), json!(99)))?;
         globals::set(g, "nextCharacterAnchored", json!(false))?;
     }
     // LIMBO is used for Romantic Encounter / Phoibos, where hand cost shall be used for comparison
-    let base_cost3 = php::loose_eq(&globals::get(g, "nextCharacterBaseCost3Anchored")?, &json!(true))
+    let base_cost3 = !temple
+        && php::loose_eq(&globals::get(g, "nextCharacterBaseCost3Anchored")?, &json!(true))
         && type_in(&card::get(g, c, "type")?, &["character", "token"])
         && ((card::get_int(g, c, "costHand")? <= 3 && (from_location == "hand" || from_location == "limbo"))
             || (from_location == "reserve" && card::get_int(g, c, "costReserve")? <= 3));

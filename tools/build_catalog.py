@@ -7,7 +7,7 @@ Output: protocol/data/cards.json (CardCatalog), protocol/data/decks.json (DeckSu
 import json, os, sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-src = os.path.join(ROOT, 'engine', 'data')
+src = os.path.join(ROOT, 'rules', 'data')
 cards = json.load(open(os.path.join(src, 'cards.min.json')))
 starters = json.load(open(os.path.join(src, 'starters.min.json')))
 

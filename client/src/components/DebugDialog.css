@@ -1,0 +1,41 @@
+.debug-dialog { display: flex; flex-direction: column; gap: 18px; }
+.debug-section h3 {
+  margin: 0 0 10px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.debug-add,
+.debug-setup { display: flex; flex-direction: column; gap: 10px; }
+.debug-add {
+  display: grid;
+  grid-template-columns: 1fr minmax(160px, 0.6fr) auto;
+  gap: 10px;
+  align-items: end;
+}
+.debug-add .field,
+.debug-setup .field { max-width: none; }
+.debug-dialog .field textarea,
+.debug-dialog .field input,
+.debug-dialog .field select {
+  min-height: 40px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--panel-strong);
+  color: var(--text);
+}
+.debug-dialog .field textarea {
+  min-height: 140px;
+  resize: vertical;
+  font-family: ui-monospace, 'Cascadia Code', 'SFMono-Regular', Menlo, Consolas, monospace;
+  font-size: 13px;
+  line-height: 1.45;
+}
+.debug-error { margin: 0; color: #ff8787; }
+.debug-ok { margin: 0; color: var(--me); }
+@media (max-width: 640px) {
+  .debug-add { grid-template-columns: 1fr; }
+}

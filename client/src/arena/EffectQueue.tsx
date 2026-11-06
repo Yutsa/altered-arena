@@ -2,9 +2,8 @@ import { useEffect, useState } from 'react';
 import type { CardView, ChoiceOption } from '@protocol';
 import { artUrl } from '../api/catalog';
 import { useGameCtx } from '../game/GameContext';
-import { effectQueue } from '../game/decisions';
+import { effectQueue, resolutionOf } from '../game/decisions';
 import { RichText } from '../components/RichText';
-import { useInspect } from '../game/inspect';
 
 const WHERE: Partial<Record<string, string>> = {
   hero: 'Hero',
@@ -19,16 +18,12 @@ const WHERE: Partial<Record<string, string>> = {
 const where = (c: CardView | undefined) => (c && typeof c.zone === 'string' ? (WHERE[c.zone] ?? '') : '');
 
 /** What the effect does: the effect it leads to (after its checks), else its label without the source's name */
-const effectText = (c: ChoiceOption) => c.resolvesTo ?? c.label.replace(/\s*\(\[\[[^\]]+\]\]\)\s*$/, '');
-
-/** The source of an effect by the card name its label ends with ("Resupply 1 ([[Aerolith]])") */
-const sourceName = <D,>(c: ChoiceOption, resolve: (name: string) => D | null) => {
-  const m = /\(\[\[([^\]]+)\]\]\)\s*$/.exec(c.label);
-  return m ? (resolve(m[1]) ?? undefined) : undefined;
-};
+const effectText = (c: ChoiceOption, siblings: ChoiceOption[]) =>
+  resolutionOf(c, siblings) ?? c.label.replace(/\s*\(\[\[[^\]]+\]\]\)\s*$/, '');
 
 /** The card that set the effect off, when its label names it ("Check reaction to [[Winter Nova]]...") */
-const triggeredBy = (c: ChoiceOption) => (c.resolvesTo ? (/\[\[([^\]]+)\]\]/.exec(c.label)?.[1] ?? null) : null);
+const triggeredBy = (c: ChoiceOption, siblings: ChoiceOption[]) =>
+  resolutionOf(c, siblings) ? (/\[\[([^\]]+)\]\]/.exec(c.label)?.[1] ?? null) : null;
 
 /**
  * Effects that triggered together, beside End turn: one portrait per effect, the effect under the
@@ -38,11 +33,9 @@ const triggeredBy = (c: ChoiceOption) => (c.resolvesTo ? (/\[\[([^\]]+)\]\]/.exe
  * comes up to be looked at.
  */
 export function EffectQueue({ collapsed, onCollapse }: { collapsed: boolean; onCollapse: () => void }) {
-  const { decision, byId, def, send, sending, setFocusSource, inspectCard, setResolveIntent, auto } = useGameCtx('decision', 'byId', 'def', 'send', 'sending', 'setFocusSource', 'inspectCard', 'setResolveIntent', 'auto');
+  const { decision, byId, def, send, sending, setFocusSource, inspectCard, setResolveIntent } = useGameCtx('decision', 'byId', 'def', 'send', 'sending', 'setFocusSource', 'inspectCard', 'setResolveIntent');
   const d = decision;
-  const { resolveName } = useInspect();
-  // Resolved for the player (no real choice): nothing to show, it would only flash before the answer
-  const q = auto && !auto.countdown ? null : effectQueue(decision);
+  const q = effectQueue(decision);
   const [hovered, setHovered] = useState<number | null>(null);
   const [picked, setPicked] = useState<number | null>(null);
   const decisionId = decision?.id;
@@ -60,18 +53,18 @@ export function EffectQueue({ collapsed, onCollapse }: { collapsed: boolean; onC
 
   if (!q || !focus) return null;
   const card = (c: ChoiceOption) => byId.get(c.sourceCardId!);
-  // A source no longer on the table (a token destroyed when sacrificed): found by the name its label cites
-  const cardDef = (c: ChoiceOption) => def(card(c)) ?? sourceName(c, resolveName);
-  const focusDef = cardDef(focus);
+  const focusDef = def(card(focus));
   const n = q.effects.length;
+  const to = (c: ChoiceOption) => resolutionOf(c, q.effects);
   // An effect with steps after it: they are answered for the player, its "you may" as they chose
   const resolve = (c: ChoiceOption, accept = true) => {
     if (!c.enabled || sending) return;
     setPicked(c.id);
-    setResolveIntent(c.resolvesTo && c.sourceCardId !== undefined ? { source: c.sourceCardId, label: c.resolvesTo, accept } : null);
+    const label = to(c);
+    setResolveIntent(label && c.sourceCardId !== undefined ? { source: c.sourceCardId, label, accept } : null);
     void send({ type: 'choice', id: c.id });
   };
-  const by = triggeredBy(focus);
+  const by = triggeredBy(focus, q.effects);
 
   return (
     <>
@@ -82,8 +75,8 @@ export function EffectQueue({ collapsed, onCollapse }: { collapsed: boolean; onC
             <span className="eq-where">{where(card(focus))}</span>
             {by && <span className="eq-by">after {by}</span>}
           </div>
-          <RichText text={effectText(focus)} />
-          {focus.resolvesTo && (
+          <RichText text={effectText(focus, q.effects)} />
+          {to(focus) && (
             <button type="button" className="eq-skip" disabled={!focus.enabled || sending} onClick={() => resolve(focus, false)}>
               Skip this effect
             </button>
@@ -112,7 +105,7 @@ export function EffectQueue({ collapsed, onCollapse }: { collapsed: boolean; onC
           </div>
           <div className="eq-items">
             {q.effects.map((c) => {
-              const cd = cardDef(c);
+              const cd = def(card(c));
               return (
                 <button
                   key={c.id}
@@ -126,7 +119,7 @@ export function EffectQueue({ collapsed, onCollapse }: { collapsed: boolean; onC
                     e.preventDefault();
                     inspectCard(c.sourceCardId!);
                   }}
-                  aria-label={`Resolve ${cd?.name ?? 'this effect'}: ${effectText(c)}`}
+                  aria-label={`Resolve ${cd?.name ?? 'this effect'}: ${effectText(c, q.effects)}`}
                 >
                   {cd ? <img src={artUrl(cd)} alt="" draggable={false} /> : <span className="eq-noart">{n}</span>}
                 </button>

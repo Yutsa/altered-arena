@@ -269,6 +269,16 @@ export const PASS_CHOICE = 99;
 /** Options of a choice that do the same thing (The Hunger's boosts...): same effect, same source */
 export const choiceKey = (c: ChoiceOption) => `${c.sourceCardId ?? ''}|${c.label}`;
 
+/**
+ * The effect a queue choice leads to (`resolvesTo`), if that is not another effect already in this
+ * queue of the same card (Hestia's two At Noon: the boost does not "resolve to" the Temple send).
+ */
+export function resolutionOf(c: ChoiceOption, siblings: ChoiceOption[]): string | undefined {
+  if (!c.resolvesTo) return undefined;
+  if (siblings.some((s) => s.id !== c.id && s.sourceCardId === c.sourceCardId && s.label === c.resolvesTo)) return undefined;
+  return c.resolvesTo;
+}
+
 /** The same effect: same text, of the same card or of another copy of it (same card reference) */
 function sameEffect(a: ChoiceOption, b: ChoiceOption, refOf: (cardId: number) => string | null | undefined): boolean {
   if (choiceKey(a) === choiceKey(b)) return true;
@@ -282,6 +292,9 @@ export const AUTO_TARGET_MS = 600;
 
 /** How long the end of a turn waits before it is confirmed, while the player may still Undo */
 export const CONFIRM_TURN_MS = 2000;
+
+/** How long a lone die result waits so the tumble animation can land before it is sent */
+export const AUTO_ROLL_MS = 1600;
 
 /**
  * The answer sent for the player when a decision leaves no real choice: one effect to resolve
@@ -344,7 +357,11 @@ export function autoAnswer(
     case 'location':
       return !d.canPass && d.locations.length === 1 ? now({ type: 'location', key: d.locations[0].key }) : null;
     case 'number':
-      return !d.canPass && d.values.length === 1 ? now({ type: 'number', value: d.values[0] }) : null;
+      if (d.canPass || d.values.length !== 1) return null;
+      // A die result: wait so the staged tumble (useDiceStage) can land before it is sent
+      return /die/i.test(d.prompt)
+        ? { answer: { type: 'number', value: d.values[0] }, delay: AUTO_ROLL_MS }
+        : now({ type: 'number', value: d.values[0] });
     case 'exchange':
       return !d.canPass && d.hand.length === 1 && d.reserve.length === 1 ? now({ type: 'exchange', hand: d.hand[0], reserve: d.reserve[0] }) : null;
     case 'cleanup': {

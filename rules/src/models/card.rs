@@ -45,6 +45,7 @@ pub const PROPERTY_TYPES: &[(&str, &str)] = &[
     ("costModifier", "obj"),
     ("costHand", "int"),
     ("costReserve", "int"),
+    ("costTemple", "int"),
     ("costReductionDiscard", "int"),
     ("dynamicCostReduction", "str"),
     ("effectPlayed", "obj"),
@@ -149,6 +150,16 @@ pub const PROPERTY_TYPES: &[(&str, &str)] = &[
     ("playCondition", "str"),
     ("cantGainBoost", "str"),
     ("boostIfAscended", "bool"),
+    // Fugue / NEJ
+    ("costReductionIfConstructionPlayed", "int"),
+    ("signatureToken", "str"),
+    ("increaseHandCost", "int"),
+    ("dynamicIncreaseHandCost", "str"),
+    ("sacrificeProtectAnchored", "bool"),
+    ("sacrificeProtectAsleep", "bool"),
+    ("universalToughScope", "str"),
+    ("costReductionSacrificeCharacter", "int"),
+    ("costReductionSpendBoost", "obj"),
 ];
 
 pub fn prop_type(name: &str) -> Option<&'static str> {
@@ -334,10 +345,128 @@ fn sub(cost: &Value, x: i64) -> Value {
     json!(php::intval(cost) - x)
 }
 
-/// `canBePlayed($player, $scout, $reserveFlipCost)`
+/// `hasTemple()`
+// PHP: Models/Card.php:330
+pub fn has_temple(g: &mut Game, id: CardId) -> R<bool> {
+    Ok(get_int(g, id, "costTemple")? > 0)
+}
+
+/// `isPlayedAsTemple()`
+// PHP: Models/Card.php:335
+pub fn is_played_as_temple(g: &mut Game, id: CardId) -> R<bool> {
+    Ok(php::loose_eq(php::get(&get(g, id, "extraDatas")?, "playedAsTemple"), &json!(true)))
+}
+
+/// `getTemplePlayableLocations($player)`
 // PHP: Models/Card.php:340
-pub fn can_be_played(g: &mut Game, id: CardId, player: PId, scout: bool, reserve_flip_cost: bool) -> R<bool> {
-    if is_exhausted_reserve_play_blocked(g, id, player)? {
+pub fn get_temple_playable_locations(g: &mut Game, id: CardId, player: PId) -> R<Value> {
+    if !has_temple(g, id)? || is_tapped(g, id)? {
+        return Ok(json!([]));
+    }
+    if can_be_played(g, id, player, false, false, true)? {
+        return Ok(json!(["landmark"]));
+    }
+    Ok(json!([]))
+}
+
+/// `restoreTemplePlayState($updateDB)`
+// PHP: Models/Card.php:355
+pub fn restore_temple_play_state(g: &mut Game, id: CardId, update_db: bool) -> R<()> {
+    if !is_played_as_temple(g, id)? {
+        return Ok(());
+    }
+    set_property(g, id, "type", json!("permanent"), update_db)?;
+    set_property(g, id, "subtypes", json!(["construction", "landmark"]), update_db)?;
+    let original_typeline = php::get(php::get(&get(g, id, "extraDatas")?, "templeOriginal"), "typeline").clone();
+    if !original_typeline.is_null() {
+        set_property(g, id, "typeline", original_typeline, update_db)?;
+    }
+    set_property(g, id, "effectPlayed", json!([]), update_db)?;
+    set_property(g, id, "effectHand", json!([]), update_db)?;
+    set_property(g, id, "effectReserve", json!([]), update_db)?;
+    Ok(())
+}
+
+/// `applyTemplePlay()`
+// PHP: Models/Card.php:373
+pub fn apply_temple_play(g: &mut Game, id: CardId) -> R<()> {
+    if !is_played_as_temple(g, id)? {
+        let mut extra = get(g, id, "extraDatas")?;
+        php::set(&mut extra, "playedAsTemple", json!(true));
+        php::set(
+            &mut extra,
+            "templeOriginal",
+            json!({
+                "type": get(g, id, "type")?,
+                "subtypes": get_subtypes(g, id)?,
+                "typeline": get(g, id, "typeline")?,
+                "effectPlayed": get(g, id, "effectPlayed")?,
+                "effectHand": get(g, id, "effectHand")?,
+                "effectReserve": get(g, id, "effectReserve")?,
+            }),
+        );
+        set_property(g, id, "extraDatas", extra, true)?;
+    }
+    restore_temple_play_state(g, id, true)
+}
+
+/// `revertFromTemplePlay()`
+// PHP: Models/Card.php:393
+pub fn revert_from_temple_play(g: &mut Game, id: CardId) -> R<()> {
+    if !is_played_as_temple(g, id)? {
+        return Ok(());
+    }
+    let mut extra = get(g, id, "extraDatas")?;
+    let original = php::get(&extra, "templeOriginal").clone();
+    if !original.is_null() {
+        set_property(g, id, "type", php::get(&original, "type").clone(), true)?;
+        set_property(g, id, "subtypes", php::get(&original, "subtypes").clone(), true)?;
+        set_property(g, id, "typeline", php::get(&original, "typeline").clone(), true)?;
+        set_property(g, id, "effectPlayed", php::coalesce(php::get(&original, "effectPlayed"), &php::arr()).clone(), true)?;
+        set_property(g, id, "effectHand", php::coalesce(php::get(&original, "effectHand"), &php::arr()).clone(), true)?;
+        set_property(g, id, "effectReserve", php::coalesce(php::get(&original, "effectReserve"), &php::arr()).clone(), true)?;
+    }
+    php::unset(&mut extra, "playedAsTemple");
+    php::unset(&mut extra, "templeOriginal");
+    set_property(g, id, "extraDatas", extra, true)?;
+    Ok(())
+}
+
+/// `countExpeditionCharacterBoosts($player)`
+// PHP: Models/Card.php:415
+pub fn count_expedition_character_boosts(g: &mut Game, player: PId) -> R<i64> {
+    let mut total = 0i64;
+    for c in player::get_played_cards(g, player, &Value::Null)? {
+        if !STORMS.contains(&location(g, c)?.as_str()) {
+            continue;
+        }
+        let ty = get(g, c, "type")?;
+        let at = get_additional_type(g, c)?;
+        if !php::in_array(&ty, &json!(["character", "token"])) && php::count(&php::array_intersect(&json!(["character", "token"]), &at)) == 0 {
+            continue;
+        }
+        total += count_token(g, c, "boost")? as i64;
+    }
+    Ok(total)
+}
+
+/// `isNameBlockedThisDay($player)`
+// PHP: Models/Card.php:548
+pub fn is_name_blocked_this_day(g: &mut Game, id: CardId, player: PId) -> R<bool> {
+    let name = get(g, id, "name")?;
+    players::is_card_name_blocked_this_day(g, player, &name)
+}
+
+/// `canBePlayed($player, $scout, $reserveFlipCost, $temple)`
+// PHP: Models/Card.php:435
+pub fn can_be_played(g: &mut Game, id: CardId, player: PId, scout: bool, reserve_flip_cost: bool, temple: bool) -> R<bool> {
+    if !temple && is_exhausted_reserve_play_blocked(g, id, player)? {
+        return Ok(false);
+    }
+    if temple && !has_temple(g, id)? {
+        return Ok(false);
+    }
+    if is_name_blocked_this_day(g, id, player)? {
         return Ok(false);
     }
     for _ in 0..2 {
@@ -346,7 +475,7 @@ pub fn can_be_played(g: &mut Game, id: CardId, player: PId, scout: bool, reserve
             return Ok(false);
         }
     }
-    let mut cost = get_cost(g, id, scout, reserve_flip_cost, None)?;
+    let mut cost = get_cost(g, id, scout, reserve_flip_cost, temple)?;
     let cri = get_int(g, id, "costReductionIfEmpty")?;
     let mana = player::get_mana(g, player)? as i64;
     let total_mana = player::get_total_mana(g, player)? as i64;
@@ -357,6 +486,10 @@ pub fn can_be_played(g: &mut Game, id: CardId, player: PId, scout: bool, reserve
         {
             cost = sub(&cost, cri);
         }
+    }
+    let cric = get_int(g, id, "costReductionIfConstructionPlayed")?;
+    if cric > 0 && player::has_played_construction_this_day(g, player)? {
+        cost = sub(&cost, cric);
     }
     let crd = get_int(g, id, "costReductionDiscard")?;
     if crd > 0 {
@@ -388,6 +521,30 @@ pub fn can_be_played(g: &mut Game, id: CardId, player: PId, scout: bool, reserve
         let p = player_req(g, id)?;
         if !player::get_played_cards(g, p, &json!("permanent"))?.is_empty() {
             cost = sub(&cost, crsp);
+        }
+    }
+    let crsc = get_int(g, id, "costReductionSacrificeCharacter")?;
+    if crsc > 0 {
+        let p = player_req(g, id)?;
+        let mut n = 0;
+        for c2 in player::get_played_cards(g, p, &Value::Null)? {
+            let t2 = get(g, c2, "type")?;
+            let at2 = get_additional_type(g, c2)?;
+            if php::in_array(&t2, &json!(["character", "token"])) || php::count(&php::array_intersect(&json!(["character", "token"]), &at2)) > 0 {
+                n += 1;
+            }
+        }
+        if n > 0 {
+            cost = sub(&cost, crsc);
+        }
+    }
+    let spend_boost = get(g, id, "costReductionSpendBoost")?;
+    if !php::empty(&spend_boost) {
+        let boost_cost = php::intval(php::coalesce(php::get(&spend_boost, "boostCost"), &json!(2)));
+        let reduction = php::intval(php::coalesce(php::get(&spend_boost, "reduction"), &json!(1)));
+        let p = player_req(g, id)?;
+        if count_expedition_character_boosts(g, p)? >= boost_cost {
+            cost = sub(&cost, reduction);
         }
     }
     let crl = get_int(g, id, "costReductionLimitation")?;
@@ -460,7 +617,7 @@ pub fn get_playable_location(g: &mut Game, id: CardId, player: PId, forced: &Val
     }
     let tc = json!(["token", "character"]);
     if get_int(g, id, "costReductionIfEmpty")? > 0 {
-        let cost = get_cost(g, id, false, false, None)?;
+        let cost = get_cost(g, id, false, false, false)?;
         let mana = player::get_mana(g, player)? as i64;
         if php::le(&cost, &json!(mana)) {
             if !forced.is_null() {
@@ -524,14 +681,14 @@ pub fn get_playable_location(g: &mut Game, id: CardId, player: PId, forced: &Val
         let mana = player::get_mana(g, player)? as i64;
         let h = player::get_hero_token(g, player)?;
         let hl = g.meeple(h)?.location.clone();
-        if hl == "storm-0" && php::le(&json!(php::intval(&get_cost(g, id, false, false, None)?) + 3), &json!(mana)) {
+        if hl == "storm-0" && php::le(&json!(php::intval(&get_cost(g, id, false, false, false)?) + 3), &json!(mana)) {
             locations.push(json!("stormLeft"));
         } else if hl != "storm-0" {
             locations.push(json!("stormLeft"));
         }
         let c = player::get_companion_token(g, player)?;
         let cl = g.meeple(c)?.location.clone();
-        if cl == "storm-7" && php::le(&json!(php::intval(&get_cost(g, id, false, false, None)?) + 3), &json!(mana)) {
+        if cl == "storm-7" && php::le(&json!(php::intval(&get_cost(g, id, false, false, false)?) + 3), &json!(mana)) {
             locations.push(json!("stormRight"));
         } else if cl != "storm-7" {
             locations.push(json!("stormRight"));
@@ -547,7 +704,7 @@ pub fn get_playable_location(g: &mut Game, id: CardId, player: PId, forced: &Val
     let mut locations = vec![];
     let mana = player::get_mana(g, player)? as i64;
     for s in STORMS {
-        if php::le(&get_cost(g, id, false, false, Some(s))?, &json!(mana)) {
+        if php::le(&get_cost(g, id, false, false, false)?, &json!(mana)) {
             locations.push(json!(s));
         }
     }
@@ -559,7 +716,7 @@ pub fn get_playable_location(g: &mut Game, id: CardId, player: PId, forced: &Val
 pub fn get_scoutable_locations(g: &mut Game, id: CardId, player: PId, forced: &Value) -> R<Value> {
     if get_int(g, id, "costReductionIfEmpty")? > 0 {
         let mana = player::get_mana(g, player)? as i64;
-        if php::le(&get_cost(g, id, true, false, None)?, &json!(mana)) {
+        if php::le(&get_cost(g, id, true, false, false)?, &json!(mana)) {
             if !forced.is_null() {
                 return Ok(json!([format!("{}_scout", php::strval(forced))]));
             }
@@ -629,6 +786,9 @@ pub fn move_to_reserve(g: &mut Game, id: CardId, seasoned: &Value, gigantic: &Va
 pub fn discard_to(g: &mut Game, id: CardId, loc: &str, seasoned: &Value, after_night: bool, gigantic: &Value) -> R<Vec<i64>> {
     let is_seasoned = is_seasoned(g, id)?;
     check_leave_listener(g, id, loc, after_night, false, gigantic)?;
+    if is_played_as_temple(g, id)? {
+        revert_from_temple_play(g, id)?;
+    }
     set_location(g, id, loc)?;
     let mut extra = get(g, id, "extraDatas")?;
     if php::isset(&extra, "pId") {
@@ -919,10 +1079,9 @@ pub fn check_reaction(g: &mut Game, id: CardId, power: &Value, event: &Value) ->
     Ok((payment, php::get(&power, "output").clone()))
 }
 
-/// `getCost($scout, $reserveFlipCost, $location)` (null when the card is neither in hand nor in
-/// Reserve; `$location` is not used)
-// PHP: Models/Card.php:1001
-pub fn get_cost(g: &mut Game, id: CardId, scout: bool, reserve_flip_cost: bool, _location: Option<&str>) -> R<Value> {
+/// `getCost($scout, $reserveFlipCost, $temple)`
+// PHP: Models/Card.php:1135
+pub fn get_cost(g: &mut Game, id: CardId, scout: bool, reserve_flip_cost: bool, temple: bool) -> R<Value> {
     let ty = get(g, id, "type")?;
     let at = get_additional_type(g, id)?;
     if (php::loose_eq(&ty, &json!("spell")) || php::in_array(&json!("spell"), &at)) && globals::is(g, "nextSpellIsFree")? {
@@ -993,6 +1152,7 @@ pub fn get_cost(g: &mut Game, id: CardId, scout: bool, reserve_flip_cost: bool, 
         }
     }
     let increase = players::get_increase_reserve_cost(g, &ty)?;
+    let increase_hand = players::get_increase_hand_cost(g, &ty, Some(pid))?;
     let subtypes = get_subtypes(g, id)?;
     let reduce = players::get_reduce_reserve_cost(g, &ty, &subtypes, pid, id)?;
     if reduce > 0 && location(g, id)? == "reserve" {
@@ -1002,11 +1162,14 @@ pub fn get_cost(g: &mut Game, id: CardId, scout: bool, reserve_flip_cost: bool, 
     let rct = player::get_reduce_cost_type(g, pp, id)?;
     minimum = minimum.max(php::intval(php::coalesce(php::get(&rct, "minimum"), &json!(0))));
     dynamic += php::intval(php::get(&rct, "reduction"));
+    if temple && has_temple(g, id)? {
+        return Ok(json!(minimum.max(get_int(g, id, "costTemple")? - type_reduction - dynamic)));
+    }
     match location(g, id)?.as_str() {
         "hand" => {
             let scout_v = get_int(g, id, "scout")?;
             let initial = if scout && scout_v > 0 { scout_v } else { get_int(g, id, "costHand")? };
-            Ok(json!(minimum.max(initial - type_reduction - dynamic)))
+            Ok(json!(minimum.max(initial - type_reduction - dynamic + increase_hand)))
         }
         "reserve" => {
             let cr = get_int(g, id, "costReserve")?;
@@ -1020,6 +1183,24 @@ pub fn get_cost(g: &mut Game, id: CardId, scout: bool, reserve_flip_cost: bool, 
         }
         _ => Ok(Value::Null),
     }
+}
+
+/// `getIncreaseHandCost($type)`
+// PHP: Models/Card.php:1652
+pub fn get_increase_hand_cost(g: &mut Game, id: CardId, _ty: &Value) -> R<Value> {
+    let v = g.card(id)?.props.get("increaseHandCost").cloned().unwrap_or(json!(0));
+    if php::gt(&v, &json!(0)) {
+        return Ok(v);
+    }
+    let d = get(g, id, "dynamicIncreaseHandCost")?;
+    if php::loose_ne(&d, &json!("")) {
+        let p = get_player(g, id)?;
+        let r = utils::check_attribute_condition(g, "cost", &d, p, id, &Value::Null)?;
+        if !r.is_null() {
+            return Ok(json!(php::intval(&r)));
+        }
+    }
+    Ok(json!(0))
 }
 
 /// `getBiomes($includeModifiers, $increaseBiomesToHighest)`

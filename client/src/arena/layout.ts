@@ -56,18 +56,16 @@ const PHONE: ArenaLayout = {
   W: 844,
   H: 390,
   plane: { w: 1080, h: 470, left: -118, top: -28, perspective: 1000, tilt: 30 },
-  // A taller track than one line of tokens needs, for two (as on desktop), taken from both bands
-  // and my zone
-  rows: [70, 108, 88, 108, 96],
-  trackH: 82,
-  twoLanes: true,
+  rows: [70, 120, 56, 120, 104],
+  trackH: 50,
+  twoLanes: false,
   vars: {
     '--mat-card-w': '62px',
     '--hero-w': '68px',
     '--zone-card-w': '38px',
-    '--my-zone-card-w': '40px',
+    '--my-zone-card-w': '52px',
     '--hand-shift': '28px',
-    '--end-dock-top': '256px',
+    '--end-dock-top': '236px',
     '--card-hand-w': '74px',
     '--marker-size': '26px',
     '--tot-icon': '18px',

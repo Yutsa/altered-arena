@@ -1,6 +1,6 @@
 {
-    "GAME_DIR": "/game",
-    "APP_GAMEMODULE_PATH": "/server/framework/",
+    "GAME_DIR": "D:\\Projects\\BGA\\AlteredCommunity\\bga-altered",
+    "APP_GAMEMODULE_PATH": "D:\\Projects\\Altered\\AlteredArena\\server/framework/",
     "OPTION_DECKS": 102,
     "OPTION_DECKS_DEMO": 0,
     "OPTION_DECKS_STARTER": 1,
@@ -156,6 +156,7 @@
     "FOREST": "forest",
     "OCEAN": "ocean",
     "EFFECT": "EFFECT",
+    "HERO_SIGNATURE": "HERO_SIGNATURE",
     "HERO": "hero",
     "CHARACTER": "character",
     "TOKEN": "token",
@@ -294,5 +295,6 @@
     "STAT_CARD_37": 57,
     "STAT_CARD_38": 58,
     "STAT_CARD_39": 59,
-    "STAT_CARD_40": 60
+    "STAT_CARD_40": 60,
+    "OWN_ID_SENTINEL": 987654321
 }

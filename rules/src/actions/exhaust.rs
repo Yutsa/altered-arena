@@ -13,13 +13,14 @@ use serde_json::{json, Value};
 
 pub struct Exhaust;
 
-/// `getCard()`
-// PHP: Actions/Exhaust.php:29
+/// `getCard()`: `ME` or a missing cardId → the source (parents included); `EFFECT` → the event card
+// PHP: Actions/Exhaust.php:25
 fn get_card(g: &mut Game, ctx: Ctx) -> R<Option<CardId>> {
     let mut card_id = get_ctx_arg(g, ctx, "cardId");
     let n = ctx.ok_or_else(|| PhpError::new("Error: Call to a member function getSourceId() on null"))?;
-    if php::loose_eq(&card_id, &json!("me")) {
-        card_id = node::get_source_id(g, n);
+    if php::loose_eq(&card_id, &json!("me")) || card_id.is_null() {
+        // Zoe / passive Exhaust([]): empty args, card is the tagged source
+        card_id = action::resolve_source_id(g, ctx)?;
     } else if php::loose_eq(&card_id, &json!("EFFECT")) {
         card_id = php::get(php::get(&node::to_array(g, n), "event"), "cardId").clone();
     }
@@ -50,14 +51,24 @@ impl ActionClass for Exhaust {
         Ok(!card::is_tapped(g, c)?)
     }
 
-    // PHP: Actions/Exhaust.php:44
+    // PHP: Actions/Exhaust.php:41
     fn st(&self, g: &mut Game, ctx: Ctx) -> R<Option<Value>> {
         let player = self.get_player(g, ctx)?;
         let c = get_card(g, ctx)?;
-        // if the card was a token or has been discarded / put to hand
+        // Heroes stay on their own board slot, they are exhaustable there
         let c = match c {
-            Some(c) if ["stormLeft", "stormRight", "landmark", "reserve"].contains(&card::location(g, c)?.as_str()) => c,
-            _ => {
+            Some(c) => {
+                let loc = card::location(g, c)?;
+                let on_hero_board = php::loose_eq(&card::get(g, c, "type")?, &json!("hero")) && loc.starts_with("board-hero-");
+                if on_hero_board || ["stormLeft", "stormRight", "landmark", "reserve"].contains(&loc.as_str()) {
+                    c
+                } else {
+                    // if the card was a token or has been discarded / put to hand
+                    action::resolve_action(self, g, ctx, Value::Null, Value::Null)?;
+                    return Ok(None);
+                }
+            }
+            None => {
                 action::resolve_action(self, g, ctx, Value::Null, Value::Null)?;
                 return Ok(None);
             }

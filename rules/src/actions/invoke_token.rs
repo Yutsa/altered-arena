@@ -17,11 +17,23 @@ use serde_json::{json, Value};
 pub struct InvokeToken;
 
 const STORMS: [&str; 2] = ["stormLeft", "stormRight"];
+const HERO_SIGNATURE: &str = "HERO_SIGNATURE";
+
+/// `resolveTokenType()`: `HERO_SIGNATURE` becomes the active player's hero `signatureToken`
+// PHP: Actions/InvokeToken.php:138
+fn resolve_token_type(a: &InvokeToken, g: &mut Game, ctx: Ctx) -> R<String> {
+    let token_type = php::strval(&get_ctx_arg(g, ctx, "tokenType"));
+    if token_type != HERO_SIGNATURE {
+        return Ok(token_type);
+    }
+    let p = a.get_player(g, ctx)?.ok_or_else(|| PhpError::new("Error: Call to a member function getHeroSignatureTokenType() on null"))?;
+    player::get_hero_signature_token_type(g, p)?.ok_or_else(|| PhpError::new("Hero has no Signature token. Should not happen"))
+}
 
 /// `getToken()`: `new \ALT\Cards\<faction>\<tokenType>(null)`, i.e. the class properties
-// PHP: Actions/InvokeToken.php:106
-fn get_token(g: &Game, ctx: Ctx) -> R<ClassData> {
-    let token_type = php::strval(&get_ctx_arg(g, ctx, "tokenType"));
+// PHP: Actions/InvokeToken.php:130
+fn get_token(a: &InvokeToken, g: &mut Game, ctx: Ctx) -> R<ClassData> {
+    let token_type = resolve_token_type(a, g, ctx)?;
     let faction = php::explode("_", &token_type).into_iter().next().unwrap_or_default();
     cards::classes().get(&token_type).cloned().ok_or_else(|| PhpError::new(format!("Error: Class \"\\ALT\\Cards\\{}\\{}\" not found", faction, token_type)))
 }
@@ -52,11 +64,11 @@ fn get_n(a: &InvokeToken, g: &mut Game, ctx: Ctx) -> R<Value> {
 }
 
 /// `argsInvokeToken()`
-// PHP: Actions/InvokeToken.php:72
+// PHP: Actions/InvokeToken.php:93
 fn args_invoke_token(a: &InvokeToken, g: &mut Game, ctx: Ctx) -> R<Value> {
     let _player = players::get_active(g);
 
-    let token_type = get_ctx_arg(g, ctx, "tokenType");
+    let token_type = resolve_token_type(a, g, ctx)?;
     let mut target_locations = get_ctx_arg(g, ctx, "targetLocation");
     if target_locations.is_null() {
         target_locations = php::str_list(&STORMS);
@@ -67,7 +79,7 @@ fn args_invoke_token(a: &InvokeToken, g: &mut Game, ctx: Ctx) -> R<Value> {
         target_locations = json!([php::get(&ctx_args, "expedition")]);
     }
 
-    let name = token_name(&get_token(g, ctx)?);
+    let name = token_name(&get_token(a, g, ctx)?);
     let n = get_n(a, g, ctx)?;
     let can_pass = php::coalesce(&get_ctx_arg(g, ctx, "optional"), &json!(false)).clone();
     let all_players = (get_ctx_arg(g, ctx, "targetPlayer").is_null() && php::count_strict(&target_locations)? > 1)
@@ -193,7 +205,7 @@ fn act_invoke_token(a: &InvokeToken, g: &mut Game, ctx: Ctx, location: &Value) -
     let mut last: Option<CardId> = None;
     let mut i: i64 = 0;
     while php::lt(&json!(i), &get_n(a, g, ctx)?) {
-        let mut props = Value::Object(get_token(g, ctx)?.iter().map(|(k, v)| (k.clone(), v.clone())).collect());
+        let mut props = Value::Object(get_token(a, g, ctx)?.iter().map(|(k, v)| (k.clone(), v.clone())).collect());
 
         // Use the art variant chosen by the invoking player on the deck builder
         let token_type = get_ctx_arg(g, ctx, "tokenType");
@@ -247,6 +259,7 @@ fn act_invoke_token(a: &InvokeToken, g: &mut Game, ctx: Ctx, location: &Value) -
             globals::set(g, "nextCharacterInExpeditionBoost", boosts)?;
         }
 
+        let invoked = resolve_token_type(a, g, ctx)?;
         let event = |g: &mut Game| -> R<Value> {
             Ok(json!({
                 "playCard": true,
@@ -258,7 +271,7 @@ fn act_invoke_token(a: &InvokeToken, g: &mut Game, ctx: Ctx, location: &Value) -
                 "locationPId": invoke_pid,
                 "gigantic": card::is_gigantic(g, c, false)?,
                 "token": true,
-                "invoked": get_ctx_arg(g, ctx, "tokenType"),
+                "invoked": invoked.clone(),
             }))
         };
         let e = event(g)?;
@@ -294,7 +307,7 @@ impl ActionClass for InvokeToken {
 
     // PHP: Actions/InvokeToken.php:31
     fn get_description(&self, g: &mut Game, ctx: Ctx) -> R<Value> {
-        let name = token_name(&get_token(g, ctx)?);
+        let name = token_name(&get_token(self, g, ctx)?);
         let locations: Vec<String> = get_display_location(g, ctx)?.iter().map(php::strval).collect();
         Ok(
             json!({"log": "Invoke ${tokenName} in ${location}", "args": {"tokenName": name, "location": locations.join(", "), "i18n": ["tokenName", "location"]}}),

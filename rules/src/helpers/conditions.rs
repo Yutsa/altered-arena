@@ -56,6 +56,8 @@ pub fn call(g: &mut Game, name: &str, card: Option<CardId>, event: &Value, args:
         "isfromreserve" => is_from_reserve(g, card, event, args),
         "isfromhand" => is_from_hand(g, card, event, args),
         "istoreserve" => is_to_reserve(g, card, event, args),
+        "hasherosignaturetoken" => has_hero_signature_token(g, card, event, args),
+        "isherosignaturetoken" => is_hero_signature_token(g, card, event, args),
         "istodiscard" => is_to_discard(g, card, event, args),
         "isstillsamelocation" => is_still_same_location(g, card, event, args),
         "issourcesamelocation" => is_source_same_location(g, card, event, args),
@@ -70,6 +72,8 @@ pub fn call(g: &mut Game, name: &str, card: Option<CardId>, event: &Value, args:
         "excludeself" => exclude_self(g, card, event, args),
         "iscardplayedsameowner" => is_card_played_same_owner(g, card, event, args),
         "isme" => is_me(g, card, event, args),
+        "istemple" => is_temple(g, card, event, args),
+        "isnottemple" => is_not_temple(g, card, event, args),
         "isselfplaycardevent" => is_self_play_card_event(g, card, event, args),
         "isnotblockedbyopponentpower" => is_not_blocked_by_opponent_power(g, card, event, args),
         "isnotme" => is_not_me(g, card, event, args),
@@ -121,6 +125,7 @@ pub fn call(g: &mut Game, name: &str, card: Option<CardId>, event: &Value, args:
         "istargetfeatcompleted" => is_target_feat_completed(g, card, event, args),
         "hascontrolfeat" => has_control_feat(g, card, event, args),
         "hascontrolfeatwithmaxbasecost" => has_control_feat_with_max_base_cost(g, card, event, args),
+        "hascontrolcharacterwithminbasecost" => has_control_character_with_min_base_cost(g, card, event, args),
         "hasbiggerhand" => has_bigger_hand(g, card, event, args),
         "hassmallerhand" => has_smaller_hand(g, card, event, args),
         "cansabotage" => can_sabotage(g, card, event, args),
@@ -263,6 +268,7 @@ pub fn call(g: &mut Game, name: &str, card: Option<CardId>, event: &Value, args:
         "issubtype" => is_subtype(g, card, event, args),
         "typecheck" => type_check(g, card, event, args),
         "subtypecheck" => sub_type_check(g, card, event, args),
+        "hasnotrolleddiethisday" => has_not_rolled_die_this_day(g, card, event, args),
         "hasrolled" => has_rolled(g, card, event, args),
         "selectedroll" => selected_roll(g, card, event, args),
         "boostedbyothercard" => boosted_by_other_card(g, card, event, args),
@@ -553,13 +559,30 @@ pub fn is_from_hand(_g: &mut Game, _card: Option<CardId>, event: &Value, _args: 
 }
 
 /// `isToReserve($card, $event)`
-// PHP: Helpers/Conditions.php:75
+// PHP: Helpers/Conditions.php:80
 pub fn is_to_reserve(_g: &mut Game, _card: Option<CardId>, event: &Value, _args: &[Value]) -> R<Value> {
     b(php::loose_eq(ev(event, "to"), &json!("reserve")))
 }
 
+/// `hasHeroSignatureToken($card, $event)`
+// PHP: Helpers/Conditions.php:85
+pub fn has_hero_signature_token(g: &mut Game, card: Option<CardId>, _event: &Value, _args: &[Value]) -> R<Value> {
+    let p = player_of(g, card_req(card)?)?;
+    b(player::get_hero_signature_token_type(g, p)?.is_some())
+}
+
+/// `isHeroSignatureToken($card, $event)`: `event.invoked` is the hero's signature token type
+// PHP: Helpers/Conditions.php:90
+pub fn is_hero_signature_token(g: &mut Game, card: Option<CardId>, event: &Value, _args: &[Value]) -> R<Value> {
+    let p = player_of(g, card_req(card)?)?;
+    let Some(token_type) = player::get_hero_signature_token_type(g, p)? else {
+        return b(false);
+    };
+    b(php::loose_eq(ev(event, "invoked"), &json!(token_type)))
+}
+
 /// `isToDiscard($card, $event)`
-// PHP: Helpers/Conditions.php:80
+// PHP: Helpers/Conditions.php:108
 pub fn is_to_discard(_g: &mut Game, _card: Option<CardId>, event: &Value, _args: &[Value]) -> R<Value> {
     b(php::loose_eq(ev(event, "to"), &json!("discard")))
 }
@@ -703,6 +726,20 @@ pub fn is_card_played_same_owner(g: &mut Game, card: Option<CardId>, event: &Val
 pub fn is_me(g: &mut Game, card: Option<CardId>, event: &Value, _args: &[Value]) -> R<Value> {
     let c = card_req(card)?;
     b(php::loose_eq(ev(event, "pId"), &pidv(g, c)?))
+}
+
+/// `isTemple($card, $event)`
+// PHP: Helpers/Conditions.php:253
+pub fn is_temple(g: &mut Game, card: Option<CardId>, _event: &Value, _args: &[Value]) -> R<Value> {
+    let c = card_req(card)?;
+    b(card::is_played_as_temple(g, c)?)
+}
+
+/// `isNotTemple($card, $event)`
+// PHP: Helpers/Conditions.php:258
+pub fn is_not_temple(g: &mut Game, card: Option<CardId>, _event: &Value, _args: &[Value]) -> R<Value> {
+    let c = card_req(card)?;
+    b(!card::is_played_as_temple(g, c)?)
 }
 
 fn is_me_b(g: &mut Game, card: Option<CardId>, event: &Value) -> R<bool> {
@@ -1396,6 +1433,38 @@ pub fn is_target_feat_completed(g: &mut Game, _card: Option<CardId>, event: &Val
     }
     let c = cards::get(g, card_id)?;
     b(count_feat_completed(g, c)? >= 1)
+}
+
+/// `hasControlCharacterWithMinBaseCost($card, $event, $minBaseCost, $n = 1, $op = 'GTE')`
+/// Used by Clash of Combatants' `dynamicCostReduction`.
+// PHP: Helpers/Conditions.php:855
+pub fn has_control_character_with_min_base_cost(g: &mut Game, card: Option<CardId>, _event: &Value, args: &[Value]) -> R<Value> {
+    let min_base_cost = php::intval(&req(args, 0, "hasControlCharacterWithMinBaseCost")?);
+    let n = php::intval(&opt(args, 1, json!(1)));
+    let op = opt(args, 2, json!("GTE"));
+    let p = player_of(g, card_req(card)?)?;
+    let mut m = 0i64;
+    for x in player::get_played_cards(g, p, &Value::Null)? {
+        let ty = card::get(g, x, "type")?;
+        let at = card::get_additional_type(g, x)?;
+        if !php::loose_eq(&ty, &json!("character")) && !php::in_array(&json!("character"), &at) {
+            continue;
+        }
+        let base = if card::has_token(g, x, "fleeting")? { card::get(g, x, "costReserve")? } else { card::get(g, x, "costHand")? };
+        if php::intval(&base) >= min_base_cost {
+            m += 1;
+        }
+    }
+    if php::loose_eq(&op, &json!("GTE")) {
+        return b(m >= n);
+    }
+    if php::loose_eq(&op, &json!("LTE")) {
+        return b(m <= n);
+    }
+    if php::loose_eq(&op, &json!("EQ")) {
+        return b(m == n);
+    }
+    Err(PhpError::new(format!("BgaVisibleSystemException: Unknown op for hasControlCharacterWithMinBaseCost: {}", php::strval(&op))))
 }
 
 /// `hasControlFeat($card, $event, $n = 1, $excludeMyself = 'false', $state = 'all', $op = 'GTE')`
@@ -3580,6 +3649,17 @@ pub fn sub_type_check_v(sub_type: &Value, sub_types: &Value, exclude: &Value) ->
         return Ok(true);
     }
     Ok(false)
+}
+
+/// `hasNotRolledDieThisDay($card, $event)`
+// PHP: Helpers/Conditions.php:2844
+pub fn has_not_rolled_die_this_day(g: &mut Game, card: Option<CardId>, event: &Value, _args: &[Value]) -> R<Value> {
+    if !php::empty(ev(event, "firstRollThisDay")) {
+        return b(true);
+    }
+    let c = card_req(card)?;
+    let pid = if ev(event, "pId").is_null() { php::intval(&pidv(g, c)?) } else { php::intval(ev(event, "pId")) };
+    b(!player::has_rolled_die_this_day(g, pid)?)
 }
 
 /// `hasRolled($card, $event, $result = 1, $op = 'GTE')`

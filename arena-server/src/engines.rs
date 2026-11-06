@@ -300,6 +300,44 @@ impl ServerGame {
     pub fn debug_state(&self) -> Value {
         json!({"oracle": self.0.game.oracle_state(), "tables": self.0.game.bga_tables()})
     }
+
+    /// Debug: create cards of the given classes in the given engine locations for `pid`
+    pub fn debug_add_cards(&mut self, pid: u32, cards: &[(String, String)]) -> Result<Vec<i64>, String> {
+        if !self.0.seats.iter().any(|s| s.id == pid) {
+            return Err("Unknown player".into());
+        }
+        if cards.is_empty() {
+            return Err("No cards to add".into());
+        }
+        let g = &mut self.0.game;
+        let mut ids = Vec::with_capacity(cards.len());
+        let mut names = Vec::with_capacity(cards.len());
+        for (class, location) in cards {
+            let loc = debug_location(location)?;
+            let id = altered_rules::managers::cards::create_from_class(g, class, loc, pid as i64).map_err(|e| e.0)?;
+            ids.push(id);
+            names.push(format!("{class} ({loc})"));
+        }
+        g.notify_to(None, "message", &format!("Debug: added {}", names.join(", ")), json!({}));
+        altered_rules::arena::store_notifications(g);
+        Ok(ids)
+    }
+}
+
+/// Positions the debug dialog offers, mapped to the engine's location names
+fn debug_location(s: &str) -> Result<&'static str, String> {
+    let t: String = s.chars().filter(|c| c.is_ascii_alphanumeric()).map(|c| c.to_ascii_uppercase()).collect();
+    Ok(match t.as_str() {
+        "HAND" => "hand",
+        "STORMLEFT" | "HEROEXPEDITION" => "stormLeft",
+        "STORMRIGHT" | "COMPANIONEXPEDITION" => "stormRight",
+        "RESERVE" => "reserve",
+        "LANDMARK" => "landmark",
+        "MANA" => "mana",
+        _ => {
+            return Err(format!("Unknown position '{s}' (use HAND, STORMLEFT, STORMRIGHT, RESERVE, LANDMARK, MANA)"));
+        }
+    })
 }
 
 // ---------------------------------------------------------------------------
